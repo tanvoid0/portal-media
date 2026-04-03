@@ -1,6 +1,7 @@
 import { useLayoutEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useAppShellStore } from "@/stores/appShellStore";
+import type { AppView } from "@/types/app";
 
 /** Keep zustand `currentView` aligned with the URL for gamepad / keyboard core helpers. */
 export function RouterSync() {
@@ -8,7 +9,12 @@ export function RouterSync() {
   const setCurrentView = useAppShellStore((s) => s.setCurrentView);
 
   useLayoutEffect(() => {
-    setCurrentView(pathname.startsWith("/settings") ? "settings" : "games");
+    const view: AppView = pathname.startsWith("/settings")
+      ? "settings"
+      : pathname.startsWith("/game/") || pathname.startsWith("/tmdb/")
+        ? "details"
+        : "games";
+    setCurrentView(view);
   }, [pathname, setCurrentView]);
 
   return null;

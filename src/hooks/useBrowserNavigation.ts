@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useBrowserStore } from "@/stores/browserStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 
@@ -156,6 +157,33 @@ export function useBrowserNavigation() {
     const handleKeyDown = (e: KeyboardEvent) => {
       setInputMethod("keyboard");
 
+      // Match browser chrome: Alt+Left / Alt+Right = webview history (not horizontal scroll).
+      if (
+        e.altKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        (e.key === "ArrowLeft" || e.key === "ArrowRight")
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        const tabId = useBrowserStore.getState().activeTabId;
+        if (!tabId) return;
+        void (async () => {
+          try {
+            if (e.key === "ArrowLeft") {
+              await invoke("go_back", { tabId: "embedded_browser" });
+              goBack(tabId);
+            } else {
+              await invoke("go_forward", { tabId: "embedded_browser" });
+              goForward(tabId);
+            }
+          } catch (err) {
+            console.error("Browser history navigation failed:", err);
+          }
+        })();
+        return;
+      }
+
       // Arrow keys - scroll
       if (e.key === "ArrowUp") {
         window.scrollBy({ top: -100, behavior: "smooth" });
@@ -202,6 +230,15 @@ export function useBrowserNavigation() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, isMinimized, minimizeBrowser, restoreBrowser, setInputMethod, closeBrowserAndReturnHome]);
+  }, [
+    isOpen,
+    isMinimized,
+    minimizeBrowser,
+    restoreBrowser,
+    setInputMethod,
+    closeBrowserAndReturnHome,
+    goBack,
+    goForward,
+  ]);
 }
 

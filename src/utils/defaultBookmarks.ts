@@ -1,3 +1,4 @@
+import { useStreamingAddonStore } from "@/stores/streamingAddonStore";
 import { Game } from "@/stores/gameStore";
 
 export const DEFAULT_BOOKMARKS: Omit<Game, "id">[] = [
@@ -104,7 +105,9 @@ export const DEFAULT_BOOKMARKS: Omit<Game, "id">[] = [
 ];
 
 export function getDefaultBookmarks(): Game[] {
-  return DEFAULT_BOOKMARKS.map((bookmark, index) => ({
+  const extra = useStreamingAddonStore.getState().libraryBookmarkRow();
+  const rows = extra ? [...DEFAULT_BOOKMARKS, extra] : [...DEFAULT_BOOKMARKS];
+  return rows.map((bookmark, index) => ({
     ...bookmark,
     id: `default_bookmark_${index}`,
   }));

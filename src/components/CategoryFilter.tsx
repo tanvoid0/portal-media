@@ -1,14 +1,17 @@
 import { useGameStore } from "@/stores/gameStore";
+import { DISCOVER_CATEGORY_ID } from "@/types/game";
 import { useFocusable } from "@/hooks/useNavigationState";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Gamepad2, Monitor, Film, Bookmark, LayoutGrid, type LucideIcon } from "lucide-react";
+import { Clapperboard, Gamepad2, Monitor, Film, LayoutGrid, type LucideIcon } from "lucide-react";
 import { useEffect } from "react";
 import * as React from "react";
 import { CATEGORY_NAV_ORDER, SIDEBAR_CATEGORY_NAV_ORDER } from "@/constants/categoryNav";
+import { appNavigate } from "@/nav/appNavigate";
+import { libraryPathForCategory } from "@/nav/libraryRoutes";
 
-const SIDEBAR_ICONS: LucideIcon[] = [LayoutGrid, Gamepad2, Monitor, Film, Bookmark];
+const SIDEBAR_ICONS: LucideIcon[] = [LayoutGrid, Gamepad2, Monitor, Film, Clapperboard];
 
 const sidebarCategories = SIDEBAR_CATEGORY_NAV_ORDER.map((c, i) => ({
   ...c,
@@ -49,7 +52,7 @@ function CategoryButton({
       onClick={onSelect}
       title={count !== null ? `${category.label} (${count})` : category.label}
       className={cn(
-        compact ? "w-14 h-14 rounded-2xl px-0" : "h-11 px-6 rounded-xl whitespace-nowrap",
+        compact ? "w-14 h-14 rounded-card px-0" : "h-11 px-6 rounded-button whitespace-nowrap",
         "transition-all duration-ps5 spring-ease",
         "transform-gpu",
         isSelected
@@ -92,8 +95,14 @@ function CategoryButton({
   );
 }
 
-export function CategoryFilter({ orientation = "horizontal" }: { orientation?: "horizontal" | "vertical" | "compact" }) {
-  const { selectedCategory, setSelectedCategory, gamesByCategory } = useGameStore();
+export function CategoryFilter({
+  orientation = "horizontal",
+  embedded = false,
+}: {
+  orientation?: "horizontal" | "vertical" | "compact";
+  embedded?: boolean;
+}) {
+  const { selectedCategory, gamesByCategory } = useGameStore();
   const { setFocusArea, setCategoryIndex } = useNavigationStore();
   const isVertical = orientation === "vertical";
   const isCompact = orientation === "compact";
@@ -104,13 +113,13 @@ export function CategoryFilter({ orientation = "horizontal" }: { orientation?: "
       const index = e.detail;
       const item = CATEGORY_NAV_ORDER[index];
       if (item) {
-        setSelectedCategory(item.id);
+        appNavigate(libraryPathForCategory(item.id));
       }
     };
 
     window.addEventListener("activateCategory", handleActivateCategory as EventListener);
     return () => window.removeEventListener("activateCategory", handleActivateCategory as EventListener);
-  }, [setSelectedCategory]);
+  }, []);
 
   return (
     <div 
@@ -119,6 +128,8 @@ export function CategoryFilter({ orientation = "horizontal" }: { orientation?: "
           ? "flex flex-col gap-4 py-2"
           : isVertical
           ? "flex flex-col gap-3 px-3 py-3 overflow-y-auto scrollbar-hide"
+          : embedded
+          ? "flex gap-2 px-1 pb-1 overflow-x-auto scrollbar-hide"
           : "flex gap-3 px-8 pb-4 overflow-x-auto scrollbar-hide"
       )}
       style={{
@@ -128,7 +139,10 @@ export function CategoryFilter({ orientation = "horizontal" }: { orientation?: "
       }}
     >
       {sidebarCategories.map((category, index) => {
-        const count = category.id ? gamesByCategory[category.id]?.length || 0 : null;
+        const count =
+          category.id === null || category.id === DISCOVER_CATEGORY_ID
+            ? null
+            : gamesByCategory[category.id]?.length ?? 0;
 
         return (
           <div
@@ -144,7 +158,7 @@ export function CategoryFilter({ orientation = "horizontal" }: { orientation?: "
               count={count}
               compact={isCompact}
               onSelect={() => {
-                setSelectedCategory(category.id);
+                appNavigate(libraryPathForCategory(category.id));
                 setCategoryIndex(index);
                 setFocusArea("games");
               }}

@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 use crate::commands::{Game, Category};
-use crate::icon_extractor;
 use serde_json::Value;
 
 pub fn scan_steam_games() -> Vec<crate::commands::Game> {
@@ -439,13 +438,6 @@ fn scan_directory_for_apps(dir: &PathBuf, apps: &mut Vec<crate::commands::Game>)
                                 Category::App
                             };
                             
-                            // Extract icon from target
-                            let icon = if target_path.extension().and_then(|s| s.to_str()) == Some("exe") {
-                                icon_extractor::extract_icon_from_exe(&target_path)
-                            } else {
-                                icon_extractor::extract_icon_from_lnk(&path)
-                            };
-                            
                             // For .lnk files, use the .lnk path as executable (Windows can execute shortcuts)
                             // But use target path for category detection
                             let executable = if target_path.extension().and_then(|s| s.to_str()) == Some("lnk") {
@@ -460,7 +452,7 @@ fn scan_directory_for_apps(dir: &PathBuf, apps: &mut Vec<crate::commands::Game>)
                                 path: path.parent().unwrap().to_string_lossy().to_string(),
                                 executable,
                                 cover_art: None,
-                                icon,
+                                icon: None,
                                 platform: "Windows".to_string(),
                                 category,
                                 launch_type: crate::commands::LaunchType::Executable,
@@ -494,16 +486,13 @@ fn scan_directory_for_apps(dir: &PathBuf, apps: &mut Vec<crate::commands::Game>)
                             Category::App
                         };
                         
-                        // Extract icon
-                        let icon = icon_extractor::extract_icon_from_exe(&path);
-                        
                         apps.push(crate::commands::Game {
                             id: format!("windows_{}", hash),
                             name: name.to_string(),
                             path: path.parent().unwrap().to_string_lossy().to_string(),
                             executable: path.to_string_lossy().to_string(),
                             cover_art: None,
-                            icon,
+                            icon: None,
                             platform: "Windows".to_string(),
                             category,
                             launch_type: crate::commands::LaunchType::Executable,

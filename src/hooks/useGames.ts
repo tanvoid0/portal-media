@@ -1,13 +1,16 @@
 import { useEffect } from "react";
 import { useGameStore } from "@/stores/gameStore";
+import { useStreamingAddonStore } from "@/stores/streamingAddonStore";
 
 export function useGames() {
-  const { scanGames, games, isLoading, error } = useGameStore();
+  const { loadCachedLibrary, scanGames, games, isLoading, error } = useGameStore();
 
   useEffect(() => {
-    // Auto-scan games on mount
-    scanGames();
-  }, [scanGames]);
+    void (async () => {
+      await useStreamingAddonStore.getState().load();
+      await loadCachedLibrary();
+    })();
+  }, [loadCachedLibrary]);
 
   return { games, isLoading, error, refresh: scanGames };
 }

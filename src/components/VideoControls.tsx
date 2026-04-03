@@ -82,6 +82,18 @@ export function VideoControls() {
     applyVideoSettings(newSettings, activeTab);
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setIsOpen(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [isOpen]);
+
   if (!activeTab) return null;
 
   const aspectRatios = [

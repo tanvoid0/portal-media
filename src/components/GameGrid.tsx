@@ -1,26 +1,25 @@
 import { useGameStore } from "@/stores/gameStore";
+import { appNavigate } from "@/nav/appNavigate";
 import { GameCard } from "./GameCard";
 import { GameInfoPanel } from "./GameInfoPanel";
-import { useRef, useEffect, useLayoutEffect, useState, useCallback, type MouseEvent } from "react";
+import { useRef, useEffect, useState, useCallback, type MouseEvent } from "react";
 import type { Game } from "@/stores/gameStore";
 import { GameCardContextMenu } from "./GameCardContextMenu";
 import { InteractiveLaunchLoader } from "./ui/InteractiveLaunchLoader";
 import { Button } from "./ui/button";
-
-/** Reads how many tracks the auto-fill grid resolved to (Chrome/Firefox expand repeat() in computed style). */
-function countGridColumns(gridEl: HTMLElement): number {
-  const raw = window.getComputedStyle(gridEl).gridTemplateColumns;
-  if (!raw || raw === "none") return 1;
-  const parts = raw.trim().split(/\s+/).filter(Boolean);
-  return Math.max(1, parts.length);
-}
+import {
+  buildContentGridContainerClassName,
+  contentGridTemplateColumnsStyle,
+  LIBRARY_GAMES_GRID_PRESET,
+} from "@/config/contentGridPresets";
+import { useGridColumnCountSync } from "@/hooks/useGridColumnCountSync";
+import { useKeepGridSelectionVisible } from "@/hooks/useKeepGridSelectionVisible";
 
 export function GameGrid() {
   const {
     filteredGames: games,
     selectedIndex,
     setSelectedIndex,
-    launchGame,
     isLoading,
     launchOverlay,
     error,
@@ -43,43 +42,15 @@ export function GameGrid() {
     setContextMenu({ x: e.clientX, y: e.clientY, game });
   }, []);
 
-  // Keep store in sync with CSS grid column count so up/down moves one row, not one slot in reading order only.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || games.length === 0) return;
+  useGridColumnCountSync(containerRef, setGridColumnCount, {
+    itemCount: games.length,
+    layoutEpoch: isLoading,
+  });
 
-    const sync = () => {
-      setGridColumnCount(countGridColumns(el));
-    };
-
-    sync();
-    const ro = new ResizeObserver(sync);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [games.length, isLoading, setGridColumnCount]);
-
-  // Keep the selected tile in view for keyboard, gamepad, or mouse selection (viewport-relative; works with CSS grid).
-  // useLayoutEffect runs after the selected ref attaches so we measure before paint.
-  useLayoutEffect(() => {
-    if (!games.length) return;
-
-    const container = containerRef.current;
-    const el = selectedCardRef.current;
-    if (!container || !el) return;
-
-    const pad = 12;
-    const c = container.getBoundingClientRect();
-    const r = el.getBoundingClientRect();
-    const clippedTop = r.top < c.top + pad;
-    const clippedBottom = r.bottom > c.bottom - pad;
-    if (!clippedTop && !clippedBottom) return;
-
-    el.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "nearest",
-    });
-  }, [selectedIndex, games.length]);
+  useKeepGridSelectionVisible(containerRef, selectedCardRef, {
+    selectedIndex,
+    itemCount: games.length,
+  });
 
   useEffect(() => {
     if (!error) return;
@@ -181,9 +152,9 @@ export function GameGrid() {
       {/* Cards container - positioned at top with enhanced spacing and PS5-style scrolling */}
       <div
         ref={containerRef}
-        className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-6 overflow-y-auto overflow-x-hidden px-10 pt-10 pb-6 scrollbar-hide relative z-10 auto-rows-max content-start"
+        className={buildContentGridContainerClassName(LIBRARY_GAMES_GRID_PRESET)}
         style={{
-          scrollBehavior: "smooth",
+          ...contentGridTemplateColumnsStyle(LIBRARY_GAMES_GRID_PRESET),
           WebkitOverflowScrolling: "touch",
         }}
       >
@@ -196,8 +167,10 @@ export function GameGrid() {
             <GameCard
               game={game}
               isSelected={index === selectedIndex}
-              onClick={() => setSelectedIndex(index)}
-              onDoubleClick={() => void launchGame(game)}
+              onClick={() => {
+                setSelectedIndex(index);
+                appNavigate(`/game/${encodeURIComponent(game.id)}`);
+              }}
               onMouseEnter={() => {
                 setSelectedIndex(index);
               }}

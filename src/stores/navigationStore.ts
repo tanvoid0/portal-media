@@ -89,11 +89,14 @@ interface NavigationStore {
   sidebarIndex: number; // 0 = Home, 1 = Settings, 2 = Maximize/restore, 3 = Exit
   categoryIndex: number;
   detailsIndex: number;
+  /** Inclusive upper bound for `detailsIndex` (varies by page: game details vs TMDB). */
+  detailsMaxIndex: number;
   inputMethod: InputMethod;
   setFocusArea: (area: FocusArea) => void;
   setSidebarIndex: (index: number) => void;
   setCategoryIndex: (index: number) => void;
   setDetailsIndex: (index: number) => void;
+  setDetailsMaxIndex: (max: number) => void;
   setInputMethod: (method: InputMethod) => void;
   navigateSidebar: (direction: "up" | "down") => number;
   navigateCategory: (direction: "left" | "right") => number;
@@ -107,6 +110,7 @@ export const useNavigationStore = create<NavigationStore>((set, get) => ({
   sidebarIndex: navUiPrefs.sidebarIndex ?? 0,
   categoryIndex: navUiPrefs.categoryIndex ?? 0,
   detailsIndex: navUiPrefs.detailsIndex ?? DETAILS_FOCUS_MAX_INDEX,
+  detailsMaxIndex: DETAILS_FOCUS_MAX_INDEX,
   inputMethod: navUiPrefs.inputMethod ?? "mouse",
 
   setFocusArea: (area) => set({ focusArea: area }),
@@ -128,9 +132,18 @@ export const useNavigationStore = create<NavigationStore>((set, get) => ({
   },
 
   setDetailsIndex: (index) => {
-    if (index >= 0 && index <= DETAILS_FOCUS_MAX_INDEX) {
+    const max = get().detailsMaxIndex;
+    if (index >= 0 && index <= max) {
       set({ detailsIndex: index });
     }
+  },
+
+  setDetailsMaxIndex: (max) => {
+    const safe = Math.max(0, Math.min(32, Math.floor(max)));
+    set((s) => ({
+      detailsMaxIndex: safe,
+      detailsIndex: Math.min(s.detailsIndex, safe),
+    }));
   },
 
   navigateSidebar: (direction) => {
@@ -159,11 +172,11 @@ export const useNavigationStore = create<NavigationStore>((set, get) => ({
   },
 
   navigateDetails: (direction) => {
-    const { detailsIndex } = get();
+    const { detailsIndex, detailsMaxIndex } = get();
     const newIndex =
       direction === "up"
         ? Math.max(0, detailsIndex - 1)
-        : Math.min(DETAILS_FOCUS_MAX_INDEX, detailsIndex + 1);
+        : Math.min(detailsMaxIndex, detailsIndex + 1);
     set({ detailsIndex: newIndex });
     return newIndex;
   },

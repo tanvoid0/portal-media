@@ -28,7 +28,7 @@ function evictOldest() {
 }
 
 /**
- * `undefined` = not cached yet; `null` = cached failed extraction (memory only, session).
+ * `undefined` = not cached yet; `Rgb` = cached successful sample (memory or localStorage).
  */
 export function getCachedAmbientRgb(imageSrc: string): Rgb | null | undefined {
   const key = fnv1aKey(imageSrc);
@@ -58,10 +58,13 @@ export function getCachedAmbientRgb(imageSrc: string): Rgb | null | undefined {
 export function setCachedAmbientRgb(imageSrc: string, rgb: Rgb | null) {
   const key = fnv1aKey(imageSrc);
   memory.delete(key);
+  // Don't cache failures — WebView/CORS ordering can fail once then succeed; caching `null` blocked retries.
+  if (!rgb) return;
+
   memory.set(key, rgb);
   while (memory.size > MAX_MEMORY_ENTRIES) evictOldest();
 
-  if (rgb && typeof localStorage !== "undefined") {
+  if (typeof localStorage !== "undefined") {
     try {
       localStorage.setItem(LS_PREFIX + key, `${rgb.r},${rgb.g},${rgb.b}`);
     } catch {

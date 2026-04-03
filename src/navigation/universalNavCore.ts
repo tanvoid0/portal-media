@@ -6,16 +6,22 @@ import type { FocusArea } from "@/types/navigation";
 import { useAppShellStore } from "@/stores/appShellStore";
 import { useBrowserStore } from "@/stores/browserStore";
 import { useGameStore } from "@/stores/gameStore";
-import { useNavigationStore, DETAILS_FOCUS_MAX_INDEX } from "@/stores/navigationStore";
+import { useTmdbDiscoverStore } from "@/stores/tmdbDiscoverStore";
+import { DISCOVER_CATEGORY_ID } from "@/types/game";
+import { useNavigationStore } from "@/stores/navigationStore";
 import { CATEGORY_NAV_ORDER } from "@/constants/categoryNav";
 import {
   ACTIVATE_SIDEBAR_EVENT,
   CLOSE_SHELL_SEARCH_EVENT,
+  EXECUTE_GAME_CONTEXT_EVENT,
   OPEN_SHELL_SEARCH_EVENT,
 } from "@/types/app";
 import { appNavigate } from "@/nav/appNavigate";
+import { libraryPathForCategory } from "@/nav/libraryRoutes";
+import { useShellOverlayStore } from "@/stores/shellOverlayStore";
 
 export const EXECUTE_DETAILS_ACTION = "executeDetailsAction";
+export const EXECUTE_TMDB_DETAILS_ACTION = "executeTmdbDetailsAction";
 
 export type SpatialDirection = "up" | "down" | "left" | "right";
 
@@ -47,17 +53,38 @@ function applyCategoryIndex(index: number) {
   const row = categoryRowAt(index);
   if (row) {
     gs.setSelectedCategory(row.id);
+    appNavigate(libraryPathForCategory(row.id));
   }
 }
 
 /** Embedded browser fills the window — shell spatial nav must yield to it. */
 export function isSpatialNavigationBlocked(): boolean {
   const bs = useBrowserStore.getState();
-  return bs.isOpen && !bs.isMinimized;
+  if (bs.isOpen && !bs.isMinimized) return true;
+  const sh = useShellOverlayStore.getState();
+  /** Game context menu uses its own gamepad handling in `useUnifiedNavigation`. */
+  return sh.quickAccessOpen || sh.appSwitcherOpen;
 }
 
-export function isLibraryViewActive(): boolean {
+export function isGamesGridView(): boolean {
   return useAppShellStore.getState().currentView === "games";
+}
+
+export function isGameDetailsView(): boolean {
+  return useAppShellStore.getState().currentView === "details";
+}
+
+export function isDiscoverLibraryView(): boolean {
+  return typeof window !== "undefined" && window.location.pathname === "/library/discover";
+}
+
+export function isTmdbDetailsPath(): boolean {
+  return typeof window !== "undefined" && window.location.pathname.startsWith("/tmdb/");
+}
+
+/** @deprecated Prefer isGamesGridView / isGameDetailsView */
+export function isLibraryViewActive(): boolean {
+  return isGamesGridView();
 }
 
 /** Library (main grid): spatial + shell shortcuts apply. Settings uses native Tab and focused controls. */
@@ -71,11 +98,33 @@ function isInsideShellModal(target: EventTarget | null): boolean {
 
 /** Go to library, reset shell focus, collapse search popup. */
 export function applyGoToLibraryView(): void {
-  appNavigate("/");
+  useShellOverlayStore.getState().closeAllOverlays();
+  const cat = useGameStore.getState().selectedCategory;
+  appNavigate(libraryPathForCategory(cat));
   const nav = useNavigationStore.getState();
   nav.setFocusArea("games");
   nav.setSidebarIndex(0);
   window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
+}
+
+export function openDetailsForSelectedGame(): void {
+  if (isDiscoverLibraryView()) {
+    const ds = useTmdbDiscoverStore.getState();
+    if (ds.feed === "popularGames") {
+      const g = ds.igdbGames[ds.selectedIndex];
+      if (g) useBrowserStore.getState().openBrowser(`https://www.igdb.com/games/${g.id}`);
+      return;
+    }
+    const item = ds.getItems()[ds.selectedIndex] as { mediaType?: string; id?: number } | undefined;
+    if (item && typeof item.mediaType === "string" && typeof item.id === "number") {
+      appNavigate(`/tmdb/${item.mediaType}/${item.id}`);
+    }
+    return;
+  }
+  const gs = useGameStore.getState();
+  const g = gs.filteredGames[gs.selectedIndex];
+  if (!g) return;
+  appNavigate(`/game/${encodeURIComponent(g.id)}`);
 }
 
 export function openShellSearch(): void {
@@ -104,7 +153,11 @@ export function cycleShellFocusTab(reverse: boolean): void {
 export function normalizeFocusAreaForContent(): void {
   const nav = useNavigationStore.getState();
   const gs = useGameStore.getState();
-  if (nav.focusArea === "details" && !gs.filteredGames[gs.selectedIndex]) {
+  if (
+    isGamesGridView() &&
+    nav.focusArea === "details" &&
+    !gs.filteredGames[gs.selectedIndex]
+  ) {
     nav.setFocusArea("games");
   }
 }
@@ -183,20 +236,109 @@ export function processUniversalKeydown(
   if (isInsideShellModal(event.target)) {
     return "unhandled";
   }
+
+  // Compact search popover: Escape / back closes it even while the input is focused
+  // (shouldDelegateKeyboardToField would otherwise skip the global key pipeline).
+  const shellEarly = useShellOverlayStore.getState();
+  if (
+    shellEarly.searchPopoverOpen &&
+    (event.key === "Escape" ||
+      event.key === "BrowserBack" ||
+      event.key === "GoBack" ||
+      event.code === "BrowserBack")
+  ) {
+    event.preventDefault();
+    window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
+    return "handled";
+  }
+
   if (shouldDelegateKeyboardToField(event)) {
     return "unhandled";
   }
 
+  // Browser-style in-app history (works on library, details, settings — not the embedded webview).
+  if (
+    event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    (event.key === "ArrowLeft" || event.key === "ArrowRight")
+  ) {
+    event.preventDefault();
+    try {
+      if (event.key === "ArrowLeft") {
+        window.history.back();
+      } else {
+        window.history.forward();
+      }
+    } catch {
+      /* no-op */
+    }
+    return "handled";
+  }
+
   const onSettings = isSettingsViewActive();
 
-  if (event.key === "Home") {
+  const sh0 = useShellOverlayStore.getState();
+  if (sh0.gameContextMenuOpen) {
+    if (
+      event.key === "Escape" ||
+      event.key === "BrowserBack" ||
+      event.code === "BrowserBack"
+    ) {
+      event.preventDefault();
+      sh0.setGameContextMenuOpen(false);
+      return "handled";
+    }
+    const max = Math.max(0, sh0.contextMenuItemCount - 1);
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      sh0.setContextMenuFocusIndex(Math.max(0, sh0.contextMenuFocusIndex - 1));
+      return "handled";
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      sh0.setContextMenuFocusIndex(Math.min(max, sh0.contextMenuFocusIndex + 1));
+      return "handled";
+    }
+    if (event.key === "Enter" || event.key === " " || event.code === "NumpadEnter") {
+      event.preventDefault();
+      window.dispatchEvent(
+        new CustomEvent(EXECUTE_GAME_CONTEXT_EVENT, { detail: sh0.contextMenuFocusIndex })
+      );
+      return "handled";
+    }
+    event.preventDefault();
+    return "handled";
+  }
+
+  if (event.key === "Home" && !event.ctrlKey && !event.metaKey) {
+    const path = typeof window !== "undefined" ? window.location.pathname : "";
+    if (
+      (path === "/" ||
+        path.startsWith("/library/") ||
+        path.startsWith("/game/") ||
+        path.startsWith("/tmdb/")) &&
+      !onSettings
+    ) {
+      event.preventDefault();
+      useShellOverlayStore.getState().toggleQuickAccess();
+      return "handled";
+    }
     event.preventDefault();
     applyGoToLibraryView();
     return "handled";
   }
 
-  if (event.key === "ContextMenu" || event.key === "F10") {
+  if (event.key === "ContextMenu" || (event.key === "F10" && !event.shiftKey)) {
     event.preventDefault();
+    if (isGamesGridView() && !onSettings) {
+      const nav = useNavigationStore.getState();
+      const gs = useGameStore.getState();
+      if (nav.focusArea === "games" && gs.filteredGames[gs.selectedIndex]) {
+        useShellOverlayStore.getState().toggleGameContextMenu();
+        return "handled";
+      }
+    }
     applyFocusLeftRail(delayedFocus);
     return "handled";
   }
@@ -256,22 +398,32 @@ export function processUniversalKeydown(
 
 /** Horizontal move on the category strip (syncs filter with nav index). */
 export function applyCategoryStripStep(direction: "left" | "right"): void {
-  if (!isLibraryViewActive()) {
+  if (!isGamesGridView()) {
     return;
   }
   const nav = useNavigationStore.getState();
   const newIndex = nav.navigateCategory(direction);
-  const row = categoryRowAt(newIndex);
-  if (row) {
-    useGameStore.getState().setSelectedCategory(row.id);
-  }
+  applyCategoryIndex(newIndex);
 }
 
 /**
  * D-pad / stick / arrow keys: one implementation shared by keyboard and gamepad.
  */
 export function applySpatialNavigation(direction: SpatialDirection, delayedFocus: DelayedFocusArea): void {
-  if (!isLibraryViewActive()) {
+  if (isSettingsViewActive()) {
+    return;
+  }
+  if (isGameDetailsView()) {
+    normalizeFocusAreaForContent();
+    const nav = useNavigationStore.getState();
+    const fa = nav.focusArea;
+    if (fa === "details") {
+      if (direction === "up") nav.navigateDetails("up");
+      if (direction === "down") nav.navigateDetails("down");
+    }
+    return;
+  }
+  if (!isGamesGridView()) {
     return;
   }
   normalizeFocusAreaForContent();
@@ -282,6 +434,16 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
   switch (direction) {
     case "up": {
       if (fa === "games") {
+        if (isDiscoverLibraryView()) {
+          const ds = useTmdbDiscoverStore.getState();
+          const cols = Math.max(1, ds.gridColumnCount);
+          if (ds.selectedIndex >= cols) {
+            ds.selectRowUp();
+          } else {
+            nav.setFocusArea("category");
+          }
+          return;
+        }
         const cols = Math.max(1, gs.gridColumnCount);
         if (gs.selectedIndex >= cols) {
           gs.selectRowUp();
@@ -315,6 +477,15 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
     }
     case "down": {
       if (fa === "games") {
+        if (isDiscoverLibraryView()) {
+          const ds = useTmdbDiscoverStore.getState();
+          const cols = Math.max(1, ds.gridColumnCount);
+          const items = ds.getItems();
+          if (ds.selectedIndex + cols < items.length) {
+            ds.selectRowDown();
+          }
+          return;
+        }
         const cols = Math.max(1, gs.gridColumnCount);
         if (gs.selectedIndex + cols < gs.filteredGames.length) {
           gs.selectRowDown();
@@ -346,7 +517,11 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
         return;
       }
       if (fa === "games") {
-        gs.selectPrevious();
+        if (isDiscoverLibraryView()) {
+          useTmdbDiscoverStore.getState().selectPrevious();
+        } else {
+          gs.selectPrevious();
+        }
         return;
       }
       if (fa === "category") {
@@ -363,7 +538,11 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
         return;
       }
       if (fa === "games") {
-        gs.selectNext();
+        if (isDiscoverLibraryView()) {
+          useTmdbDiscoverStore.getState().selectNext();
+        } else {
+          gs.selectNext();
+        }
         return;
       }
       if (fa === "category") {
@@ -387,7 +566,27 @@ export function applyPrimaryAction(): void {
     gs0.clearError();
     return;
   }
-  if (!isLibraryViewActive()) {
+  if (isGameDetailsView()) {
+    normalizeFocusAreaForContent();
+    const nav = useNavigationStore.getState();
+    if (isTmdbDetailsPath()) {
+      if (nav.focusArea === "details") {
+        window.dispatchEvent(
+          new CustomEvent(EXECUTE_TMDB_DETAILS_ACTION, { detail: nav.detailsIndex })
+        );
+      }
+      return;
+    }
+    const gs = useGameStore.getState();
+    const games = gs.filteredGames;
+    const gi = gs.selectedIndex;
+    if (nav.focusArea === "details" && games[gi]) {
+      window.dispatchEvent(new CustomEvent(EXECUTE_DETAILS_ACTION, { detail: nav.detailsIndex }));
+    }
+    return;
+  }
+
+  if (!isGamesGridView()) {
     return;
   }
 
@@ -398,8 +597,43 @@ export function applyPrimaryAction(): void {
   const games = gs.filteredGames;
   const gi = gs.selectedIndex;
 
+  if (isDiscoverLibraryView()) {
+    const ds = useTmdbDiscoverStore.getState();
+    if (ds.feed === "popularGames") {
+      const g = ds.igdbGames[ds.selectedIndex];
+      if (fa === "games" && g) {
+        useBrowserStore.getState().openBrowser(`https://www.igdb.com/games/${g.id}`);
+      }
+      if (fa === "sidebar") {
+        emitActivateSidebar(nav.sidebarIndex);
+        return;
+      }
+      if (fa === "category") {
+        window.dispatchEvent(new CustomEvent("activateCategory", { detail: nav.categoryIndex }));
+      }
+      return;
+    }
+    const item = ds.getItems()[ds.selectedIndex] as { mediaType?: string; id?: number } | undefined;
+    if (fa === "games" && item && typeof item.mediaType === "string" && typeof item.id === "number") {
+      appNavigate(`/tmdb/${item.mediaType}/${item.id}`);
+      return;
+    }
+    if (fa === "details" && item && typeof item.mediaType === "string") {
+      window.dispatchEvent(new CustomEvent(EXECUTE_TMDB_DETAILS_ACTION, { detail: nav.detailsIndex }));
+      return;
+    }
+    if (fa === "sidebar") {
+      emitActivateSidebar(nav.sidebarIndex);
+      return;
+    }
+    if (fa === "category") {
+      window.dispatchEvent(new CustomEvent("activateCategory", { detail: nav.categoryIndex }));
+    }
+    return;
+  }
+
   if (fa === "games" && games[gi]) {
-    void gs.launchGame(games[gi]);
+    appNavigate(`/game/${encodeURIComponent(games[gi].id)}`);
     return;
   }
   if (fa === "details" && games[gi]) {
@@ -416,14 +650,31 @@ export function applyPrimaryAction(): void {
 }
 
 /** Back / B / Escape hierarchy. */
-export function applyBackOrEscape(delayedFocus: DelayedFocusArea): void {
+export function applyBackOrEscape(_delayedFocus: DelayedFocusArea): void {
   const gs = useGameStore.getState();
   if (gs.error) {
     gs.clearError();
     return;
   }
+  window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
   if (isSettingsViewActive()) {
     applyGoToLibraryView();
+    return;
+  }
+
+  if (isGameDetailsView()) {
+    if (isTmdbDetailsPath()) {
+      appNavigate("/library/discover");
+      gs.setSelectedCategory(DISCOVER_CATEGORY_ID);
+      const discoverIdx = CATEGORY_NAV_ORDER.findIndex((row) => row.id === DISCOVER_CATEGORY_ID);
+      if (discoverIdx >= 0) {
+        useNavigationStore.getState().setCategoryIndex(discoverIdx);
+      }
+      useNavigationStore.getState().setFocusArea("games");
+      return;
+    }
+    appNavigate(libraryPathForCategory(gs.selectedCategory));
+    useNavigationStore.getState().setFocusArea("games");
     return;
   }
 
@@ -434,14 +685,7 @@ export function applyBackOrEscape(delayedFocus: DelayedFocusArea): void {
     return;
   }
   if (nav.focusArea === "games") {
-    const selected = gs.filteredGames[gs.selectedIndex];
-    if (selected) {
-      nav.setFocusArea("details");
-      nav.setDetailsIndex(DETAILS_FOCUS_MAX_INDEX);
-    } else {
-      delayedFocus("sidebar");
-      nav.setSidebarIndex(0);
-    }
+    nav.setFocusArea("category");
     return;
   }
   if (nav.focusArea === "category") {
@@ -460,16 +704,13 @@ export function applyFocusLeftRail(delayedFocus: DelayedFocusArea): void {
 
 /** LB/RB while on the grid: jump to category strip and step. */
 export function applyCategoryBumperFromGames(direction: "left" | "right", delayedFocus: DelayedFocusArea): void {
-  if (!isLibraryViewActive()) {
+  if (!isGamesGridView()) {
     return;
   }
   delayedFocus("category");
   const nav = useNavigationStore.getState();
   const newIndex = nav.navigateCategory(direction);
-  const row = categoryRowAt(newIndex);
-  if (row) {
-    useGameStore.getState().setSelectedCategory(row.id);
-  }
+  applyCategoryIndex(newIndex);
 }
 
 /** LT/RT from category row: move to grid then step selection after focus animation. */
@@ -478,11 +719,20 @@ export function applyShoulderScrollFromCategory(
   delayedFocus: DelayedFocusArea,
   animationDelayMs: number = DEFAULT_FOCUS_ANIMATION_MS
 ): void {
-  if (!isLibraryViewActive()) {
+  if (!isGamesGridView()) {
     return;
   }
   delayedFocus("games");
   window.setTimeout(() => {
+    if (isDiscoverLibraryView()) {
+      const d = useTmdbDiscoverStore.getState();
+      if (direction === "prev") {
+        d.selectPrevious();
+      } else {
+        d.selectNext();
+      }
+      return;
+    }
     const g = useGameStore.getState();
     if (direction === "prev") {
       g.selectPrevious();
@@ -492,7 +742,7 @@ export function applyShoulderScrollFromCategory(
   }, animationDelayMs);
 }
 
-export function applyGamepadMenuToggle(delayedFocus: DelayedFocusArea): void {
+export function applyGamepadMenuToggle(_delayedFocus: DelayedFocusArea): void {
   const bs = useBrowserStore.getState();
   if (bs.isOpen) {
     bs.closeBrowser();
@@ -503,6 +753,5 @@ export function applyGamepadMenuToggle(delayedFocus: DelayedFocusArea): void {
     applyGoToLibraryView();
     return;
   }
-  delayedFocus("sidebar");
-  useNavigationStore.getState().setSidebarIndex(0);
+  useShellOverlayStore.getState().toggleQuickAccess();
 }

@@ -155,13 +155,3 @@ export function buildGamesByCategory(
   return gamesByCategory;
 }
 
-/** Keep user-added entries from a previous library that are not in the new scan (manual games / URL bookmarks only). */
-export function mergeScanWithCarry(base: Game[], previousSource: Game[]): Game[] {
-  const baseIds = new Set(base.map((g) => g.id));
-  const carry = previousSource.filter(
-    (g) =>
-      !baseIds.has(g.id) &&
-      (g.id.startsWith("manual_") || g.id.startsWith("bookmark_"))
-  );
-  return [...base, ...carry];
-}

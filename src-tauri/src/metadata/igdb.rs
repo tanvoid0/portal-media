@@ -484,6 +484,69 @@ pub async fn fetch_igdb_payload(
     Ok(payload)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IgdbDiscoverHit {
+    pub id: u64,
+    pub name: String,
+    pub summary: Option<String>,
+    pub cover_url: Option<String>,
+    pub first_release_date: Option<i64>,
+}
+
+fn parse_discover_game_row(v: &serde_json::Value) -> Option<IgdbDiscoverHit> {
+    let id = v["id"]
+        .as_u64()
+        .or_else(|| v["id"].as_i64().map(|x| x as u64))?;
+    let name = v["name"].as_str().unwrap_or("Unknown").to_string();
+    let summary = v["summary"].as_str().map(String::from);
+    let first_release_date = v["first_release_date"].as_i64();
+    let cover_url = v["cover"].as_object().and_then(|c| {
+        let raw = c.get("image_id")?;
+        let image_id = raw
+            .as_str()
+            .map(ToString::to_string)
+            .or_else(|| raw.as_i64().map(|n| n.to_string()))
+            .or_else(|| raw.as_u64().map(|n| n.to_string()))?;
+        Some(igdb_image_cover_big(&image_id))
+    });
+    Some(IgdbDiscoverHit {
+        id,
+        name,
+        summary,
+        cover_url,
+        first_release_date,
+    })
+}
+
+/// Popular / well-rated games for Discover (requires Twitch + IGDB credentials).
+pub async fn fetch_discover_games(client_id: &str, client_secret: &str) -> Result<Vec<IgdbDiscoverHit>, String> {
+    let twitch = twitch_app_token(client_id, client_secret).await?;
+    let http = Client::builder()
+        .timeout(Duration::from_secs(25))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let body = "fields id,name,summary,first_release_date,cover.image_id;\n\
+where cover != null & parent_game = null & version_parent = null & category = 0 & total_rating_count != null;\n\
+sort total_rating_count desc;\n\
+limit 24;\n";
+    let rows = igdb_post(
+        &http,
+        &twitch.access_token,
+        client_id,
+        "games",
+        body,
+    )
+    .await?;
+    let mut out: Vec<IgdbDiscoverHit> = Vec::new();
+    for row in rows {
+        if let Some(hit) = parse_discover_game_row(&row) {
+            out.push(hit);
+        }
+    }
+    Ok(out)
+}
+
 pub async fn test_igdb_connection(client_id: &str, client_secret: &str) -> Result<String, String> {
     let twitch = twitch_app_token(client_id, client_secret).await?;
     let http = Client::builder()

@@ -14,9 +14,14 @@ import {
   applyShoulderScrollFromCategory,
   applyGamepadMenuToggle,
   openShellSearch,
+  openDetailsForSelectedGame,
   UNIVERSAL_NAV_FOCUS_DELAY_MS,
   type DelayedFocusArea,
 } from "@/navigation/universalNavCore";
+import { useShellOverlayStore } from "@/stores/shellOverlayStore";
+import { useTmdbDiscoverStore } from "@/stores/tmdbDiscoverStore";
+import { isDiscoverLibraryView } from "@/navigation/universalNavCore";
+import { EXECUTE_GAME_CONTEXT_EVENT } from "@/types/app";
 
 /** @deprecated Import from `@/navigation/universalNavCore` for non-hook modules. */
 export { EXECUTE_DETAILS_ACTION } from "@/navigation/universalNavCore";
@@ -33,6 +38,9 @@ export function useUnifiedNavigation() {
   const buttonBPressedRef = useRef(false);
   const buttonAPressedRef = useRef(false);
   const buttonStartRef = useRef(false);
+  const buttonView8Ref = useRef(false);
+  const buttonMenu9Ref = useRef(false);
+  const buttonXPressedRef = useRef(false);
   const buttonYPressedRef = useRef(false);
   const buttonLBPressedRef = useRef(false);
   const buttonRBPressedRef = useRef(false);
@@ -193,7 +201,83 @@ export function useUnifiedNavigation() {
       return;
     }
 
+    const sh = useShellOverlayStore.getState();
+    if (sh.gameContextMenuOpen) {
+      const leftStickY = gamepad.axes[1];
+      const dpadUp = gamepad.buttons[12]?.pressed;
+      const dpadDown = gamepad.buttons[13]?.pressed;
+      const upPressed = dpadUp || leftStickY < -0.5;
+      const downPressed = dpadDown || leftStickY > 0.5;
+      if (upPressed && !dpadUpRef.current && !stickUpRef.current) {
+        dpadUpRef.current = dpadUp;
+        stickUpRef.current = leftStickY < -0.5;
+        const st = useShellOverlayStore.getState();
+        st.setContextMenuFocusIndex(st.contextMenuFocusIndex - 1);
+      } else if (!upPressed) {
+        dpadUpRef.current = false;
+        stickUpRef.current = false;
+      }
+      if (downPressed && !dpadDownRef.current && !stickDownRef.current) {
+        dpadDownRef.current = dpadDown;
+        stickDownRef.current = leftStickY > 0.5;
+        const st = useShellOverlayStore.getState();
+        st.setContextMenuFocusIndex(st.contextMenuFocusIndex + 1);
+      } else if (!downPressed) {
+        dpadDownRef.current = false;
+        stickDownRef.current = false;
+      }
+      const buttonB = gamepad.buttons[1]?.pressed;
+      if (buttonB && !buttonBPressedRef.current) {
+        buttonBPressedRef.current = true;
+        useShellOverlayStore.getState().setGameContextMenuOpen(false);
+      } else if (!buttonB) {
+        buttonBPressedRef.current = false;
+      }
+      const buttonA = gamepad.buttons[0]?.pressed;
+      if (buttonA && !buttonAPressedRef.current) {
+        buttonAPressedRef.current = true;
+        const st = useShellOverlayStore.getState();
+        window.dispatchEvent(
+          new CustomEvent(EXECUTE_GAME_CONTEXT_EVENT, { detail: st.contextMenuFocusIndex })
+        );
+      } else if (!buttonA) {
+        buttonAPressedRef.current = false;
+      }
+      return;
+    }
+
     const fa = getEffectiveFocusArea();
+    const currentView = useAppShellStore.getState().currentView;
+    const gs0 = useGameStore.getState();
+    const ds0 = useTmdbDiscoverStore.getState();
+    const hasGameSelection = Boolean(gs0.filteredGames[gs0.selectedIndex]);
+    const hasDiscoverSelection =
+      isDiscoverLibraryView() && Boolean(ds0.getItems()[ds0.selectedIndex]);
+    const hasPrimaryGridSelection = hasDiscoverSelection || hasGameSelection;
+
+    const btn9 = gamepad.buttons[9]?.pressed;
+    if (
+      currentView === "games" &&
+      fa === "games" &&
+      hasPrimaryGridSelection &&
+      !isDiscoverLibraryView() &&
+      hasGameSelection &&
+      btn9 &&
+      !buttonMenu9Ref.current
+    ) {
+      buttonMenu9Ref.current = true;
+      useShellOverlayStore.getState().toggleGameContextMenu();
+    } else if (!btn9) {
+      buttonMenu9Ref.current = false;
+    }
+
+    const btn8 = gamepad.buttons[8]?.pressed;
+    if ((currentView === "games" || currentView === "details") && btn8 && !buttonView8Ref.current) {
+      buttonView8Ref.current = true;
+      useShellOverlayStore.getState().toggleQuickAccess();
+    } else if (!btn8) {
+      buttonView8Ref.current = false;
+    }
 
     const leftStickX = gamepad.axes[0];
     const leftStickY = gamepad.axes[1];
@@ -268,13 +352,23 @@ export function useUnifiedNavigation() {
       buttonBPressedRef.current = false;
     }
 
-    const buttonStart =
-      gamepad.buttons[8]?.pressed || gamepad.buttons[9]?.pressed || gamepad.buttons[16]?.pressed;
-    if (buttonStart && !buttonStartRef.current) {
-      buttonStartRef.current = true;
-      applyGamepadMenuToggle(delayedFocus);
-    } else if (!buttonStart) {
-      buttonStartRef.current = false;
+    const buttonX = gamepad.buttons[2]?.pressed;
+    if (
+      currentView === "games" &&
+      fa === "games" &&
+      hasPrimaryGridSelection &&
+      buttonX &&
+      !buttonXPressedRef.current
+    ) {
+      buttonXPressedRef.current = true;
+      if (isDiscoverLibraryView()) {
+        openDetailsForSelectedGame();
+      } else {
+        const g = useGameStore.getState().filteredGames[useGameStore.getState().selectedIndex];
+        if (g) void useGameStore.getState().launchGame(g);
+      }
+    } else if (!buttonX) {
+      buttonXPressedRef.current = false;
     }
 
     const buttonLB = gamepad.buttons[4]?.pressed;
@@ -307,7 +401,11 @@ export function useUnifiedNavigation() {
     if (buttonLT && !buttonLTPressedRef.current) {
       buttonLTPressedRef.current = true;
       if (fa === "games") {
-        useGameStore.getState().selectPrevious();
+        if (isDiscoverLibraryView()) {
+          useTmdbDiscoverStore.getState().selectPrevious();
+        } else {
+          useGameStore.getState().selectPrevious();
+        }
       } else if (fa === "category") {
         applyShoulderScrollFromCategory("prev", delayedFocus, UNIVERSAL_NAV_FOCUS_DELAY_MS);
       }
@@ -321,7 +419,11 @@ export function useUnifiedNavigation() {
     if (buttonRT && !buttonRTPressedRef.current) {
       buttonRTPressedRef.current = true;
       if (fa === "games") {
-        useGameStore.getState().selectNext();
+        if (isDiscoverLibraryView()) {
+          useTmdbDiscoverStore.getState().selectNext();
+        } else {
+          useGameStore.getState().selectNext();
+        }
       } else if (fa === "category") {
         applyShoulderScrollFromCategory("next", delayedFocus, UNIVERSAL_NAV_FOCUS_DELAY_MS);
       }

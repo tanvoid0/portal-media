@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Local streaming-catalog zips and dev manifests (see docs/PLUGINS.md)
+plugins/*
+!plugins/.gitkeep
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

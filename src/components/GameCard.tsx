@@ -1,157 +1,198 @@
 import { Game } from "@/stores/gameStore";
+
 import { useGameStore } from "@/stores/gameStore";
-import { Card, CardContent } from "@/components/ui/card";
+
 import { PlatformLabel } from "@/components/PlatformLabel";
-import { cn } from "@/lib/utils";
-import { useSelectable } from "@/hooks/useNavigationState";
-import { PS5FocusRing } from "./PS5FocusRing";
-import { getSafeImageSource } from "@/utils/imageUtils";
+
+import { ShelfCard } from "@/components/content/ShelfCard";
+
 import { getGameCardSubtitle } from "@/utils/gameDisplay";
+
 import { useMetadataDisplayStore } from "@/stores/metadataDisplayStore";
-import { useState, type MouseEvent } from "react";
-import { Star } from "lucide-react";
+
+import { type MouseEvent } from "react";
+
+import { AppWindow, Bookmark, Gamepad2, Star, Tv } from "lucide-react";
+
+import type { GameCategory } from "@/types/game";
+
+import { shouldShowLibraryGamePlatformCornerBadge } from "@/utils/libraryGameVisual";
+
+
+
+function pickRecordStr(record: Record<string, unknown>, key: string): string | undefined {
+
+  const v = record[key];
+
+  return typeof v === "string" && v.trim().length > 0 ? v.trim() : undefined;
+
+}
+
+
+
+function LibraryPlaceholderIcon({ category }: { category: GameCategory }) {
+
+  const cls =
+
+    "h-14 w-14 mx-auto mb-3 opacity-70 text-muted-foreground shrink-0";
+
+  switch (category) {
+
+    case "Media":
+
+      return <Tv className={cls} strokeWidth={1.25} aria-hidden />;
+
+    case "App":
+
+      return <AppWindow className={cls} strokeWidth={1.25} aria-hidden />;
+
+    case "Bookmark":
+
+      return <Bookmark className={cls} strokeWidth={1.25} aria-hidden />;
+
+    default:
+
+      return <Gamepad2 className={cls} strokeWidth={1.25} aria-hidden />;
+
+  }
+
+}
+
+
 
 interface GameCardProps {
+
   game: Game;
+
   isSelected: boolean;
+
   onClick: () => void;
+
   onDoubleClick?: () => void;
+
   onMouseEnter?: () => void;
+
   onContextMenu?: (e: MouseEvent) => void;
+
 }
+
+
 
 export function GameCard({
+
   game,
+
   isSelected,
+
   onClick,
+
   onDoubleClick,
+
   onMouseEnter,
+
   onContextMenu,
+
 }: GameCardProps) {
-  const { showSelection } = useSelectable(isSelected);
-  const [isHovered, setIsHovered] = useState(false);
+
   const isFavorite = useGameStore((s) => s.favoriteIds.includes(game.id));
+
   const igdbCover = useMetadataDisplayStore((s) => s.igdbCoverUrlByGameId[game.id]);
-  const cardImage = game.cover_art || game.icon || igdbCover;
-  const mouseSelected = isSelected && !showSelection;
+
+  const r = game as unknown as Record<string, unknown>;
+
+  const coverArt = game.cover_art ?? pickRecordStr(r, "coverArt");
+
+  const iconArt = game.icon ?? pickRecordStr(r, "icon");
+
+  const cardImage = coverArt || iconArt || igdbCover || null;
+
   const subtitle = getGameCardSubtitle(game);
 
+
+
+  const showPlatformCorner = shouldShowLibraryGamePlatformCornerBadge(game, {
+
+    coverArt,
+
+    iconArt,
+
+    igdbCover,
+
+  });
+
+
+
   return (
-    <Card
-      className={cn(
-        "relative h-[26rem] w-56 cursor-pointer border border-border/50 rounded-2xl",
-        "transition-all duration-300 ease-out",
-        "bg-card overflow-hidden group/card",
-        showSelection
-          ? "scale-[1.08] z-10 translate-y-[-4px] border-primary/60 card-glow"
-          : isHovered
-            ? "scale-[1.02] z-20 translate-y-[-2px] shadow-md border-border hover:border-primary/30"
-            : "scale-100 z-0 shadow-sm",
-        mouseSelected && "ring-2 ring-primary/40 shadow-md shadow-primary/15 border-primary/40",
-        "hover:border-primary/30"
-      )}
-      onClick={onClick}
-      onDoubleClick={(e) => {
-        e.preventDefault();
-        onDoubleClick?.();
-      }}
-      onMouseEnter={() => {
-        setIsHovered(true);
-        onMouseEnter?.();
-      }}
-      onMouseLeave={() => setIsHovered(false)}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onContextMenu?.(e);
-      }}
-    >
-      <CardContent className="p-0 h-full flex flex-col">
-        <div className="relative flex-1 overflow-hidden bg-gradient-to-b from-muted/20 to-muted/40">
-          {isFavorite && (
-            <div
-              className="absolute top-2.5 left-2.5 z-20 pointer-events-none flex h-9 w-9 items-center justify-center rounded-xl bg-black/45 text-amber-400 backdrop-blur-md border border-white/15 shadow-lg"
-              aria-hidden
-            >
-              <Star className="h-4 w-4 fill-current" />
-            </div>
-          )}
-          {cardImage ? (
-            <div
-              className={cn(
-                "relative h-full w-full",
-                game.icon && !game.cover_art && !igdbCover &&
-                  "flex items-center justify-center bg-muted/50 p-8"
-              )}
-            >
-              <img
-                src={getSafeImageSource(cardImage)}
-                alt={game.name}
-                className={cn(
-                  "transition-all duration-300",
-                  game.cover_art || igdbCover
-                    ? "h-full w-full object-cover"
-                    : "h-full w-full object-contain max-h-48",
-                  showSelection && "brightness-105",
-                  isHovered && "brightness-[1.02] scale-[1.02]"
-                )}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = getSafeImageSource(null);
-                }}
-              />
-              {(game.cover_art || igdbCover) && (
-                <div className="absolute inset-0 bg-gradient-to-t from-background/85 via-background/25 to-transparent pointer-events-none" />
-              )}
-              <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
-                <PlatformLabel game={game} size="lg" variant="overlay" />
-              </div>
-            </div>
-          ) : (
-            <div className="relative h-full w-full bg-muted/50 flex items-center justify-center">
-              <div className="text-center">
-                <div
-                  className={cn(
-                    "text-5xl mb-3 opacity-60",
-                    game.category === "Media" && "text-4xl"
-                  )}
-                >
-                  {game.category === "Media" ? "📺" : "🎮"}
-                </div>
-                <p className="text-foreground/70 text-sm font-medium px-4 line-clamp-4 leading-snug text-center">
-                  {game.name}
-                </p>
-              </div>
-              <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
-                <PlatformLabel game={game} size="lg" variant="overlay" />
-              </div>
-            </div>
-          )}
 
-          {showSelection && <PS5FocusRing isVisible={true} />}
-        </div>
+    <ShelfCard
 
-        <div className="p-4 pt-3.5 bg-gradient-to-b from-card to-muted/25 border-t border-border/50">
-          <h3
-            className={cn(
-              "text-foreground font-semibold text-[0.95rem] leading-snug line-clamp-3",
-              subtitle ? "mb-1" : showSelection ? "mb-2" : "mb-0"
-            )}
+      isSelected={isSelected}
+
+      title={game.name}
+
+      subtitle={subtitle}
+
+      actionHint="Enter · Launch"
+
+      artImageUrl={cardImage}
+
+      artMode={coverArt || igdbCover ? "posterCover" : "iconContain"}
+
+      placeholder={<LibraryPlaceholderIcon category={game.category} />}
+
+      topLeft={
+
+        isFavorite ? (
+
+          <div
+
+            className="pointer-events-none flex h-9 w-9 items-center justify-center rounded-xl bg-black/45 text-amber-400 backdrop-blur-md border border-white/15 shadow-lg"
+
+            aria-hidden
+
           >
-            {game.name}
-          </h3>
-          {subtitle && (
-            <p className="text-xs text-muted-foreground line-clamp-1 font-medium tracking-wide">
-              {subtitle}
-            </p>
-          )}
-          {showSelection && (
-            <div className="flex justify-end mt-2">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                Enter · Launch
-              </span>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+
+            <Star className="h-4 w-4 fill-current" />
+
+          </div>
+
+        ) : null
+
+      }
+
+      topRight={
+
+        showPlatformCorner ? <PlatformLabel game={game} size="lg" variant="overlay" /> : null
+
+      }
+
+      onClick={onClick}
+
+      onDoubleClick={(e) => {
+
+        e.preventDefault();
+
+        onDoubleClick?.();
+
+      }}
+
+      onMouseEnter={() => {
+
+        onMouseEnter?.();
+
+      }}
+
+      onContextMenu={(e) => {
+
+        e.preventDefault();
+
+        onContextMenu?.(e);
+
+      }}
+
+    />
+
   );
+
 }
+

@@ -19,6 +19,7 @@ import { FaWindows, FaXbox } from "react-icons/fa6";
 import { Globe, Monitor, Tv } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Game } from "@/stores/gameStore";
+import { matchStreamingAddonHost, matchStreamingAddonName } from "@/stores/streamingAddonStore";
 
 type SvgIcon = ComponentType<SVGAttributes<SVGElement> & { className?: string }>;
 
@@ -109,6 +110,11 @@ function matchStreamingServiceHost(
     return { Icon, brandColor: color };
   }
 
+  const catalog = matchStreamingAddonHost(host);
+  if (catalog) {
+    return { Icon: Tv, brandColor: catalog.accentColor ?? "#7c6cff" };
+  }
+
   return null;
 }
 
@@ -133,6 +139,10 @@ function resolveStreamingByName(
   if (n.includes("crunchyroll")) return pick("crunchyroll");
   if (n.includes("twitch")) return pick("twitch");
   if (n.includes("spotify")) return pick("spotify");
+  const catalog = matchStreamingAddonName(name);
+  if (catalog) {
+    return { Icon: Tv, brandColor: catalog.accentColor ?? "#7c6cff" };
+  }
   return null;
 }
 

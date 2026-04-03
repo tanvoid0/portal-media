@@ -52,22 +52,67 @@ export type TmdbSearchResult =
   | { kind: "ok"; hits: TmdbSearchHit[] }
   | { kind: "error"; message: string };
 
+export interface TmdbProviderRow {
+  providerId: number;
+  providerName: string;
+  logoUrl: string | null;
+  offerKind: string;
+}
+
 export interface TmdbDetailPayload {
   source: string;
   mediaType: string;
   id: number;
+  /** IMDb id (`tt…`) when TMDB provides it (optional catalog deep links when an add-on is loaded). */
+  imdbId: string | null;
   title: string;
   overview: string | null;
   posterUrl: string | null;
   backdropUrl: string | null;
   releaseLabel: string | null;
   homepage: string | null;
+  tagline: string | null;
+  genres: string[];
+  runtimeMinutes: number | null;
+  watchRegion: string | null;
+  watchLink: string | null;
+  providers: TmdbProviderRow[];
 }
 
 export type TmdbDetailResult =
   | { kind: "notConfigured" }
   | { kind: "error"; message: string }
   | { kind: "ok"; payload: TmdbDetailPayload };
+
+export type TmdbWatchProvidersResult =
+  | { kind: "notConfigured" }
+  | { kind: "error"; message: string }
+  | { kind: "ok"; providers: TmdbProviderRow[] };
+
+export interface TmdbDiscoverPayload {
+  nowPlaying: TmdbSearchHit[];
+  trendingMovies: TmdbSearchHit[];
+  trendingTv: TmdbSearchHit[];
+}
+
+export type TmdbDiscoverResult =
+  | { kind: "notConfigured" }
+  | { kind: "error"; message: string }
+  | { kind: "ok"; payload: TmdbDiscoverPayload };
+
+/** Compact row for Discover → IGDB popular games grid. */
+export interface IgdbDiscoverHit {
+  id: number;
+  name: string;
+  summary: string | null;
+  coverUrl: string | null;
+  firstReleaseDate: number | null;
+}
+
+export type IgdbDiscoverGamesResult =
+  | { kind: "notConfigured" }
+  | { kind: "error"; message: string }
+  | { kind: "ok"; hits: IgdbDiscoverHit[] };
 
 export interface EnrichSummary {
   refreshed: number;

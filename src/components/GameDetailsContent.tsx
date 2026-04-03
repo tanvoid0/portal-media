@@ -1,10 +1,9 @@
-import { useEffect, useCallback, type ReactNode } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useGameMetadata } from "@/hooks/useGameMetadata";
 import { useGameStore } from "@/stores/gameStore";
+import type { Game } from "@/types/game";
 import { OVERRIDABLE_CATEGORIES, tabLabel } from "@/utils/libraryPrefs";
 import { appNavigate } from "@/nav/appNavigate";
-import { useNavigationStore } from "@/stores/navigationStore";
-import { useFocusable } from "@/hooks/useNavigationState";
 import { EXECUTE_DETAILS_ACTION } from "@/navigation/universalNavCore";
 import { Button } from "@/components/ui/button";
 import { PlatformLabel } from "@/components/PlatformLabel";
@@ -31,36 +30,17 @@ import {
   Star,
 } from "lucide-react";
 import { toast } from "sonner";
+import { DetailsFocusControl } from "@/components/details/DetailsFocusControl";
+import { DetailsPageShell } from "@/components/layout/DetailsPageShell";
+import { DetailsHeroFrame } from "@/components/layout/DetailsHeroFrame";
 
-function DetailsFocusControl({
-  index,
-  className,
-  children,
+export function GameDetailsContent({
+  game,
+  layout = "page",
 }: {
-  index: number;
-  className?: string;
-  children: ReactNode;
+  game: Game | null;
+  layout?: "sidebar" | "page";
 }) {
-  const { detailsIndex } = useNavigationStore();
-  const { isFocused, showFocusIndicator } = useFocusable("details", index);
-  const isFocusedItem = isFocused && detailsIndex === index;
-
-  return (
-    <div
-      className={cn(
-        "rounded-xl transition-all duration-ps5 spring-ease",
-        isFocusedItem && showFocusIndicator && "ring-2 ring-primary/60 ring-offset-2 ring-offset-card animate-focus-ring",
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-export function GameDetailsSidebar() {
-  const filteredGames = useGameStore((s) => s.filteredGames);
-  const selectedIndex = useGameStore((s) => s.selectedIndex);
   const favoriteIds = useGameStore((s) => s.favoriteIds);
   const toggleFavorite = useGameStore((s) => s.toggleFavorite);
   const launchGame = useGameStore((s) => s.launchGame);
@@ -72,7 +52,6 @@ export function GameDetailsSidebar() {
   const hiddenFromCategories = useGameStore((s) => s.hiddenFromCategories);
   const hideFromCategoryTab = useGameStore((s) => s.hideFromCategoryTab);
   const unhideFromCategoryTab = useGameStore((s) => s.unhideFromCategoryTab);
-  const game = filteredGames[selectedIndex] ?? null;
   const metaPanel = useGameMetadata(game);
   const igdbGridCover = useMetadataDisplayStore((s) =>
     game ? s.igdbCoverUrlByGameId[game.id] : undefined
@@ -130,6 +109,8 @@ export function GameDetailsSidebar() {
       ? relativePathUnderBase(game.path, game.executable)
       : null;
 
+  const pageScrollRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const onExecute = (e: Event) => {
       const idx = (e as CustomEvent<number>).detail;
@@ -159,64 +140,74 @@ export function GameDetailsSidebar() {
     setCategoryOverride,
   ]);
 
-  return (
-    <aside
-      className={cn(
-        "h-full w-[min(100%,22rem)] sm:w-96 shrink-0 flex flex-col",
-        "border-l border-border/60 bg-card/80 backdrop-blur-xl",
-        "shadow-[inset_1px_0_0_0_hsl(var(--foreground)/0.06)]"
-      )}
-      aria-label="Item details"
-    >
-      {!game ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4">
-          <div className="rounded-2xl p-5 bg-muted/40 border border-border/50">
-            <LayoutList className="w-10 h-10 text-muted-foreground" aria-hidden />
-          </div>
-          <div>
-            <p className="text-lg font-semibold text-foreground">Details</p>
-            <p className="text-sm text-muted-foreground mt-1 max-w-[14rem]">
-              Select a game, app, or bookmark in the grid to see more info and actions here.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="relative aspect-[16/10] w-full shrink-0 bg-muted/40 overflow-hidden">
-            {cover ? (
-              <img
-                src={cover}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = getSafeImageSource(null);
-                }}
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-5xl opacity-40">
-                {game.category === "Media" ? "📺" : game.category === "Bookmark" ? "🔗" : "🎮"}
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
-            <DetailsFocusControl index={0} className="absolute top-3 right-3 inline-flex">
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon"
-                className={cn(
-                  "h-10 w-10 rounded-xl shadow-lg border border-border/60",
-                  isFavorite && "bg-amber-500/15 text-amber-500 border-amber-500/40"
-                )}
-                onClick={() => toggleFavorite(game.id)}
-                aria-pressed={isFavorite}
-                aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-              >
-                <Star className={cn("h-5 w-5", isFavorite && "fill-current")} />
-              </Button>
-            </DetailsFocusControl>
-          </div>
+  const emptyDetails = (
+    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4 min-h-[12rem]">
+      <div className="rounded-2xl p-5 bg-muted/40 border border-border/50">
+        <LayoutList className="w-10 h-10 text-muted-foreground" aria-hidden />
+      </div>
+      <div>
+        <p className="text-lg font-semibold text-foreground">Details</p>
+        <p className="text-sm text-muted-foreground mt-1 max-w-[14rem]">
+          Select a game, app, or bookmark in the grid to see more info and actions here.
+        </p>
+      </div>
+    </div>
+  );
 
-          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 space-y-3.5 min-h-0">
+  const asideShellClass = cn(
+    "h-full w-[min(100%,22rem)] sm:w-96 shrink-0 flex flex-col",
+    "border-l border-border/60 bg-card/80 backdrop-blur-xl",
+    "shadow-[inset_1px_0_0_0_hsl(var(--foreground)/0.06)]"
+  );
+
+  if (!game) {
+    return layout === "page" ? (
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-card/50 border-border/40 flex flex-col"
+        aria-label="Item details"
+      >
+        {emptyDetails}
+      </div>
+    ) : (
+      <aside className={asideShellClass} aria-label="Item details">
+        {emptyDetails}
+      </aside>
+    );
+  }
+
+  const heroBlock = (mode: "page" | "sidebar") => (
+    <DetailsHeroFrame variant={mode} imageSrc={cover} fallback={game.category === "Media" ? "📺" : game.category === "Bookmark" ? "🔗" : "🎮"}>
+      <DetailsFocusControl
+        index={0}
+        className={cn("absolute right-2.5 sm:right-3 inline-flex", mode === "page" ? "top-2 sm:top-3" : "top-3")}
+      >
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className={cn(
+            "h-10 w-10 rounded-xl shadow-lg border border-border/60",
+            isFavorite && "bg-amber-500/15 text-amber-500 border-amber-500/40"
+          )}
+          onClick={() => toggleFavorite(game.id)}
+          aria-pressed={isFavorite}
+          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+        >
+          <Star className={cn("h-5 w-5", isFavorite && "fill-current")} />
+        </Button>
+      </DetailsFocusControl>
+    </DetailsHeroFrame>
+  );
+
+  const detailsColumn = (
+    <div
+      className={cn(
+        "space-y-3.5",
+        layout === "page"
+          ? "w-full max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-5"
+          : "flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 min-h-0"
+      )}
+    >
             <header className="space-y-2">
               <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight tracking-tight pr-10">
                 {game.name}
@@ -259,6 +250,17 @@ export function GameDetailsSidebar() {
             <p className="text-[11px] text-muted-foreground" title="Last launch from this device">
               {formatLastOpened(lastOpened)}
             </p>
+
+            <DetailsFocusControl index={3} className="block">
+              <Button
+                type="button"
+                className="w-full h-11 sm:h-12 rounded-xl text-sm sm:text-base font-semibold gap-2 shadow-lg shadow-primary/20"
+                onClick={() => void launchGame(game)}
+              >
+                <Play className="h-5 w-5 fill-current shrink-0" />
+                {game.launch_type === "Url" ? "Open" : "Launch"}
+              </Button>
+            </DetailsFocusControl>
 
             <section
               className="rounded-xl border border-border/50 bg-muted/10 overflow-hidden shadow-sm"
@@ -347,17 +349,6 @@ export function GameDetailsSidebar() {
                 ) : null}
               </div>
             </section>
-
-            <DetailsFocusControl index={3} className="block">
-              <Button
-                type="button"
-                className="w-full h-11 sm:h-12 rounded-xl text-sm sm:text-base font-semibold gap-2 shadow-lg shadow-primary/20"
-                onClick={() => void launchGame(game)}
-              >
-                <Play className="h-5 w-5 fill-current shrink-0" />
-                {game.launch_type === "Url" ? "Open" : "Launch"}
-              </Button>
-            </DetailsFocusControl>
 
             <section className="rounded-xl border border-border/60 bg-muted/15 p-3 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
@@ -550,9 +541,32 @@ export function GameDetailsSidebar() {
                   {metaPanel.payload.releaseLabel ? (
                     <p className="text-[11px] text-muted-foreground">{metaPanel.payload.releaseLabel}</p>
                   ) : null}
+                  {metaPanel.payload.runtimeMinutes != null ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      ~{metaPanel.payload.runtimeMinutes} min
+                    </p>
+                  ) : null}
+                  {metaPanel.payload.genres.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {metaPanel.payload.genres.map((g) => (
+                        <span
+                          key={g}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/15"
+                        >
+                          {g}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   {metaPanel.payload.overview ? (
                     <p className="text-xs text-foreground/90 leading-relaxed line-clamp-6">
                       {metaPanel.payload.overview}
+                    </p>
+                  ) : null}
+                  {metaPanel.payload.providers.length > 0 ? (
+                    <p className="text-[10px] text-muted-foreground">
+                      {metaPanel.payload.providers.length} streaming option
+                      {metaPanel.payload.providers.length === 1 ? "" : "s"} in TMDB (region data)
                     </p>
                   ) : null}
                   {metaPanel.payload.homepage ? (
@@ -574,9 +588,24 @@ export function GameDetailsSidebar() {
             <p className="text-[10px] text-muted-foreground/80 text-center leading-snug pb-1 pt-0.5">
               Escape · back to grid · Enter activates focus
             </p>
-          </div>
-        </div>
-      )}
+    </div>
+  );
+
+  if (layout === "page") {
+    return (
+      <DetailsPageShell scrollRef={pageScrollRef} scrollResetKey={game.id} ariaLabel="Item details">
+        {heroBlock("page")}
+        {detailsColumn}
+      </DetailsPageShell>
+    );
+  }
+
+  return (
+    <aside className={asideShellClass} aria-label="Item details">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full">
+        {heroBlock("sidebar")}
+        {detailsColumn}
+      </div>
     </aside>
   );
 }

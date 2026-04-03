@@ -14,6 +14,10 @@ A lightweight, fullscreen game and app launcher with PlayStation-style UI, optim
 - **Search**: Quick search functionality to find games
 - **Bookmarks**: Add web links as launchable items
 
+## Add-ons and plugins
+
+Streaming catalog add-ons are optional zip archives with a `manifest.json`; the app loads them from your profile `plugins` folder or configured paths. See **[docs/PLUGINS.md](docs/PLUGINS.md)** for the manifest schema, packaging, discovery order, and a roadmap for future game/app plugin surfaces.
+
 ## Technology Stack
 
 - **Framework**: Tauri 2.0 (Rust backend + Web frontend)

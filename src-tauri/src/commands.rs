@@ -1,19 +1,46 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use std::process::Command;
 use tauri::command;
+use tauri::AppHandle;
 use crate::game_scanner;
 use crate::icon_extractor;
+use crate::library_cache;
+use crate::library_store;
 
+fn deserialize_trimmed_opt_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let o = Option::<String>::deserialize(deserializer)?;
+    Ok(o.and_then(|s| {
+        let t = s.trim();
+        if t.is_empty() {
+            None
+        } else {
+            Some(t.to_string())
+        }
+    }))
+}
+
+/// Library row from scan / snapshot / manual SQLite. Aliases keep JS IPC and older JSON happy.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Game {
     pub id: String,
     pub name: String,
     pub path: String,
     pub executable: String,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_trimmed_opt_string",
+        alias = "coverArt"
+    )]
     pub cover_art: Option<String>,
-    pub icon: Option<String>, // Base64 encoded icon
+    #[serde(default, deserialize_with = "deserialize_trimmed_opt_string")]
+    pub icon: Option<String>, // Remote URL, data URL, or absolute path to cached PNG (Windows)
     pub platform: String,
     pub category: Category,
+    #[serde(alias = "launchType")]
     pub launch_type: LaunchType,
 }
 
@@ -25,7 +52,7 @@ pub enum Category {
     Bookmark,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub enum LaunchType {
     Executable,
     Steam,
@@ -36,10 +63,83 @@ pub enum LaunchType {
     Url,
 }
 
+#[derive(Debug, Serialize)]
+pub struct LaunchGameResult {
+    /// OS process id when this app spawned a direct executable; launcher/URI opens usually return None.
+    pub pid: Option<u32>,
+}
+
+fn spawn_detached_with_pid(
+    program: &str,
+    args: &[&str],
+    cwd: Option<&std::path::Path>,
+) -> Result<LaunchGameResult, String> {
+    let mut c = Command::new(program);
+    c.args(args);
+    if let Some(p) = cwd {
+        c.current_dir(p);
+    }
+    let mut child = c.spawn().map_err(|e| e.to_string())?;
+    let pid = child.id();
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(LaunchGameResult { pid: Some(pid) })
+}
+
+#[cfg(target_os = "windows")]
 #[command]
-pub async fn scan_games() -> Result<Vec<Game>, String> {
+pub fn focus_window_by_pid(pid: u32) -> Result<(), String> {
+    use windows::Win32::Foundation::{BOOL, HWND, LPARAM, TRUE};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, GetWindowThreadProcessId, IsWindowVisible, SetForegroundWindow, ShowWindow,
+        SW_RESTORE,
+    };
+
+    struct Search {
+        pid: u32,
+        best: Option<HWND>,
+    }
+
+    let mut search = Search { pid, best: None };
+    let lparam = LPARAM(&mut search as *mut Search as isize);
+
+    unsafe extern "system" fn callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let search = &mut *(lparam.0 as *mut Search);
+        let mut wpid = 0u32;
+        let _ = GetWindowThreadProcessId(hwnd, Some(&mut wpid));
+        if wpid == search.pid && IsWindowVisible(hwnd).as_bool() {
+            search.best = Some(hwnd);
+            BOOL(0)
+        } else {
+            TRUE
+        }
+    }
+
+    unsafe {
+        let _ = EnumWindows(Some(callback), lparam);
+    }
+
+    let hwnd = search
+        .best
+        .ok_or_else(|| "No visible window found for that process".to_string())?;
+    unsafe {
+        let _ = ShowWindow(hwnd, SW_RESTORE);
+        let _ = SetForegroundWindow(hwnd);
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+#[command]
+pub fn focus_window_by_pid(_pid: u32) -> Result<(), String> {
+    Err("focus_window_by_pid is only supported on Windows".to_string())
+}
+
+#[command]
+pub async fn scan_games(app: AppHandle) -> Result<Vec<Game>, String> {
     let mut games = Vec::new();
-    
+
     // Scan all platforms
     #[cfg(target_os = "windows")]
     {
@@ -50,35 +150,75 @@ pub async fn scan_games() -> Result<Vec<Game>, String> {
         games.extend(game_scanner::scan_ubisoft_games());
         games.extend(game_scanner::scan_xbox_games());
     }
-    
+
     // Deduplicate games by ID and name
     games.sort_by(|a, b| a.id.cmp(&b.id));
     games.dedup_by(|a, b| a.id == b.id);
-    
+
     // Also remove duplicates by name and executable path
     games.sort_by(|a, b| {
-        a.name.cmp(&b.name).then_with(|| a.executable.cmp(&b.executable))
+        a.name
+            .cmp(&b.name)
+            .then_with(|| a.executable.cmp(&b.executable))
     });
     let mut seen = std::collections::HashSet::new();
     games.retain(|game| {
         let key = format!("{}|{}", game.name, game.executable);
         seen.insert(key)
     });
-    
+
+    games.extend(crate::library_store::load_manual_entries(&app)?);
+
+    library_cache::resolve_icons_for_games(&app, &mut games);
+    library_cache::persist_snapshot(&app, &games)?;
+
     Ok(games)
 }
 
+/// Last merged library from [`scan_games`] (platform scan + manual SQLite rows).
+/// Re-attaches cached icon paths from disk (and extracts missing ones) without re-scanning installers.
 #[command]
-pub async fn launch_game(game: Game) -> Result<(), String> {
-    use std::process::Command;
-    
+pub async fn load_cached_library(app: AppHandle) -> Result<Option<Vec<Game>>, String> {
+    let Some(mut games) = library_cache::load_snapshot(&app)? else {
+        return Ok(None);
+    };
+    let icons_before = games.iter().filter(|g| icon_nonempty(g)).count();
+    library_cache::resolve_icons_for_games(&app, &mut games);
+    let icons_after = games.iter().filter(|g| icon_nonempty(g)).count();
+    if icons_after > icons_before {
+        let _ = library_cache::persist_snapshot(&app, &games);
+    }
+    Ok(Some(games))
+}
+
+fn icon_nonempty(g: &Game) -> bool {
+    g.icon
+        .as_ref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false)
+}
+
+#[command]
+pub async fn launch_game(game: Game) -> Result<LaunchGameResult, String> {
     match game.launch_type {
         LaunchType::Executable => {
-            let mut cmd = Command::new(&game.executable);
-            if let Some(parent) = std::path::Path::new(&game.path).parent() {
-                cmd.current_dir(parent);
+            #[cfg(target_os = "windows")]
+            {
+                let ext = std::path::Path::new(&game.executable)
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_lowercase());
+                if matches!(ext.as_deref(), Some("lnk") | Some("url")) {
+                    Command::new("cmd")
+                        .args(["/C", "start", "", &game.executable])
+                        .spawn()
+                        .map_err(|e| format!("Failed to launch shortcut: {}", e))?;
+                    return Ok(LaunchGameResult { pid: None });
+                }
             }
-            cmd.spawn().map_err(|e| format!("Failed to launch game: {}", e))?;
+            let parent = std::path::Path::new(&game.path).parent();
+            return spawn_detached_with_pid(&game.executable, &[], parent)
+                .map_err(|e| format!("Failed to launch game: {}", e));
         }
         LaunchType::Steam => {
             #[cfg(target_os = "windows")]
@@ -145,12 +285,9 @@ pub async fn launch_game(game: Game) -> Result<(), String> {
                         .spawn()
                         .map_err(|e| format!("Failed to launch Xbox game: {}", e))?;
                 } else if std::path::Path::new(&game.executable).exists() {
-                    // Direct executable launch
-                    let mut cmd = Command::new(&game.executable);
-                    if let Some(parent) = std::path::Path::new(&game.path).parent() {
-                        cmd.current_dir(parent);
-                    }
-                    cmd.spawn().map_err(|e| format!("Failed to launch Xbox game: {}", e))?;
+                    let parent = std::path::Path::new(&game.path).parent();
+                    return spawn_detached_with_pid(&game.executable, &[], parent)
+                        .map_err(|e| format!("Failed to launch Xbox game: {}", e));
                 } else {
                     // Fallback to Microsoft Store protocol
                     Command::new("cmd")
@@ -181,27 +318,31 @@ pub async fn launch_game(game: Game) -> Result<(), String> {
             }
         }
     }
-    
-    Ok(())
+
+    Ok(LaunchGameResult { pid: None })
 }
 
 #[command]
 pub async fn add_manual_game(
+    app: AppHandle,
     name: String,
     path: String,
     executable: String,
 ) -> Result<Game, String> {
-    Ok(Game {
-        id: format!("manual_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()),
-        name,
-        path,
-        executable,
-        cover_art: None,
-        icon: None,
-        platform: "Windows".to_string(),
-        category: Category::App,
-        launch_type: LaunchType::Executable,
-    })
+    let target = executable.trim();
+    if target.is_empty() {
+        return Err("Executable path is required.".into());
+    }
+    // Legacy `path` is kept for API compatibility; launch uses the same path layout as scans (derived from the target).
+    let _legacy_path = path;
+    library_store::library_manual_add_impl(
+        &app,
+        library_store::LibraryManualAdd::Executable {
+            name,
+            category: Category::App,
+            target_path: target.to_string(),
+        },
+    )
 }
 
 #[command]

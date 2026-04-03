@@ -18,3 +18,6 @@ export interface Game {
 
 /** Virtual category: filter by `favoriteIds`, not `game.category`. */
 export const FAVORITES_CATEGORY_ID = "Favorite" as const;
+
+/** Virtual category: TMDB discover grid (not local library). */
+export const DISCOVER_CATEGORY_ID = "__portal_discover__" as const;

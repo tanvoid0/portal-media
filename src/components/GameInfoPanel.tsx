@@ -46,7 +46,7 @@ export function GameInfoPanel({ game }: GameInfoPanelProps) {
           <div className="flex items-start gap-10 mb-6">
             {/* Game Icon/Thumbnail - Enhanced */}
             {backgroundImage && (
-              <div className="relative w-40 h-52 flex-shrink-0 rounded-2xl overflow-hidden border-2 border-primary/50 shadow-2xl transition-all duration-500 group animate-scale-in">
+              <div className="relative w-40 h-52 flex-shrink-0 rounded-card overflow-hidden border-2 border-primary/50 shadow-card transition-all duration-500 group animate-scale-in">
                 <img
                   src={backgroundImage}
                   alt={game.name}
@@ -57,7 +57,7 @@ export function GameInfoPanel({ game }: GameInfoPanelProps) {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
                 {/* Subtle glow on thumbnail */}
-                <div className="absolute inset-0 border border-primary/20 rounded-2xl pointer-events-none" />
+                <div className="absolute inset-0 border border-primary/20 rounded-card pointer-events-none" />
               </div>
             )}
             

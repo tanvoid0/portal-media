@@ -13,6 +13,8 @@
     "core:window:allow-maximize",
     "core:window:allow-unmaximize",
     "core:window:allow-current-monitor",
-    "opener:default"
+    "opener:default",
+    "dialog:allow-open",
+    "process:default"
   ]
 }

@@ -4,6 +4,7 @@
  * Per light/dark block, define semantic colors plus structural tokens
  * (`--radius-card`, `--shadow-card`, `--font-ui`, `--control-height`, …)
  * so UI primitives pick up the look without per-theme React branches.
+ * Global tile motion for grids lives on `html` in `src/styles/index.css` (`--tile-*`).
  */
 export const THEME_IDS = [
   "her",

@@ -1,0 +1,58 @@
+import type { IgdbDiscoverHit, TmdbDiscoverPayload } from "@/types/metadata";
+
+const CACHE_KEY = "portal_media_discover_cache_v1";
+
+/** How long cached TMDB + IGDB discover payloads stay fresh before background refetch is skipped. */
+export const DISCOVER_CACHE_TTL_MS = 45 * 60 * 1000;
+
+export type DiscoverCacheSnapshot = {
+  v: 1;
+  savedAt: number;
+  tmdb: TmdbDiscoverPayload | null;
+  igdb: IgdbDiscoverHit[];
+};
+
+function isSnapshot(x: unknown): x is DiscoverCacheSnapshot {
+  if (!x || typeof x !== "object") return false;
+  const o = x as Record<string, unknown>;
+  return (
+    o.v === 1 &&
+    typeof o.savedAt === "number" &&
+    (o.tmdb === null || typeof o.tmdb === "object") &&
+    Array.isArray(o.igdb)
+  );
+}
+
+export function readDiscoverCache(): DiscoverCacheSnapshot | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isSnapshot(parsed)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function writeDiscoverCache(snapshot: Omit<DiscoverCacheSnapshot, "v"> & { v?: 1 }): void {
+  if (typeof window === "undefined") return;
+  try {
+    const body: DiscoverCacheSnapshot = {
+      v: 1,
+      savedAt: snapshot.savedAt,
+      tmdb: snapshot.tmdb,
+      igdb: snapshot.igdb,
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(body));
+  } catch {
+    // ignore quota / privacy mode
+  }
+}
+
+export function discoverCacheAgeLabel(savedAt: number): string {
+  const d = new Date(savedAt);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+}

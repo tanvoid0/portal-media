@@ -32,6 +32,18 @@ export function BrowserBar({
     setUrlInput(url);
   }, [url]);
 
+  useEffect(() => {
+    if (!showPermissions) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setShowPermissions(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [showPermissions]);
+
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     let urlToNavigate = urlInput.trim();

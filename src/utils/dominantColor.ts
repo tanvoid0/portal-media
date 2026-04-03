@@ -1,3 +1,4 @@
+import { isTauri } from "@tauri-apps/api/core";
 import { getCachedAmbientRgb, setCachedAmbientRgb } from "@/utils/ambientRgbCache";
 
 export type Rgb = { r: number; g: number; b: number };
@@ -127,6 +128,14 @@ async function extractVibrantDominantColorUncached(src: string): Promise<Rgb | n
   }
 
   if (isRemote) {
+    // WebView often taints canvas for hotlinked posters; Tauri fetch+data URL is reliable first.
+    if (isTauri()) {
+      const dataUrlFirst = await fetchImageAsDataUrlViaTauri(src);
+      if (dataUrlFirst) {
+        const rgb = await extractFromImageSource(dataUrlFirst, false);
+        if (rgb) return rgb;
+      }
+    }
     let rgb = await extractFromImageSource(src, true);
     if (rgb) return rgb;
     const dataUrl = await fetchImageAsDataUrlViaTauri(src);
@@ -147,7 +156,7 @@ async function extractVibrantDominantColorUncached(src: string): Promise<Rgb | n
  */
 export async function extractVibrantDominantColorFromImageSource(src: string): Promise<Rgb | null> {
   const cached = getCachedAmbientRgb(src);
-  if (cached !== undefined) return cached;
+  if (cached != null) return cached;
 
   const rgb = await extractVibrantDominantColorUncached(src);
   setCachedAmbientRgb(src, rgb);

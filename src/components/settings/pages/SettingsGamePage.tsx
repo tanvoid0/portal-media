@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookmarkManager } from "@/components/BookmarkManager";
+import { LibraryManualAddSection } from "@/components/LibraryManualAddSection";
 import { useGameStore } from "@/stores/gameStore";
 import { useSyncStore, Platform } from "@/stores/syncStore";
 import {
@@ -289,6 +290,7 @@ export function SettingsGamePage() {
           </div>
         </CardContent>
       </Card>
+      <LibraryManualAddSection />
       <BookmarkManager />
     </>
   );

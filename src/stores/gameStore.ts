@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { getDefaultBookmarks } from "@/utils/defaultBookmarks";
 import type { Game, GameCategory, SortType } from "@/types/game";
-import { FAVORITES_CATEGORY_ID } from "@/types/game";
+import { DISCOVER_CATEGORY_ID, FAVORITES_CATEGORY_ID } from "@/types/game";
 import { CATEGORY_NAV_ORDER } from "@/constants/categoryNav";
 import { useNavigationStore } from "./navigationStore";
 import {
@@ -11,12 +11,13 @@ import {
   loadArchivedIds,
   loadCategoryHides,
   loadCategoryOverrides,
-  mergeScanWithCarry,
   persistArchivedIds,
   persistCategoryHides,
   persistCategoryOverrides,
   splitArchivedVisible,
 } from "@/utils/libraryPrefs";
+import { normalizeLibraryGames } from "@/utils/normalizeLibraryGame";
+import { hydrateIgdbCoversFromMetadataCache } from "@/utils/hydrateIgdbCovers";
 
 export type { Game, SortType } from "@/types/game";
 export { FAVORITES_CATEGORY_ID } from "@/types/game";
@@ -113,7 +114,10 @@ interface GameStore {
   categoryOverrides: Record<string, GameCategory>;
   /** Per sidebar tab: item stays in All / other tabs, but not in this tab. */
   hiddenFromCategories: Record<string, GameCategory[]>;
+  /** Text filter applied to the library (persisted). */
   searchQuery: string;
+  /** Current search field value — may be empty while `searchQuery` still applies after "clear input". */
+  searchInput: string;
   selectedCategory: string | null;
   sortType: SortType;
   selectedIndex: number;
@@ -124,12 +128,16 @@ interface GameStore {
   /** Full-screen launch feedback while starting a local / platform game */
   launchOverlay: LaunchOverlayState | null;
   error: string | null;
+  /** Full rescan + icon cache refresh + snapshot write (Settings / platform sync). */
   scanGames: () => Promise<void>;
+  /** Restore last synced library from disk (no platform scan). */
+  loadCachedLibrary: () => Promise<void>;
   launchGame: (game: Game) => Promise<void>;
   addManualGame: (name: string, path: string, executable: string) => Promise<void>;
-  addBookmark: (name: string, url: string) => Promise<void>;
+  addBookmark: (name: string, url: string, category?: "Media" | "Bookmark") => Promise<void>;
   setSelectedIndex: (index: number) => void;
   setSearchQuery: (query: string) => void;
+  clearSearchInput: () => void;
   setSelectedCategory: (category: string | null) => void;
   setSortType: (sortType: SortType) => void;
   selectNext: () => void;
@@ -209,6 +217,8 @@ function filterGamesByPrefs(
   if (selectedCategory === FAVORITES_CATEGORY_ID) {
     const fav = new Set(favoriteIds);
     filtered = filtered.filter((game) => fav.has(game.id));
+  } else if (selectedCategory === DISCOVER_CATEGORY_ID) {
+    filtered = [];
   } else if (selectedCategory) {
     const tab = selectedCategory as GameCategory;
     filtered = filtered.filter((game) => {
@@ -253,7 +263,51 @@ function deriveLibrarySlice(
   };
 }
 
-export const useGameStore = create<GameStore>((set, get) => ({
+export const useGameStore = create<GameStore>((set, get) => {
+  const applyLibraryPayload = (scannedPortion: unknown) => {
+    const defaultBookmarks = getDefaultBookmarks();
+    const fromDisk = normalizeLibraryGames(scannedPortion);
+    const sourceGames = [...defaultBookmarks, ...fromDisk];
+
+    const prefs = loadGameUiPrefs();
+    const getLo = (id: string) => getLastOpenedTimes()[id] || 0;
+
+    const {
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      favoriteIds,
+    } = get();
+
+    const slice = deriveLibrarySlice(
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      prefs.searchQuery,
+      prefs.selectedCategory,
+      prefs.sortType,
+      favoriteIds,
+      getLo
+    );
+
+    syncCategoryIndexFromSelection(prefs.selectedCategory);
+
+    set({
+      sourceGames,
+      ...slice,
+      isLoading: false,
+      selectedIndex: 0,
+      searchQuery: prefs.searchQuery,
+      searchInput: prefs.searchQuery,
+      selectedCategory: prefs.selectedCategory,
+      sortType: prefs.sortType,
+    });
+
+    hydrateIgdbCoversFromMetadataCache(sourceGames);
+  };
+
+  return {
   sourceGames: [],
   games: [],
   filteredGames: [],
@@ -263,6 +317,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   categoryOverrides: loadCategoryOverrides(),
   hiddenFromCategories: loadCategoryHides(),
   searchQuery: "",
+  searchInput: "",
   selectedCategory: null,
   sortType: "default",
   selectedIndex: 0,
@@ -446,48 +501,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   scanGames: async () => {
     set({ isLoading: true, error: null });
     try {
-      const scannedGames = await invoke<Game[]>("scan_games");
-      const defaultBookmarks = getDefaultBookmarks();
-      const base = [...defaultBookmarks, ...scannedGames];
-      const previousSource = get().sourceGames;
-      const sourceGames = mergeScanWithCarry(base, previousSource);
-
-      const prefs = loadGameUiPrefs();
-      const getLo = (id: string) => getLastOpenedTimes()[id] || 0;
-
-      const {
-        archivedIds,
-        categoryOverrides,
-        hiddenFromCategories,
-        favoriteIds,
-      } = get();
-
-      const slice = deriveLibrarySlice(
-        sourceGames,
-        archivedIds,
-        categoryOverrides,
-        hiddenFromCategories,
-        prefs.searchQuery,
-        prefs.selectedCategory,
-        prefs.sortType,
-        favoriteIds,
-        getLo
-      );
-
-      syncCategoryIndexFromSelection(prefs.selectedCategory);
-
-      set({
-        sourceGames,
-        ...slice,
-        isLoading: false,
-        selectedIndex: 0,
-        searchQuery: prefs.searchQuery,
-        selectedCategory: prefs.selectedCategory,
-        sortType: prefs.sortType,
-      });
+      const scannedGames = await invoke<unknown>("scan_games");
+      applyLibraryPayload(scannedGames);
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Failed to scan games",
+        isLoading: false,
+      });
+    }
+  },
+
+  loadCachedLibrary: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const cached = await invoke<unknown>("load_cached_library");
+      applyLibraryPayload(cached);
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : "Failed to load cached library",
         isLoading: false,
       });
     }
@@ -516,8 +547,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       getLastOpenedTime
     );
 
-    set({ searchQuery: query, ...slice, selectedIndex: 0 });
+    set({ searchQuery: query, searchInput: query, ...slice, selectedIndex: 0 });
     persistGameUiPrefs({ searchQuery: query, selectedCategory, sortType });
+  },
+
+  clearSearchInput: () => {
+    set({ searchInput: "" });
   },
 
   setSelectedCategory: (category: string | null) => {
@@ -590,7 +625,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
           },
         });
         try {
-          await invoke("launch_game", { game });
+          const result = await invoke<{ pid?: number }>("launch_game", { game });
+          const { useSessionStore } = await import("./sessionStore");
+          useSessionStore.getState().pushExternalGameSession(
+            game.id,
+            game.name,
+            result.pid
+          );
         } finally {
           set({ launchOverlay: null });
         }
@@ -631,23 +672,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   addManualGame: async (name: string, path: string, executable: string) => {
     try {
-      const game = await invoke<Game>("add_manual_game", { name, path, executable });
-      set((state) => {
-        const sourceGames = [...state.sourceGames, game];
-        const { getLastOpenedTime } = state;
-        const slice = deriveLibrarySlice(
-          sourceGames,
-          state.archivedIds,
-          state.categoryOverrides,
-          state.hiddenFromCategories,
-          state.searchQuery,
-          state.selectedCategory,
-          state.sortType,
-          state.favoriteIds,
-          getLastOpenedTime
-        );
-        return { sourceGames, ...slice };
-      });
+      await invoke<Game>("add_manual_game", { name, path, executable });
+      await get().scanGames();
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Failed to add game",
@@ -655,34 +681,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  addBookmark: async (name: string, url: string) => {
-    const bookmark: Game = {
-      id: `bookmark_${Date.now()}`,
-      name,
-      path: url,
-      executable: url,
-      cover_art: undefined,
-      icon: undefined,
-      platform: "Web",
-      category: "Bookmark",
-      launch_type: "Url",
-    };
-    set((state) => {
-      const sourceGames = [...state.sourceGames, bookmark];
-      const { getLastOpenedTime } = state;
-      const slice = deriveLibrarySlice(
-        sourceGames,
-        state.archivedIds,
-        state.categoryOverrides,
-        state.hiddenFromCategories,
-        state.searchQuery,
-        state.selectedCategory,
-        state.sortType,
-        state.favoriteIds,
-        getLastOpenedTime
-      );
-      return { sourceGames, ...slice };
-    });
+  addBookmark: async (name: string, url: string, category: "Media" | "Bookmark" = "Media") => {
+    try {
+      let href = url.trim();
+      if (!/^[a-zA-Z][a-zA-Z\d+.+-]*:/.test(href)) {
+        href = `https://${href}`;
+      }
+      // Reject obviously invalid input before hitting the shell / backend.
+      new URL(href);
+      await invoke<Game>("library_manual_add", {
+        add: { kind: "web", name: name.trim(), category, url: href },
+      });
+      await get().scanGames();
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Failed to add bookmark",
+      });
+    }
   },
 
   setSelectedIndex: (index: number) => {
@@ -730,4 +750,5 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ selectedIndex: next });
     }
   },
-}));
+};
+});

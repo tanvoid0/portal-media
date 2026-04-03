@@ -3,9 +3,9 @@ use tauri::AppHandle;
 
 use crate::commands::{Category, Game};
 use crate::metadata::cache;
-use crate::metadata::igdb::{self, IgdbGamePayload};
+use crate::metadata::igdb::{self, IgdbDiscoverHit, IgdbGamePayload};
 use crate::metadata::secrets;
-use crate::metadata::tmdb::{self, TmdbDetailPayload, TmdbSearchHit};
+use crate::metadata::tmdb::{self, TmdbDetailPayload, TmdbDiscoverPayload, TmdbProviderRow, TmdbSearchHit};
 
 /// Reject oversized payloads from the UI (defense in depth; values should be short tokens).
 const MAX_SECRET_UTF8_BYTES: usize = 8192;
@@ -245,6 +245,47 @@ pub async fn metadata_fetch_igdb_for_game(app: AppHandle, game: Game) -> Result<
     igdb_fetch_impl(&app, game, false).await
 }
 
+/// Reads IGDB cover URLs already stored in the metadata cache (SQLite) so the grid can hydrate
+/// after restart without opening each game's details. Ignores TTL so stale rows still show art
+/// until a detail fetch refreshes them.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IgdbCachedCoverHit {
+    pub game_id: String,
+    pub cover_url: String,
+}
+
+#[tauri::command]
+pub fn metadata_peek_cached_igdb_covers(app: AppHandle, games: Vec<Game>) -> Result<Vec<IgdbCachedCoverHit>, String> {
+    let conn = cache::open_cache_db(&app)?;
+    let mut out = Vec::new();
+    for game in games {
+        if game.category != Category::Game {
+            continue;
+        }
+        let cache_key = cache::cache_key_igdb(&game);
+        let Some((payload, _fetched)) = cache::cache_get(&conn, &cache_key)? else {
+            continue;
+        };
+        let Ok(p) = serde_json::from_str::<IgdbGamePayload>(&payload) else {
+            continue;
+        };
+        let Some(url) = p
+            .cover_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        else {
+            continue;
+        };
+        out.push(IgdbCachedCoverHit {
+            game_id: game.id,
+            cover_url: url.to_string(),
+        });
+    }
+    Ok(out)
+}
+
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum TmdbSearchResult {
@@ -278,6 +319,33 @@ pub enum TmdbDetailResult {
     Ok { payload: TmdbDetailPayload },
 }
 
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum TmdbWatchProvidersResult {
+    NotConfigured,
+    Error { message: String },
+    Ok { providers: Vec<TmdbProviderRow> },
+}
+
+#[tauri::command]
+pub async fn metadata_tmdb_fetch_watch_providers(
+    media_type: String,
+    id: u64,
+) -> Result<TmdbWatchProvidersResult, String> {
+    if !secrets::tmdb_configured() {
+        return Ok(TmdbWatchProvidersResult::NotConfigured);
+    }
+    let Some(key) = secrets::get_tmdb_api_key() else {
+        return Ok(TmdbWatchProvidersResult::NotConfigured);
+    };
+    let mt = media_type.to_lowercase();
+    let kind = if mt == "tv" { "tv" } else { "movie" };
+    match tmdb::fetch_watch_providers(&key, kind, id).await {
+        Ok(providers) => Ok(TmdbWatchProvidersResult::Ok { providers }),
+        Err(e) => Ok(TmdbWatchProvidersResult::Error { message: e }),
+    }
+}
+
 #[tauri::command]
 pub async fn metadata_tmdb_fetch_detail(
     media_type: String,
@@ -296,6 +364,50 @@ pub async fn metadata_tmdb_fetch_detail(
     match res {
         Ok(p) => Ok(TmdbDetailResult::Ok { payload: p }),
         Err(e) => Ok(TmdbDetailResult::Error { message: e }),
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum TmdbDiscoverResult {
+    NotConfigured,
+    Error { message: String },
+    Ok { payload: TmdbDiscoverPayload },
+}
+
+#[tauri::command]
+pub async fn metadata_tmdb_discover() -> Result<TmdbDiscoverResult, String> {
+    if !secrets::tmdb_configured() {
+        return Ok(TmdbDiscoverResult::NotConfigured);
+    }
+    let Some(key) = secrets::get_tmdb_api_key() else {
+        return Ok(TmdbDiscoverResult::NotConfigured);
+    };
+    match tmdb::fetch_discover(&key).await {
+        Ok(p) => Ok(TmdbDiscoverResult::Ok { payload: p }),
+        Err(e) => Ok(TmdbDiscoverResult::Error { message: e }),
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum IgdbDiscoverResult {
+    NotConfigured,
+    Error { message: String },
+    Ok { hits: Vec<IgdbDiscoverHit> },
+}
+
+#[tauri::command]
+pub async fn metadata_igdb_discover_games() -> Result<IgdbDiscoverResult, String> {
+    if !secrets::igdb_configured() {
+        return Ok(IgdbDiscoverResult::NotConfigured);
+    }
+    let Some((client_id, client_secret)) = secrets::get_igdb_credentials() else {
+        return Ok(IgdbDiscoverResult::NotConfigured);
+    };
+    match igdb::fetch_discover_games(&client_id, &client_secret).await {
+        Ok(hits) => Ok(IgdbDiscoverResult::Ok { hits }),
+        Err(e) => Ok(IgdbDiscoverResult::Error { message: e }),
     }
 }
 

@@ -1,8 +1,9 @@
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useGameStore } from "@/stores/gameStore";
+import { useShellOverlayStore } from "@/stores/shellOverlayStore";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { CLOSE_SHELL_SEARCH_EVENT, OPEN_SHELL_SEARCH_EVENT } from "@/types/app";
 
 export function SearchBar({
@@ -13,7 +14,16 @@ export function SearchBar({
   variant?: "default" | "compact";
   compactPopupSide?: "left" | "right";
 }) {
-  const { searchQuery, setSearchQuery, setSelectedIndex, filteredGames, games } = useGameStore();
+  const {
+    searchQuery,
+    searchInput,
+    setSearchQuery,
+    clearSearchInput,
+    setSelectedIndex,
+    filteredGames,
+    games,
+  } = useGameStore();
+  const filterActive = Boolean(searchQuery.trim());
   const [isOpen, setIsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const isCompact = variant === "compact";
@@ -52,6 +62,28 @@ export function SearchBar({
     }
   }, [isOpen, isCompact, focusInput]);
 
+  useEffect(() => {
+    const setSearchPopoverOpen = useShellOverlayStore.getState().setSearchPopoverOpen;
+    if (!isCompact) {
+      setSearchPopoverOpen(false);
+      return;
+    }
+    setSearchPopoverOpen(isOpen);
+  }, [isCompact, isOpen]);
+
+  const dismissSearchKeyboard = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    if (isCompact) {
+      if (isOpen) setIsOpen(false);
+      window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
+      return;
+    }
+    if (searchInput.trim() || filterActive) {
+      setSearchQuery("");
+    }
+  };
+
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     if (value.trim() && filteredGames.length > 0) {
@@ -59,6 +91,11 @@ export function SearchBar({
     } else if (!value.trim()) {
       setSelectedIndex(0);
     }
+  };
+
+  const handleClearInput = () => {
+    clearSearchInput();
+    focusInput();
   };
 
   if (isCompact) {
@@ -71,7 +108,8 @@ export function SearchBar({
             "w-14 h-14 rounded-2xl flex items-center justify-center",
             "transition-all duration-ps5 spring-ease",
             "hover:bg-foreground/5 text-muted-foreground hover:text-foreground hover:scale-105",
-            (isOpen || searchQuery) && "bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30 scale-105"
+            (isOpen || filterActive || searchInput) &&
+              "bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30 scale-105"
           )}
           title="Search"
         >
@@ -93,25 +131,37 @@ export function SearchBar({
                   autoFocus
                   type="text"
                   placeholder="Search games, apps, and media..."
-                  value={searchQuery}
+                  value={searchInput}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  onBlur={() => {
-                    if (!searchQuery) {
-                      setIsOpen(false);
-                    }
-                  }}
+                  onKeyDown={dismissSearchKeyboard}
+                  onBlur={() => setIsOpen(false)}
                   className={cn(
-                    "pl-11 pr-4 h-11 text-sm bg-background/95 backdrop-blur-md",
+                    "pl-11 pr-10 h-11 text-sm bg-background/95 backdrop-blur-md",
                     "border border-border",
                     "text-foreground",
                     "placeholder:text-muted-foreground",
                     "focus:border-primary/60 focus:ring-2 focus:ring-primary/30",
                     "rounded-xl transition-all duration-300",
-                    searchQuery && "border-primary/30"
+                    (searchInput || filterActive) && "border-primary/30"
                   )}
                 />
+                {searchInput.trim() ? (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={handleClearInput}
+                    className={cn(
+                      "absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1",
+                      "text-muted-foreground hover:text-foreground hover:bg-foreground/10",
+                      "transition-colors"
+                    )}
+                    aria-label="Clear search text"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                ) : null}
               </div>
-              {searchQuery && (
+              {filterActive && (
                 <p className="mt-2 text-center text-xs text-muted-foreground font-medium">
                   <span className="text-primary font-semibold">{filteredGames.length}</span>
                   <span className="mx-1">of</span>
@@ -134,21 +184,37 @@ export function SearchBar({
           ref={inputRef}
           type="text"
           placeholder="Search games, apps, and media..."
-          value={searchQuery}
+          value={searchInput}
           onChange={(e) => handleSearchChange(e.target.value)}
+          onKeyDown={dismissSearchKeyboard}
           className={cn(
-            "pl-14 pr-4 h-14 text-base bg-background/95 backdrop-blur-md",
+            "pl-14 pr-12 h-14 text-base bg-background/95 backdrop-blur-md",
             "border border-border",
             "text-foreground",
             "placeholder:text-muted-foreground",
             "focus:border-primary/60 focus:ring-2 focus:ring-primary/30",
             "rounded-2xl transition-all duration-300",
             "shadow-lg shadow-black/10",
-            searchQuery && "border-primary/30"
+            (searchInput || filterActive) && "border-primary/30"
           )}
         />
+        {searchInput.trim() ? (
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={handleClearInput}
+            className={cn(
+              "absolute right-4 top-1/2 -translate-y-1/2 rounded-lg p-1.5",
+              "text-muted-foreground hover:text-foreground hover:bg-foreground/10",
+              "transition-colors"
+            )}
+            aria-label="Clear search text"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        ) : null}
       </div>
-      {searchQuery && (
+      {filterActive && (
         <div className="mt-3 text-center">
           <p className="text-muted-foreground text-sm font-medium">
             <span className="text-primary font-semibold">{filteredGames.length}</span>

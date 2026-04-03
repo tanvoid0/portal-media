@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { appNavigate } from "@/nav/appNavigate";
 import { useLocation } from "react-router-dom";
+
+export type TopBarChromeVariant = "library" | "settings";
 import {
   Settings as SettingsIcon,
   Home,
@@ -51,7 +53,7 @@ export function SidebarButton({
       onClick={onClick}
       title={title}
       className={cn(
-        "w-14 h-14 rounded-2xl",
+        "w-14 h-14 rounded-card",
         "transition-all duration-ps5 spring-ease",
         "transform-gpu",
         isActive
@@ -74,28 +76,44 @@ export function SidebarButton({
 }
 
 export function TopBarChromeButtons({
+  variant,
   setShowExitModal,
   onToggleWindowSize,
   isFullscreen,
   isMaximized,
 }: {
+  variant: TopBarChromeVariant;
   setShowExitModal: (show: boolean) => void;
   onToggleWindowSize: () => void;
   isFullscreen: boolean;
   isMaximized: boolean;
 }) {
-  const isSettingsRoute = useLocation().pathname.startsWith("/settings");
+  const { pathname } = useLocation();
+  const onLibrarySurface = variant === "library";
 
   return (
     <>
+      {onLibrarySurface ? (
+        <SidebarButton
+          index={0}
+          isActive={
+            pathname.startsWith("/library") ||
+            pathname.startsWith("/game/") ||
+            pathname.startsWith("/tmdb/")
+          }
+          onClick={() => appNavigate("/library/all")}
+          icon={Home}
+          title="Library"
+        />
+      ) : null}
       <SidebarButton
         index={1}
         isActive={false}
         onClick={() =>
-          isSettingsRoute ? appNavigate("/") : appNavigate("/settings/game")
+          variant === "settings" ? appNavigate("/library/all") : appNavigate("/settings/game")
         }
-        icon={isSettingsRoute ? Home : SettingsIcon}
-        title={isSettingsRoute ? "Library" : "Settings"}
+        icon={variant === "settings" ? Home : SettingsIcon}
+        title={variant === "settings" ? "Library" : "Settings"}
       />
       <SidebarButton
         index={2}

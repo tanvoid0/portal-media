@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { BrowserHistory, BrowserTab } from "@/types/browser";
+import { useSessionStore } from "@/stores/sessionStore";
 
 export type { BrowserHistory, BrowserTab } from "@/types/browser";
 
@@ -52,6 +53,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
       activeTabId: tabId,
       shellLoading: true,
     });
+    useSessionStore.getState().upsertBrowserSession();
   },
 
   closeBrowser: () => {
