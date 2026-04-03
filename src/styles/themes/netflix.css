@@ -1,0 +1,84 @@
+@layer base {
+  /* Netflix-inspired: black, red CTA, minimal chrome */
+  [data-theme="netflix"].light {
+    --background: 0 0% 98%;
+    --foreground: 0 0% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 8%;
+    --primary: 355 92% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 92%;
+    --secondary-foreground: 0 0% 8%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 355 92% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 85%;
+    --input: 0 0% 90%;
+    --ring: 355 92% 48%;
+    --radius: 0.25rem;
+    --radius-card: 0.25rem;
+    --radius-button: 0.125rem;
+    --radius-input: 0.125rem;
+    --control-height: 2.5rem;
+    --control-height-sm: 2.25rem;
+    --control-height-lg: 2.75rem;
+    --control-height-icon: 2.5rem;
+    --shadow-card: 0 4px 12px rgb(0 0 0 / 0.08);
+    --shadow-button: 0 4px 14px hsl(355 92% 48% / 0.35);
+    --border-width-ui: 1px;
+    --ring-width: 2px;
+    --ring-offset-width: 2px;
+    --font-ui: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+    --font-weight-button: 700;
+    --slider-track-height: 0.25rem;
+    --slider-track-radius: 0.125rem;
+    --glass-blur: 14px;
+    --glass-saturate: 130%;
+  }
+
+  [data-theme="netflix"].dark {
+    --background: 0 0% 6%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 96%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 355 92% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 62%;
+    --accent: 355 92% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 18%;
+    --input: 0 0% 12%;
+    --ring: 355 92% 52%;
+    --radius: 0.25rem;
+    --radius-card: 0.2rem;
+    --radius-button: 0.125rem;
+    --radius-input: 0.125rem;
+    --control-height: 2.5rem;
+    --control-height-sm: 2.25rem;
+    --control-height-lg: 2.75rem;
+    --control-height-icon: 2.5rem;
+    --shadow-card: 0 8px 24px rgb(0 0 0 / 0.55);
+    --shadow-button: 0 4px 20px hsl(355 92% 48% / 0.4);
+    --border-width-ui: 1px;
+    --ring-width: 2px;
+    --ring-offset-width: 2px;
+    --font-ui: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+    --font-weight-button: 700;
+    --slider-track-height: 0.25rem;
+    --slider-track-radius: 0.125rem;
+    --glass-blur: 16px;
+    --glass-saturate: 140%;
+  }
+}

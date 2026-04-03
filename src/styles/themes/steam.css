@@ -1,0 +1,84 @@
+@layer base {
+  /* Steam client-inspired: gunmetal, cyan accent, flat industrial */
+  [data-theme="steam"].light {
+    --background: 210 18% 94%;
+    --foreground: 213 28% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 213 28% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 28% 14%;
+    --primary: 202 90% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 16% 88%;
+    --secondary-foreground: 213 28% 14%;
+    --muted: 210 14% 86%;
+    --muted-foreground: 213 12% 38%;
+    --accent: 202 90% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 14% 78%;
+    --input: 210 14% 88%;
+    --ring: 202 90% 42%;
+    --radius: 0.125rem;
+    --radius-card: 0.125rem;
+    --radius-button: 0.125rem;
+    --radius-input: 0.125rem;
+    --control-height: 2.375rem;
+    --control-height-sm: 2.125rem;
+    --control-height-lg: 2.625rem;
+    --control-height-icon: 2.375rem;
+    --shadow-card: 0 1px 0 hsl(0 0% 0% / 0.06);
+    --shadow-button: none;
+    --border-width-ui: 1px;
+    --ring-width: 1px;
+    --ring-offset-width: 1px;
+    --font-ui: Arial, "Helvetica Neue", Helvetica, "Segoe UI", sans-serif;
+    --font-weight-button: 600;
+    --slider-track-height: 0.25rem;
+    --slider-track-radius: 0.125rem;
+    --glass-blur: 12px;
+    --glass-saturate: 120%;
+  }
+
+  [data-theme="steam"].dark {
+    --background: 213 28% 14%;
+    --foreground: 210 15% 92%;
+    --card: 213 26% 17%;
+    --card-foreground: 210 15% 92%;
+    --popover: 213 26% 17%;
+    --popover-foreground: 210 15% 92%;
+    --primary: 202 100% 52%;
+    --primary-foreground: 213 28% 10%;
+    --secondary: 213 22% 22%;
+    --secondary-foreground: 210 15% 92%;
+    --muted: 213 20% 22%;
+    --muted-foreground: 210 10% 62%;
+    --accent: 202 100% 52%;
+    --accent-foreground: 213 28% 10%;
+    --destructive: 0 58% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 213 18% 26%;
+    --input: 213 22% 20%;
+    --ring: 202 100% 52%;
+    --radius: 0.125rem;
+    --radius-card: 0.125rem;
+    --radius-button: 0.125rem;
+    --radius-input: 0.125rem;
+    --control-height: 2.375rem;
+    --control-height-sm: 2.125rem;
+    --control-height-lg: 2.625rem;
+    --control-height-icon: 2.375rem;
+    --shadow-card: inset 0 1px 0 hsl(0 0% 100% / 0.04);
+    --shadow-button: none;
+    --border-width-ui: 1px;
+    --ring-width: 1px;
+    --ring-offset-width: 1px;
+    --font-ui: Arial, "Helvetica Neue", Helvetica, "Segoe UI", sans-serif;
+    --font-weight-button: 600;
+    --slider-track-height: 0.25rem;
+    --slider-track-radius: 0.125rem;
+    --glass-blur: 12px;
+    --glass-saturate: 130%;
+  }
+}

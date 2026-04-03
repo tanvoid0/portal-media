@@ -1,0 +1,86 @@
+@layer base {
+  /* PS5-inspired: deep blues, soft tiles, pill CTAs, glow accents */
+  [data-theme="playstation"].light {
+    --background: 228 20% 96%;
+    --foreground: 230 35% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 230 35% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 35% 12%;
+    --primary: 215 85% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 228 18% 90%;
+    --secondary-foreground: 230 35% 12%;
+    --muted: 228 16% 88%;
+    --muted-foreground: 230 12% 38%;
+    --accent: 215 85% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 228 14% 82%;
+    --input: 228 14% 88%;
+    --ring: 215 85% 48%;
+    --radius: 1rem;
+    --radius-card: 1.125rem;
+    --radius-button: 9999px;
+    --radius-input: 0.85rem;
+    --control-height: 2.75rem;
+    --control-height-sm: 2.5rem;
+    --control-height-lg: 3rem;
+    --control-height-icon: 2.75rem;
+    --shadow-card: 0 12px 40px -8px hsl(230 40% 20% / 0.12),
+      0 0 0 1px hsl(215 85% 48% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.9);
+    --shadow-button: 0 6px 28px -4px hsl(215 85% 48% / 0.45);
+    --border-width-ui: 1px;
+    --ring-width: 3px;
+    --ring-offset-width: 3px;
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-weight-button: 600;
+    --slider-track-height: 0.375rem;
+    --slider-track-radius: 9999px;
+    --glass-blur: 32px;
+    --glass-saturate: 165%;
+  }
+
+  [data-theme="playstation"].dark {
+    --background: 230 38% 6%;
+    --foreground: 210 40% 98%;
+    --card: 230 32% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 230 32% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 215 90% 58%;
+    --primary-foreground: 230 38% 8%;
+    --secondary: 230 22% 16%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 230 20% 18%;
+    --muted-foreground: 220 12% 68%;
+    --accent: 215 90% 58%;
+    --accent-foreground: 230 38% 8%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 22% 20%;
+    --input: 230 22% 16%;
+    --ring: 215 90% 58%;
+    --radius: 1rem;
+    --radius-card: 1.25rem;
+    --radius-button: 9999px;
+    --radius-input: 0.85rem;
+    --control-height: 2.75rem;
+    --control-height-sm: 2.5rem;
+    --control-height-lg: 3rem;
+    --control-height-icon: 2.75rem;
+    --shadow-card: 0 16px 48px -12px hsl(230 50% 2% / 0.65),
+      0 0 0 1px hsl(215 90% 58% / 0.12), inset 0 1px 0 hsl(0 0% 100% / 0.06);
+    --shadow-button: 0 8px 32px -4px hsl(215 90% 58% / 0.5);
+    --border-width-ui: 1px;
+    --ring-width: 3px;
+    --ring-offset-width: 3px;
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-weight-button: 600;
+    --slider-track-height: 0.375rem;
+    --slider-track-radius: 9999px;
+    --glass-blur: 32px;
+    --glass-saturate: 165%;
+  }
+}
