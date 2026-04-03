@@ -1,6 +1,6 @@
 @layer base {
-  /* Xbox-inspired: green accent, flat panels, squared controls */
-  [data-theme="xbox"].light {
+  /* Green accent, flat panels, squared controls (dashboard tile mood) */
+  [data-theme="vertex"].light {
     --background: 0 0% 97%;
     --foreground: 144 20% 12%;
     --card: 0 0% 100%;
@@ -41,7 +41,7 @@
     --glass-saturate: 140%;
   }
 
-  [data-theme="xbox"].dark {
+  [data-theme="vertex"].dark {
     --background: 0 0% 9%;
     --foreground: 0 0% 96%;
     --card: 0 0% 12%;

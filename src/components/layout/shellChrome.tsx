@@ -54,7 +54,7 @@ export function SidebarButton({
       title={title}
       className={cn(
         "w-14 h-14 rounded-card",
-        "transition-all duration-ps5 spring-ease",
+        "transition-all duration-panel spring-ease",
         "transform-gpu",
         isActive
           ? "bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30 scale-105"
@@ -67,7 +67,7 @@ export function SidebarButton({
     >
       <Icon
         className={cn(
-          "w-6 h-6 transition-all duration-ps5-fast spring-ease",
+          "w-6 h-6 transition-all duration-panel-fast spring-ease",
           (isActive || isFocusedItem) && "scale-105"
         )}
       />
@@ -99,7 +99,8 @@ export function TopBarChromeButtons({
           isActive={
             pathname.startsWith("/library") ||
             pathname.startsWith("/game/") ||
-            pathname.startsWith("/tmdb/")
+            pathname.startsWith("/tmdb/") ||
+            pathname.startsWith("/igdb/")
           }
           onClick={() => appNavigate("/library/all")}
           icon={Home}

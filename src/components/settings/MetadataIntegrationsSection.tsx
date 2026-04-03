@@ -5,15 +5,10 @@ import { Button } from "@/components/ui/button";
 import { useGameStore } from "@/stores/gameStore";
 import { useIntegrationsStore } from "@/stores/integrationsStore";
 import { useMetadataDisplayStore } from "@/stores/metadataDisplayStore";
+import { useTmdbDiscoverStore } from "@/stores/tmdbDiscoverStore";
 import type { EnrichSummary, MetadataTestResult } from "@/types/metadata";
-import {
-  BookOpen,
-  ExternalLink,
-  KeyRound,
-  Loader2,
-  ShieldCheck,
-  Trash2,
-} from "lucide-react";
+import { KeyRound, Loader2, ShieldCheck, Trash2 } from "lucide-react";
+import { ExternalLinkGlyph } from "@/components/content/ExternalLinkGlyph";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { toastInvokeCatch } from "@/utils/invokeError";
@@ -65,6 +60,7 @@ export function MetadataIntegrationsSection() {
         return;
       }
       toast.success("IGDB credentials saved securely");
+      void useTmdbDiscoverStore.getState().load({ force: true });
     } catch (e) {
       toastInvokeCatch("Could not save IGDB credentials", e);
     } finally {
@@ -129,6 +125,7 @@ export function MetadataIntegrationsSection() {
         return;
       }
       toast.success("TMDB API key saved securely");
+      void useTmdbDiscoverStore.getState().load({ force: true });
     } catch (e) {
       toastInvokeCatch("Could not save TMDB key", e);
     } finally {
@@ -208,22 +205,22 @@ export function MetadataIntegrationsSection() {
 
   return (
     <div id="settings-integrations" className="space-y-4 scroll-mt-4">
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="w-6 h-6 text-emerald-400" aria-hidden />
-        <h3 className="text-xl font-semibold text-white">Metadata &amp; APIs</h3>
+      <div className="flex items-start gap-3">
+        <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" aria-hidden />
+        <div className="min-w-0 space-y-1">
+          <h3 className="text-2xl font-semibold tracking-tight text-white">Metadata API</h3>
+          <p className="text-white/55 text-sm">
+            Optional IGDB and TMDB keys for richer details. Stored in the OS credential store when possible.
+          </p>
+        </div>
       </div>
-      <p className="text-white/60 text-sm max-w-3xl">
-        Optional: add your own API credentials to unlock richer game details (IGDB via Twitch) and
-        movie/TV info (TMDB). Nothing here is required for scanning or launching games. Keys are
-        stored with your OS credential manager, not in the browser.
-      </p>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div className="glass rounded-xl p-6 space-y-4 border border-white/5">
+        <div className="glass rounded-xl p-5 space-y-3 border border-white/5">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h4 className="text-lg font-semibold text-white flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-purple-400" aria-hidden />
+              <h4 className="text-base font-semibold text-white flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-purple-400" aria-hidden />
                 IGDB (Twitch)
               </h4>
               <p className="text-white/50 text-xs mt-1">
@@ -241,7 +238,13 @@ export function MetadataIntegrationsSection() {
                 className="text-white/70 h-8 px-2"
                 onClick={() => openExternal(TWITCH_APPS)}
               >
-                <ExternalLink className="w-4 h-4 mr-1" />
+                <ExternalLinkGlyph
+                  url={TWITCH_APPS}
+                  labelHint="Twitch"
+                  size="sm"
+                  className="mr-1"
+                  neutralIconClassName="text-white/75"
+                />
                 Register app
               </Button>
               <Button
@@ -251,21 +254,20 @@ export function MetadataIntegrationsSection() {
                 className="text-white/70 h-8 px-2"
                 onClick={() => openExternal(IGDB_DOCS)}
               >
-                <BookOpen className="w-4 h-4 mr-1" />
+                <ExternalLinkGlyph
+                  url={IGDB_DOCS}
+                  labelHint="IGDB docs"
+                  size="sm"
+                  className="mr-1"
+                  neutralIconClassName="text-white/75"
+                />
                 Docs
               </Button>
             </div>
           </div>
 
-          <p className="text-white/55 text-sm">
-            Create a Twitch developer application, then paste its Client ID and Client Secret
-            here. Portal uses the official client-credentials flow to read IGDB.
-          </p>
-          <p className="text-white/40 text-xs leading-relaxed">
-            After a successful save, these fields clear on purpose: secrets are not loaded back into
-            the UI (reduces exposure in the app and on screen captures). Use the status line above —
-            credentials saved — to confirm storage. Paste new values anytime to replace what is
-            stored.
+          <p className="text-white/50 text-xs">
+            Twitch app Client ID + Secret. Fields clear after save; check status above. Paste new values to replace.
           </p>
 
           <input
@@ -325,11 +327,11 @@ export function MetadataIntegrationsSection() {
           </div>
         </div>
 
-        <div className="glass rounded-xl p-6 space-y-4 border border-white/5">
+        <div className="glass rounded-xl p-5 space-y-3 border border-white/5">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h4 className="text-lg font-semibold text-white flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-sky-400" aria-hidden />
+              <h4 className="text-base font-semibold text-white flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-sky-400" aria-hidden />
                 TMDB
               </h4>
               <p className="text-white/50 text-xs mt-1">
@@ -347,7 +349,13 @@ export function MetadataIntegrationsSection() {
                 className="text-white/70 h-8 px-2"
                 onClick={() => openExternal(TMDB_API_SETTINGS)}
               >
-                <ExternalLink className="w-4 h-4 mr-1" />
+                <ExternalLinkGlyph
+                  url={TMDB_API_SETTINGS}
+                  labelHint="TMDB"
+                  size="sm"
+                  className="mr-1"
+                  neutralIconClassName="text-white/75"
+                />
                 Get API key
               </Button>
               <Button
@@ -357,26 +365,21 @@ export function MetadataIntegrationsSection() {
                 className="text-white/70 h-8 px-2"
                 onClick={() => openExternal(TMDB_DOCS)}
               >
-                <BookOpen className="w-4 h-4 mr-1" />
+                <ExternalLinkGlyph
+                  url={TMDB_DOCS}
+                  labelHint="TMDB docs"
+                  size="sm"
+                  className="mr-1"
+                  neutralIconClassName="text-white/75"
+                />
                 Docs
               </Button>
             </div>
           </div>
 
-          <p className="text-white/55 text-sm">
-            Used for movies and TV in the details panel (media bookmarks). Request your own v3 API
-            key from TMDB — it is free for personal use. Keys are stored in the OS credential vault
-            when possible; if that is blocked (policy, AV, or permissions), Portal falls back to an
-            app data JSON file.{" "}
-            <span className="text-white/45">
-              Test uses whatever you have in the field; if the field is empty, it uses the last saved
-              key.
-            </span>
-          </p>
-          <p className="text-white/40 text-xs leading-relaxed">
-            The input stays empty after save on purpose — the key is only kept in secure storage, not
-            re-displayed here. Status: API key saved means Portal will use it for TMDB. To change
-            it, paste a new key and Save again.
+          <p className="text-white/50 text-xs">
+            v3 key for movies/TV in details. Empty field after save is normal. Test uses the field if filled, else the
+            saved key.
           </p>
 
           <input
@@ -425,12 +428,10 @@ export function MetadataIntegrationsSection() {
         </div>
       </div>
 
-      <div className="glass rounded-xl p-6 space-y-3 border border-white/5">
-        <h4 className="text-base font-semibold text-white">Cache &amp; batch</h4>
-        <p className="text-white/55 text-sm">
-          Metadata is cached for 30 days (sidebar details use the cache). Clear the cache to drop
-          cached payloads. Enrich all games re-fetches IGDB for every title and ignores the cache
-          TTL so you can fix a bad match without waiting (games only).
+      <div className="glass rounded-xl p-5 space-y-3 border border-white/5">
+        <h4 className="text-sm font-semibold text-white">Cache &amp; enrich</h4>
+        <p className="text-white/50 text-xs">
+          Cache ~30 days. Clear drops stored metadata. Enrich all refetches IGDB for every game (needs IGDB saved).
         </p>
         <div className="flex flex-wrap gap-2">
           <Button

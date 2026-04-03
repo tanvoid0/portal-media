@@ -1,14 +1,14 @@
 # Portal Media - Game Launcher
 
-A lightweight, fullscreen game and app launcher with PlayStation-style UI, optimized for controller navigation and minimal resource usage.
+A lightweight, fullscreen game and app launcher with a **console-style** (horizontal shelf) UI, optimized for controller navigation and minimal resource usage.
 
 ## Features
 
 - **Fullscreen Mode**: Borderless, always-on-top option for immersive experience
-- **Controller Navigation**: Xbox, PlayStation, and generic gamepad support
+- **Controller Navigation**: Common gamepad layouts (asymmetric face buttons, shape-labeled face buttons, and generic fallbacks)
 - **Auto-Detection**: Automatically scans Steam, Epic Games, GOG, and Windows apps
 - **Manual Addition**: Add custom games, apps, and bookmarks
-- **PlayStation UI**: Horizontal scrolling, large cards, smooth animations
+- **Big-tile UI**: Horizontal scrolling, large cards, smooth animations
 - **Low Resource Usage**: Built with Tauri for native performance
 - **Fast Launch**: Direct executable launching, no launcher overhead
 - **Search**: Quick search functionality to find games
@@ -60,9 +60,9 @@ pnpm tauri build
 
 ### Gamepad
 - **D-pad Left/Right or Left Stick**: Navigate between games
-- **A/X Button**: Launch selected game
-- **B/Circle Button**: Back
-- **Menu Button**: Open settings
+- **South face button** (e.g. bottom): Launch selected game
+- **East face button** (e.g. right): Back
+- **Menu**: Open settings
 
 ## Game Detection
 

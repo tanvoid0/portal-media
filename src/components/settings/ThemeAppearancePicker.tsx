@@ -1,31 +1,40 @@
 import type { ComponentType, SVGAttributes } from "react";
 import type { ThemeId } from "@/types/theme";
 import { THEME_IDS } from "@/types/theme";
-import { SiNetflix, SiPlaystation, SiSteam } from "react-icons/si";
-import { FaHeart, FaWater, FaXbox } from "react-icons/fa6";
+import { Cloud, Factory, Film, Heart, LayoutGrid, Waves } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SvgIcon = ComponentType<SVGAttributes<SVGElement> & { className?: string }>;
 
 const THEME_ICONS: Record<ThemeId, SvgIcon> = {
-  her: FaHeart,
-  ocean: FaWater,
-  playstation: SiPlaystation,
-  xbox: FaXbox,
-  steam: SiSteam,
-  netflix: SiNetflix,
+  her: Heart,
+  ocean: Waves,
+  nimbus: Cloud,
+  vertex: LayoutGrid,
+  forge: Factory,
+  velvet: Film,
 };
 
 const THEME_LABELS: Record<ThemeId, string> = {
   her: "Her",
   ocean: "Ocean",
-  playstation: "PlayStation",
-  xbox: "Xbox",
-  steam: "Steam",
-  netflix: "Netflix",
+  nimbus: "Nimbus",
+  vertex: "Vertex",
+  forge: "Forge",
+  velvet: "Velvet",
 };
 
-/** Brand-adjacent colors aligned with `src/styles/themes/<id>.css` primaries */
+/** Short tooltips: mood of each palette without naming third-party brands */
+const THEME_HINTS: Record<ThemeId, string> = {
+  her: "Warm accent, romantic rounded chrome",
+  ocean: "Cool teal, calm rounded panels",
+  nimbus: "Deep blue, pill buttons, soft outer glow",
+  vertex: "Green accent, flat squared tiles",
+  forge: "Dark gunmetal with bright cyan highlights",
+  velvet: "Scarlet on near-black, poster-row mood",
+};
+
+/** Picker chrome colors aligned with `src/styles/themes/<id>.css` primaries */
 const THEME_STYLE: Record<
   ThemeId,
   {
@@ -49,28 +58,28 @@ const THEME_STYLE: Record<
     idle: "border-[hsl(188_86%_53%/0.35)] bg-[hsl(188_86%_53%/0.1)] text-white hover:bg-[hsl(188_86%_53%/0.18)]",
     iconClass: "text-[hsl(188_86%_58%)]",
   },
-  playstation: {
+  nimbus: {
     shape: "rounded-full font-semibold",
     active:
       "bg-[hsl(215_90%_52%)] text-[hsl(230_38%_8%)] border-[hsl(215_90%_46%)] shadow-[0_6px_28px_-4px_hsl(215_90%_58%/0.55)]",
     idle: "border-[hsl(215_90%_58%/0.35)] bg-[hsl(215_90%_58%/0.12)] text-white hover:bg-[hsl(215_90%_58%/0.2)]",
     iconClass: "text-[hsl(215_90%_68%)]",
   },
-  xbox: {
+  vertex: {
     shape: "rounded-[0.25rem] font-semibold",
     active:
       "bg-[hsl(142_100%_32%)] text-white border-[hsl(142_100%_26%)] shadow-[0_2px_12px_-2px_hsl(142_100%_36%/0.5)]",
     idle: "border-[hsl(142_100%_36%/0.35)] bg-[hsl(142_100%_36%/0.12)] text-white hover:bg-[hsl(142_100%_36%/0.2)]",
     iconClass: "text-[hsl(142_70%_58%)]",
   },
-  steam: {
+  forge: {
     shape: "rounded-sm font-semibold tracking-tight",
     active:
       "bg-[hsl(213_28%_18%)] text-[hsl(202_100%_55%)] border-[hsl(202_100%_52%)] shadow-[inset_0_1px_0_hsl(0_0%_100%/0.06)]",
     idle: "border-[hsl(202_100%_52%/0.3)] bg-[hsl(213_28%_16%/0.85)] text-[hsl(210_15%_88%)] hover:bg-[hsl(213_26%_22%)]",
     iconClass: "text-[hsl(202_100%_52%)]",
   },
-  netflix: {
+  velvet: {
     shape: "rounded-[0.125rem] font-bold tracking-tight",
     active:
       "bg-[hsl(355_92%_48%)] text-white border-[hsl(355_92%_40%)] shadow-[0_4px_20px_-4px_hsl(355_92%_48%/0.5)]",
@@ -99,6 +108,7 @@ export function ThemeAppearancePicker({ value, onChange }: Props) {
           <button
             key={id}
             type="button"
+            title={THEME_HINTS[id]}
             onClick={() => onChange(id)}
             className={cn(
               "inline-flex items-center gap-2 border-2 px-3.5 py-2 text-sm transition-colors",

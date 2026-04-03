@@ -7,8 +7,10 @@ import type {
   TmdbDiscoverResult,
   TmdbSearchHit,
 } from "@/types/metadata";
+import { useIntegrationsStore } from "@/stores/integrationsStore";
 import {
   DISCOVER_CACHE_TTL_MS,
+  discoverCacheNeedsRefetchVersusCredentials,
   readDiscoverCache,
   writeDiscoverCache,
 } from "@/utils/discoverCache";
@@ -109,7 +111,12 @@ export const useTmdbDiscoverStore = create<DiscoverState>((set, get) => ({
     const force = Boolean(opts?.force);
     if (!force) {
       const cached = readDiscoverCache();
-      if (cached && Date.now() - cached.savedAt < DISCOVER_CACHE_TTL_MS) {
+      const status = useIntegrationsStore.getState().status;
+      if (
+        cached &&
+        Date.now() - cached.savedAt < DISCOVER_CACHE_TTL_MS &&
+        !discoverCacheNeedsRefetchVersusCredentials(cached, status)
+      ) {
         set({
           loading: false,
           error: null,
@@ -155,10 +162,13 @@ export const useTmdbDiscoverStore = create<DiscoverState>((set, get) => ({
       });
 
       if (tmdbPayload || igdbGames.length > 0) {
+        const { igdbConfigured, tmdbConfigured } = useIntegrationsStore.getState().status;
         writeDiscoverCache({
           savedAt: now,
           tmdb: tmdbPayload,
           igdb: igdbGames,
+          hadIgdbCredentials: igdbConfigured,
+          hadTmdbCredentials: tmdbConfigured,
         });
       }
     } catch (e) {

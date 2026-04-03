@@ -51,6 +51,19 @@ function weightedVibrantFromImageData(data: Uint8ClampedArray): Rgb | null {
   };
 }
 
+/**
+ * Hosts that do not send CORS headers for anonymous canvas reads. Loading with
+ * `crossOrigin = "anonymous"` only produces console noise and net::ERR_FAILED.
+ */
+function remoteHostBlocksAnonymousCanvas(src: string): boolean {
+  try {
+    const h = new URL(src).hostname.toLowerCase();
+    return h.includes("steamcdn") || h.endsWith(".steamstatic.com");
+  } catch {
+    return false;
+  }
+}
+
 function loadImage(src: string, crossOriginForRemote: boolean): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -130,17 +143,15 @@ async function extractVibrantDominantColorUncached(src: string): Promise<Rgb | n
   if (isRemote) {
     // WebView often taints canvas for hotlinked posters; Tauri fetch+data URL is reliable first.
     if (isTauri()) {
-      const dataUrlFirst = await fetchImageAsDataUrlViaTauri(src);
-      if (dataUrlFirst) {
-        const rgb = await extractFromImageSource(dataUrlFirst, false);
+      const dataUrl = await fetchImageAsDataUrlViaTauri(src);
+      if (dataUrl) {
+        const rgb = await extractFromImageSource(dataUrl, false);
         if (rgb) return rgb;
       }
     }
-    let rgb = await extractFromImageSource(src, true);
-    if (rgb) return rgb;
-    const dataUrl = await fetchImageAsDataUrlViaTauri(src);
-    if (dataUrl) {
-      rgb = await extractFromImageSource(dataUrl, false);
+    // Skip doomed crossOrigin loads for CDNs that never send ACAO (e.g. Steam library art).
+    if (!remoteHostBlocksAnonymousCanvas(src)) {
+      const rgb = await extractFromImageSource(src, true);
       if (rgb) return rgb;
     }
     return null;

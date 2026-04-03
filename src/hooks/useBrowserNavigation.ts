@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useBrowserStore } from "@/stores/browserStore";
 import { useNavigationStore } from "@/stores/navigationStore";
+import { useNavBindingsStore } from "@/stores/navBindingsStore";
 
 export function useBrowserNavigation() {
   const {
@@ -15,6 +16,8 @@ export function useBrowserNavigation() {
   } = useBrowserStore();
 
   const { setInputMethod } = useNavigationStore();
+  const keyboardNavigationEnabled = useNavBindingsStore((s) => s.keyboardNavigationEnabled);
+  const gamepadNavigationEnabled = useNavBindingsStore((s) => s.gamepadNavigationEnabled);
   const lastInputTimeRef = useRef<number>(0);
   const debounceDelay = 200; // ms
   
@@ -40,6 +43,7 @@ export function useBrowserNavigation() {
     if (!isOpen || isMinimized) return;
 
     const handleGamepadInput = () => {
+      if (!useNavBindingsStore.getState().gamepadNavigationEnabled) return;
       const gamepads = navigator.getGamepads();
       const gamepad = gamepads[0];
       
@@ -148,6 +152,7 @@ export function useBrowserNavigation() {
     goForward,
     setInputMethod,
     closeBrowserAndReturnHome,
+    gamepadNavigationEnabled,
   ]);
 
   // Handle keyboard navigation
@@ -155,6 +160,9 @@ export function useBrowserNavigation() {
     if (!isOpen || isMinimized) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!useNavBindingsStore.getState().keyboardNavigationEnabled) {
+        return;
+      }
       setInputMethod("keyboard");
 
       // Match browser chrome: Alt+Left / Alt+Right = webview history (not horizontal scroll).
@@ -239,6 +247,7 @@ export function useBrowserNavigation() {
     closeBrowserAndReturnHome,
     goBack,
     goForward,
+    keyboardNavigationEnabled,
   ]);
 }
 

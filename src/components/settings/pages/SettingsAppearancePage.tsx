@@ -7,15 +7,13 @@ export function SettingsAppearancePage() {
 
   return (
     <Card className="glass-dark border-white/10">
-      <CardHeader>
-        <CardTitle className="text-3xl font-bold text-white">Appearance</CardTitle>
-        <CardDescription className="text-white/60">Theme, typography, and surface styling</CardDescription>
+      <CardHeader className="space-y-1 pb-4">
+        <CardTitle className="text-2xl font-semibold tracking-tight text-white">Appearance</CardTitle>
+        <CardDescription className="text-white/55 text-sm">
+          Theme and surfaces. Light/dark is in the top bar.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-white/60 text-sm">
-          UI theme (colors, typography, corners, shadows on cards, buttons, and inputs). Light/dark mode is toggled
-          from the top bar.
-        </p>
+      <CardContent className="space-y-4 pt-0">
         <ThemeAppearancePicker value={themeId} onChange={setThemeId} />
       </CardContent>
     </Card>

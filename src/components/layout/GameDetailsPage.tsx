@@ -3,12 +3,14 @@ import { Navigate, useParams } from "react-router-dom";
 import { useGameStore } from "@/stores/gameStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { GameDetailsContent } from "@/components/GameDetailsContent";
+import { InteractiveLaunchLoader } from "@/components/ui/InteractiveLaunchLoader";
 import { DETAILS_FOCUS_MAX_INDEX } from "@/types/navigation";
 
 export function GameDetailsPage() {
   const { gameId } = useParams();
   const sourceGames = useGameStore((s) => s.sourceGames);
   const filteredGames = useGameStore((s) => s.filteredGames);
+  const isLoading = useGameStore((s) => s.isLoading);
   const setSelectedIndex = useGameStore((s) => s.setSelectedIndex);
 
   const game = useMemo(
@@ -32,6 +34,13 @@ export function GameDetailsPage() {
   }, [gameId, filteredGames, setSelectedIndex]);
 
   if (!gameId) return <Navigate to="/library/all" replace />;
+  if (isLoading) {
+    return (
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center px-6">
+        <InteractiveLaunchLoader title="Loading library" subtitle="Opening game details…" />
+      </div>
+    );
+  }
   if (!game) return <Navigate to="/library/all" replace />;
 
   return (

@@ -2,7 +2,7 @@
 
 This app switches look and feel at runtime by setting `data-theme="<id>"` and `class="light"` or `class="dark"` on `<html>`. Colors, radii, shadows, fonts, and control sizes come from **CSS custom properties** defined per theme. Shared components under `src/components/ui/` read those tokens through Tailwind—**do not add theme-specific branches in React** for the same effect.
 
-Use this checklist when adding a theme (e.g. `nintendo`).
+Use this checklist when adding a theme (e.g. `aurora`).
 
 ## Checklist
 
@@ -22,7 +22,7 @@ Use this checklist when adding a theme (e.g. `nintendo`).
    - Define **two** blocks (both required):
      - `[data-theme="<yourid>"].light { ... }`
      - `[data-theme="<yourid>"].dark { ... }`  
-   - Copy `src/styles/themes/her.css` (or `steam.css`) as a template and replace values.  
+   - Copy `src/styles/themes/her.css` (or `forge.css`) as a template and replace values.  
    - **Every variable listed below must exist in both blocks** so light and dark never fall back to another theme’s tokens.
 
 4. **Import the stylesheet**  
@@ -31,9 +31,9 @@ Use this checklist when adding a theme (e.g. `nintendo`).
      `@import "./themes/<yourid>.css";`  
    - Order only matters for readability; selectors are keyed by `data-theme`.
 
-5. **Add a Settings label**  
-   - File: `src/components/Settings.tsx`  
-   - Extend `THEME_LABELS` with `yourid: "Human Name"` (type `Record<ThemeId, string>`—must cover all ids).
+5. **Add a Settings picker entry**  
+   - File: `src/components/settings/ThemeAppearancePicker.tsx`  
+   - Extend `THEME_ICONS`, `THEME_LABELS`, `THEME_HINTS`, and `THEME_STYLE` for `yourid` (each is a `Record<ThemeId, …>`—must cover all ids).
 
 6. **Verify**  
    - Run `pnpm run build`.  
@@ -103,7 +103,7 @@ If you add a **new** global token, you must:
 | Purpose | Path |
 |---------|------|
 | Minimal full token set | `src/styles/themes/her.css` |
-| Flat / industrial example | `src/styles/themes/steam.css` |
+| Flat / industrial example | `src/styles/themes/forge.css` |
 | Theme id list | `src/types/theme.ts` |
 | UI primitives | `src/components/ui/button.tsx`, `card.tsx`, `input.tsx`, `slider.tsx` |
 | Glass utilities | `src/styles/index.css` (`@layer utilities`) |

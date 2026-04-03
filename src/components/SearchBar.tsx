@@ -106,7 +106,7 @@ export function SearchBar({
           onClick={() => setIsOpen((open) => !open)}
           className={cn(
             "w-14 h-14 rounded-2xl flex items-center justify-center",
-            "transition-all duration-ps5 spring-ease",
+            "transition-all duration-panel spring-ease",
             "hover:bg-foreground/5 text-muted-foreground hover:text-foreground hover:scale-105",
             (isOpen || filterActive || searchInput) &&
               "bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30 scale-105"

@@ -1,6 +1,6 @@
 @layer base {
-  /* PS5-inspired: deep blues, soft tiles, pill CTAs, glow accents */
-  [data-theme="playstation"].light {
+  /* Deep blue tiles, pill controls, soft glow (console-dashboard mood) */
+  [data-theme="nimbus"].light {
     --background: 228 20% 96%;
     --foreground: 230 35% 12%;
     --card: 0 0% 100%;
@@ -42,7 +42,7 @@
     --glass-saturate: 165%;
   }
 
-  [data-theme="playstation"].dark {
+  [data-theme="nimbus"].dark {
     --background: 230 38% 6%;
     --foreground: 210 40% 98%;
     --card: 230 32% 11%;

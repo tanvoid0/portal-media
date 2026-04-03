@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { appNavigate } from "@/nav/appNavigate";
 import { Button } from "@/components/ui/button";
-import { useBrowserStore } from "@/stores/browserStore";
 import { useIntegrationsStore } from "@/stores/integrationsStore";
 import { discoverItemLabel, useTmdbDiscoverStore } from "@/stores/tmdbDiscoverStore";
 import { discoverCacheAgeLabel, DISCOVER_CACHE_TTL_MS } from "@/utils/discoverCache";
@@ -61,7 +60,7 @@ function DiscoverTmdbShelfCard({
           aria-hidden
         />
       }
-      footerAccessory={<StreamingProviderLogosRow providers={providers} />}
+      footerAccessory={<StreamingProviderLogosRow providers={providers} titleForDeepLink={title} />}
       onClick={() => onActivate(index)}
       onMouseEnter={() => onHover(index)}
     />
@@ -157,7 +156,7 @@ export function TmdbDiscoverGrid() {
         const g = igdbGames[index];
         if (!g) return;
         setSelectedIndex(index);
-        useBrowserStore.getState().openBrowser(`https://www.igdb.com/games/${g.id}`);
+        appNavigate(`/igdb/${g.id}`);
         return;
       }
       const hit = items[index] as TmdbSearchHit;

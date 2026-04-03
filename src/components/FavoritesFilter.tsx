@@ -34,7 +34,7 @@ export function FavoritesFilter({ className }: { className?: string }) {
       title={count > 0 ? `${def.label} (${count})` : def.label}
       className={cn(
         "h-9 px-4 rounded-xl whitespace-nowrap shrink-0",
-        "transition-all duration-ps5 spring-ease",
+        "transition-all duration-panel spring-ease",
         "text-xs font-semibold",
         isSelected
           ? "bg-primary/90 text-primary-foreground shadow-md shadow-primary/20 scale-105"
@@ -45,7 +45,7 @@ export function FavoritesFilter({ className }: { className?: string }) {
     >
       <Star
         className={cn(
-          "w-4 h-4 mr-2 transition-transform duration-ps5-fast",
+          "w-4 h-4 mr-2 transition-transform duration-panel-fast",
           (isSelected || isFocusedItem) && "scale-105",
           isSelected && "fill-current"
         )}
@@ -55,7 +55,7 @@ export function FavoritesFilter({ className }: { className?: string }) {
         <span
           className={cn(
             "ml-2 px-2 py-0.5 rounded-md text-[0.65rem] font-medium tabular-nums",
-            "transition-all duration-ps5-fast",
+            "transition-all duration-panel-fast",
             isSelected ? "bg-primary-foreground/15 text-primary-foreground" : "bg-muted/80 text-muted-foreground"
           )}
         >

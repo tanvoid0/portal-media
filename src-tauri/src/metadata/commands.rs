@@ -245,6 +245,48 @@ pub async fn metadata_fetch_igdb_for_game(app: AppHandle, game: Game) -> Result<
     igdb_fetch_impl(&app, game, false).await
 }
 
+async fn igdb_fetch_by_id_impl(
+    app: &AppHandle,
+    igdb_id: u64,
+    bypass_cache: bool,
+) -> Result<IgdbFetchResult, String> {
+    if !secrets::igdb_configured() {
+        return Ok(IgdbFetchResult::NotConfigured);
+    }
+
+    let Some((client_id, client_secret)) = secrets::get_igdb_credentials() else {
+        return Ok(IgdbFetchResult::NotConfigured);
+    };
+
+    let cache_key = cache::cache_key_igdb_id(igdb_id);
+    let conn = cache::open_cache_db(app)?;
+
+    if !bypass_cache {
+        if let Some((payload, fetched)) = cache::cache_get(&conn, &cache_key)? {
+            if cache::cache_is_fresh(fetched) {
+                if let Ok(p) = serde_json::from_str::<IgdbGamePayload>(&payload) {
+                    return Ok(IgdbFetchResult::Cached { payload: p });
+                }
+            }
+        }
+    }
+
+    match igdb::fetch_igdb_payload_by_id(&client_id, &client_secret, igdb_id).await {
+        Ok(payload) => {
+            let json = serde_json::to_string(&payload).map_err(|e| e.to_string())?;
+            cache::cache_set(&conn, &cache_key, "igdb", &json)?;
+            Ok(IgdbFetchResult::Fresh { payload })
+        }
+        Err(e) if e == "NOT_FOUND" => Ok(IgdbFetchResult::NotFound),
+        Err(e) => Ok(IgdbFetchResult::Error { message: e }),
+    }
+}
+
+#[tauri::command]
+pub async fn metadata_fetch_igdb_by_id(app: AppHandle, igdb_id: u64) -> Result<IgdbFetchResult, String> {
+    igdb_fetch_by_id_impl(&app, igdb_id, false).await
+}
+
 /// Reads IGDB cover URLs already stored in the metadata cache (SQLite) so the grid can hydrate
 /// after restart without opening each game's details. Ignores TTL so stale rows still show art
 /// until a detail fetch refreshes them.

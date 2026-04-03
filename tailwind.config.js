@@ -98,9 +98,9 @@ export default {
         "spring-bounce": "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
       },
       transitionDuration: {
-        "ps5": "400ms",
-        "ps5-fast": "250ms",
-        "ps5-slow": "600ms",
+        panel: "400ms",
+        "panel-fast": "250ms",
+        "panel-slow": "600ms",
       },
     },
   },

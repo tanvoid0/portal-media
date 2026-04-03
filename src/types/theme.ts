@@ -9,10 +9,10 @@
 export const THEME_IDS = [
   "her",
   "ocean",
-  "playstation",
-  "xbox",
-  "steam",
-  "netflix",
+  "nimbus",
+  "vertex",
+  "forge",
+  "velvet",
 ] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];

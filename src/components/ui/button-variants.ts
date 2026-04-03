@@ -3,7 +3,7 @@ import { cva } from "class-variance-authority";
 /**
  * Variants use theme structural tokens (see `src/styles/themes/*.css`):
  * rounded-button, h-control*, shadow-button, font-ui, font-button, ring widths.
- * Console themes (PlayStation, Xbox, Steam) diverge via those variables only.
+ * Bold accent themes (Nimbus, Vertex, Forge, …) diverge via those variables only.
  */
 export const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-button text-sm font-ui font-button ring-offset-background transition-colors duration-200 focus-visible:outline-none focus-visible:ring-[length:var(--ring-width)] focus-visible:ring-ring focus-visible:ring-offset-[length:var(--ring-offset-width)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",

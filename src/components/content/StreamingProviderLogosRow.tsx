@@ -1,16 +1,64 @@
+import { useEffect, useState } from "react";
 import { getSafeImageSource } from "@/utils/imageUtils";
-import { streamingProviderLogoFallbackUrl } from "@/utils/tmdbStreamLinks";
+import {
+  streamingProviderLogoFallbackUrl,
+  streamingUrlForProvider,
+} from "@/utils/tmdbStreamLinks";
 import type { TmdbProviderRow } from "@/types/metadata";
 import { cn } from "@/lib/utils";
+import { linkIconFromUrl } from "@/utils/igdbLinkIcons";
+import { tailwindIconTextClassForExternalUrl } from "@/utils/linkBrandFromUrl";
 
 const MAX_LOGOS = 6;
+
+function ProviderMark({
+  p,
+  titleForDeepLink,
+}: {
+  p: TmdbProviderRow;
+  titleForDeepLink?: string;
+}) {
+  const [imgBroken, setImgBroken] = useState(false);
+  const src = p.logoUrl ?? streamingProviderLogoFallbackUrl(p.providerId);
+  const q = (titleForDeepLink ?? p.providerName).trim() || p.providerName;
+  const deepUrl = streamingUrlForProvider(p.providerId, p.providerName, q);
+  const Icon = linkIconFromUrl(deepUrl, p.providerName);
+  const iconTint = tailwindIconTextClassForExternalUrl(deepUrl, "text-white/70");
+
+  useEffect(() => {
+    setImgBroken(false);
+  }, [src]);
+
+  const showImg = Boolean(src) && !imgBroken;
+
+  return (
+    <span
+      title={p.providerName}
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/30 ring-1 ring-white/15"
+    >
+      {showImg ? (
+        <img
+          src={getSafeImageSource(src!)}
+          alt=""
+          className="h-full w-full object-contain p-0.5"
+          onError={() => setImgBroken(true)}
+        />
+      ) : (
+        <Icon className={cn("h-3.5 w-3.5 opacity-95", iconTint)} aria-hidden />
+      )}
+    </span>
+  );
+}
 
 /** Small brand marks for “available on” (discover / detail surfaces). */
 export function StreamingProviderLogosRow({
   providers,
+  titleForDeepLink,
   className,
 }: {
   providers: TmdbProviderRow[];
+  /** Title used to build the same deep-link URL as the Watch buttons (better URL→icon match). */
+  titleForDeepLink?: string;
   className?: string;
 }) {
   const flatrate = providers.filter((p) => p.offerKind === "flatrate");
@@ -19,27 +67,9 @@ export function StreamingProviderLogosRow({
 
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5 mt-1.5", className)} aria-label="Streaming availability">
-      {list.map((p) => {
-        const src = p.logoUrl ?? streamingProviderLogoFallbackUrl(p.providerId);
-        return (
-          <span
-            key={`${p.providerId}-${p.offerKind}`}
-            title={p.providerName}
-            className="inline-flex h-6 w-6 shrink-0 overflow-hidden rounded-md bg-black/30 ring-1 ring-white/15"
-          >
-            {src ? (
-              <img
-                src={getSafeImageSource(src)}
-                alt=""
-                className="h-full w-full object-contain p-0.5"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.opacity = "0";
-                }}
-              />
-            ) : null}
-          </span>
-        );
-      })}
+      {list.map((p) => (
+        <ProviderMark key={`${p.providerId}-${p.offerKind}`} p={p} titleForDeepLink={titleForDeepLink} />
+      ))}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 @layer base {
-  /* Steam client-inspired: gunmetal, cyan accent, flat industrial */
-  [data-theme="steam"].light {
+  /* Gunmetal base, cyan accent, tight industrial chrome */
+  [data-theme="forge"].light {
     --background: 210 18% 94%;
     --foreground: 213 28% 14%;
     --card: 0 0% 100%;
@@ -41,7 +41,7 @@
     --glass-saturate: 120%;
   }
 
-  [data-theme="steam"].dark {
+  [data-theme="forge"].dark {
     --background: 213 28% 14%;
     --foreground: 210 15% 92%;
     --card: 213 26% 17%;

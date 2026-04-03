@@ -6,8 +6,10 @@ import { useSessionStore, type AppSession } from "@/stores/sessionStore";
 import { appNavigate } from "@/nav/appNavigate";
 import { useBrowserStore } from "@/stores/browserStore";
 import { cn } from "@/lib/utils";
+import { useNavBindingsStore } from "@/stores/navBindingsStore";
 
 export default function AppSwitcherOverlay() {
+  const keyboardNavigationEnabled = useNavBindingsStore((s) => s.keyboardNavigationEnabled);
   const appSwitcherOpen = useShellOverlayStore((s) => s.appSwitcherOpen);
   const setAppSwitcherOpen = useShellOverlayStore((s) => s.setAppSwitcherOpen);
   const sessions = useSessionStore((s) => s.sessions);
@@ -68,6 +70,9 @@ export default function AppSwitcherOverlay() {
         close();
         return;
       }
+      if (!useNavBindingsStore.getState().keyboardNavigationEnabled) {
+        return;
+      }
       if (e.key === "ArrowRight" || e.key === "ArrowDown") {
         e.preventDefault();
         setFocusIndex((fi) => {
@@ -92,7 +97,7 @@ export default function AppSwitcherOverlay() {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [appSwitcherOpen, activeSessionId, activate, close, ordered]);
+  }, [appSwitcherOpen, activeSessionId, activate, close, ordered, keyboardNavigationEnabled]);
 
   if (!appSwitcherOpen) return null;
 

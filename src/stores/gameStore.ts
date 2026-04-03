@@ -323,7 +323,8 @@ export const useGameStore = create<GameStore>((set, get) => {
   selectedIndex: 0,
   gridColumnCount: 1,
   favoriteIds: loadFavoriteIds(),
-  isLoading: false,
+  /** True until the first `loadCachedLibrary` / `scanGames` finishes so deep links (e.g. `/game/:id`) do not redirect before data exists. */
+  isLoading: true,
   launchOverlay: null,
   error: null,
 

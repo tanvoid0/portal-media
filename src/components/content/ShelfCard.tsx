@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { contentTileLibraryCardClasses } from "@/utils/contentTileStyles";
 import { useSelectable } from "@/hooks/useNavigationState";
-import { PS5FocusRing } from "@/components/PS5FocusRing";
+import { ShelfFocusRing } from "@/components/ShelfFocusRing";
 import { getSafeImageSource } from "@/utils/imageUtils";
 import { useShelfCardFooterTint } from "@/hooks/useShelfCardFooterTint";
 
@@ -18,6 +18,8 @@ export interface ShelfCardProps
   /** Raw image URL (fed through `getSafeImageSource` for display + sampling). */
   artImageUrl: string | null;
   artMode: "posterCover" | "iconContain";
+  /** Skip dominant-color footer tint (e.g. Windows app icons — show art without sampling). */
+  skipFooterTint?: boolean;
   placeholder?: ReactNode;
   topLeft?: ReactNode;
   topRight?: ReactNode;
@@ -36,6 +38,7 @@ export const ShelfCard = forwardRef<HTMLDivElement, ShelfCardProps>(function She
     actionHint,
     artImageUrl,
     artMode,
+    skipFooterTint = false,
     placeholder,
     topLeft,
     topRight,
@@ -56,7 +59,8 @@ export const ShelfCard = forwardRef<HTMLDivElement, ShelfCardProps>(function She
 
   const placeholderArt = useMemo(() => getSafeImageSource(null), []);
   const safeArt = artImageUrl ? getSafeImageSource(artImageUrl) : null;
-  const tintSampleUrl = safeArt && safeArt !== placeholderArt ? safeArt : null;
+  const tintSampleUrl =
+    skipFooterTint || !safeArt || safeArt === placeholderArt ? null : safeArt;
   const { footerStyle } = useShelfCardFooterTint(tintSampleUrl);
 
   const posterLike = artMode === "posterCover";
@@ -130,7 +134,7 @@ export const ShelfCard = forwardRef<HTMLDivElement, ShelfCardProps>(function She
             </div>
           )}
 
-          {showSelection && <PS5FocusRing isVisible={true} />}
+          {showSelection && <ShelfFocusRing isVisible={true} />}
         </div>
 
         <div

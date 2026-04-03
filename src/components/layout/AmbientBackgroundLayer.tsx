@@ -61,6 +61,17 @@ export function AmbientBackgroundLayer({
     ? `${game.id}|${game.cover_art ?? ""}|${game.icon ?? ""}|${igdbCover ?? ""}`
     : "";
 
+  const igdbGames = useTmdbDiscoverStore((s) => s.igdbGames);
+
+  const igdbDetailAmbientKey = useMemo(() => {
+    if (!pathname.startsWith("/igdb/")) return "";
+    const m = /^\/igdb\/(\d+)/.exec(pathname);
+    const id = m ? Number(m[1]) : NaN;
+    if (!Number.isFinite(id)) return `${pathname}:none`;
+    const hit = igdbGames.find((g) => g.id === id);
+    return `${pathname}:${hit?.coverUrl ?? ""}`;
+  }, [pathname, igdbGames]);
+
   const discoverAmbientKey = useTmdbDiscoverStore((s) => {
     const items = s.getItems();
     const i = s.selectedIndex;
@@ -107,6 +118,21 @@ export function AmbientBackgroundLayer({
         if (!rgb) {
           rgb = DISCOVER_FALLBACK_AMBIENT;
         }
+      } else if (pathname.startsWith("/igdb/")) {
+        const m = /^\/igdb\/(\d+)/.exec(pathname);
+        const id = m ? Number(m[1]) : NaN;
+        let rawPoster: string | null = null;
+        if (Number.isFinite(id)) {
+          const hit = useTmdbDiscoverStore.getState().igdbGames.find((g) => g.id === id);
+          rawPoster = hit?.coverUrl ?? null;
+        }
+        const sample = ambientImageSampleUrl(rawPoster);
+        if (sample) {
+          rgb = await extractVibrantDominantColorFromImageSource(sample);
+        }
+        if (!rgb) {
+          rgb = TMDB_PAGE_AMBIENT;
+        }
       } else {
         const gameNow = useGameStore.getState().filteredGames[useGameStore.getState().selectedIndex];
         const igdb = gameNow
@@ -132,7 +158,7 @@ export function AmbientBackgroundLayer({
     return () => {
       cancelled = true;
     };
-  }, [active, imageKey, discoverAmbientKey, pathname, setDominant]);
+  }, [active, imageKey, discoverAmbientKey, igdbDetailAmbientKey, pathname, setDominant]);
 
   const style = useMemo(
     () => (dominant ? ambientStyles(dominant, appearance) : undefined),

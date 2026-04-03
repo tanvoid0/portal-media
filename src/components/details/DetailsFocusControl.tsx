@@ -19,7 +19,7 @@ export function DetailsFocusControl({
   return (
     <div
       className={cn(
-        "rounded-xl transition-all duration-ps5 spring-ease",
+        "rounded-xl transition-all duration-panel spring-ease",
         isFocusedItem && showFocusIndicator && "ring-2 ring-primary/60 ring-offset-2 ring-offset-card animate-focus-ring",
         className
       )}

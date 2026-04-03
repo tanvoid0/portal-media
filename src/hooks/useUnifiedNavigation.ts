@@ -22,6 +22,13 @@ import { useShellOverlayStore } from "@/stores/shellOverlayStore";
 import { useTmdbDiscoverStore } from "@/stores/tmdbDiscoverStore";
 import { isDiscoverLibraryView } from "@/navigation/universalNavCore";
 import { EXECUTE_GAME_CONTEXT_EVENT } from "@/types/app";
+import type { NavActionId } from "@/types/navBindings";
+import {
+  getNavBinding,
+  useLeftStickForSpatialEffective,
+  useNavBindingsStore,
+} from "@/stores/navBindingsStore";
+import { anyGamepadButtonJustPressed, snapshotGamepadButtons } from "@/utils/navBindingMatch";
 
 /** @deprecated Import from `@/navigation/universalNavCore` for non-hook modules. */
 export { EXECUTE_DETAILS_ACTION } from "@/navigation/universalNavCore";
@@ -34,18 +41,9 @@ export function useUnifiedNavigation() {
   const inputMethod = useNavigationStore((state) => state.inputMethod);
   const setFocusArea = useNavigationStore((state) => state.setFocusArea);
   const setInputMethod = useNavigationStore((state) => state.setInputMethod);
+  const keyboardNavigationEnabled = useNavBindingsStore((s) => s.keyboardNavigationEnabled);
+  const gamepadNavigationEnabled = useNavBindingsStore((s) => s.gamepadNavigationEnabled);
 
-  const buttonBPressedRef = useRef(false);
-  const buttonAPressedRef = useRef(false);
-  const buttonStartRef = useRef(false);
-  const buttonView8Ref = useRef(false);
-  const buttonMenu9Ref = useRef(false);
-  const buttonXPressedRef = useRef(false);
-  const buttonYPressedRef = useRef(false);
-  const buttonLBPressedRef = useRef(false);
-  const buttonRBPressedRef = useRef(false);
-  const buttonLTPressedRef = useRef(false);
-  const buttonRTPressedRef = useRef(false);
   const dpadLeftRef = useRef(false);
   const dpadRightRef = useRef(false);
   const dpadUpRef = useRef(false);
@@ -54,6 +52,8 @@ export function useUnifiedNavigation() {
   const stickRightRef = useRef(false);
   const stickUpRef = useRef(false);
   const stickDownRef = useRef(false);
+  const prevGpButtonsRef = useRef<boolean[]>(Array.from({ length: 32 }, () => false));
+  const currGpButtonsRef = useRef<boolean[]>(Array.from({ length: 32 }, () => false));
   const checkGamepadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastMouseActivityRef = useRef<number>(Date.now());
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,6 +100,18 @@ export function useUnifiedNavigation() {
   }, [inputMethod]);
 
   useEffect(() => {
+    if (!gamepadNavigationEnabled && inputMethod === "gamepad") {
+      setInputMethod("keyboard");
+    }
+  }, [gamepadNavigationEnabled, inputMethod, setInputMethod]);
+
+  useEffect(() => {
+    if (!keyboardNavigationEnabled && inputMethod === "keyboard") {
+      setInputMethod("mouse");
+    }
+  }, [keyboardNavigationEnabled, inputMethod, setInputMethod]);
+
+  useEffect(() => {
     const handleMouseMove = () => {
       setInputMethod("mouse");
       lastMouseActivityRef.current = Date.now();
@@ -130,6 +142,7 @@ export function useUnifiedNavigation() {
     const mouseActivityTimeout = 2000;
 
     const checkGamepadInput = () => {
+      if (!useNavBindingsStore.getState().gamepadNavigationEnabled) return;
       const gamepads = navigator.getGamepads();
       const gamepad = gamepads[0];
 
@@ -153,10 +166,13 @@ export function useUnifiedNavigation() {
         clearInterval(checkGamepadIntervalRef.current);
       }
     };
-  }, [setInputMethod]);
+  }, [setInputMethod, gamepadNavigationEnabled]);
 
   const handleKeyboardNavigation = useCallback(
     (e: KeyboardEvent) => {
+      if (!useNavBindingsStore.getState().keyboardNavigationEnabled) {
+        return;
+      }
       if (processUniversalKeydown(e, delayedFocus) === "handled") {
         setInputMethod("keyboard");
       }
@@ -167,10 +183,13 @@ export function useUnifiedNavigation() {
   useEffect(() => {
     window.addEventListener("keydown", handleKeyboardNavigation);
     return () => window.removeEventListener("keydown", handleKeyboardNavigation);
-  }, [handleKeyboardNavigation]);
+  }, [handleKeyboardNavigation, keyboardNavigationEnabled]);
 
   const handleGamepadInput = useCallback(() => {
     if (isSpatialNavigationBlocked()) {
+      return;
+    }
+    if (!useNavBindingsStore.getState().gamepadNavigationEnabled) {
       return;
     }
 
@@ -181,254 +200,243 @@ export function useUnifiedNavigation() {
 
     setInputMethod("gamepad");
 
-    if (useAppShellStore.getState().currentView === "settings") {
-      const buttonB = gamepad.buttons[1]?.pressed;
-      if (buttonB && !buttonBPressedRef.current) {
-        buttonBPressedRef.current = true;
-        applyBackOrEscape(delayedFocus);
-      } else if (!buttonB) {
-        buttonBPressedRef.current = false;
+    const prev = prevGpButtonsRef.current;
+    const curr = currGpButtonsRef.current;
+    snapshotGamepadButtons(gamepad, curr, 31);
+
+    const gpJust = (binding: ReturnType<typeof getNavBinding>): boolean =>
+      binding.enabled &&
+      binding.gamepadButtons.length > 0 &&
+      anyGamepadButtonJustPressed(binding.gamepadButtons, prev, curr);
+
+    const stickOn = useLeftStickForSpatialEffective();
+
+    const dpadDownFor = (id: NavActionId, currBuf: boolean[]) => {
+      const b = getNavBinding(id);
+      return b.enabled && b.gamepadButtons.some((i) => currBuf[i]);
+    };
+
+    try {
+      if (useAppShellStore.getState().currentView === "settings") {
+        if (gpJust(getNavBinding("back"))) {
+          applyBackOrEscape(delayedFocus);
+        }
+        if (gpJust(getNavBinding("gamepadSettingsMenu"))) {
+          applyGamepadMenuToggle(delayedFocus);
+        }
+        return;
       }
 
-      const buttonStart =
-        gamepad.buttons[8]?.pressed || gamepad.buttons[9]?.pressed || gamepad.buttons[16]?.pressed;
-      if (buttonStart && !buttonStartRef.current) {
-        buttonStartRef.current = true;
-        applyGamepadMenuToggle(delayedFocus);
-      } else if (!buttonStart) {
-        buttonStartRef.current = false;
+      const sh = useShellOverlayStore.getState();
+      if (sh.gameContextMenuOpen) {
+        const leftStickY = gamepad.axes[1];
+        const bUp = getNavBinding("spatialUp");
+        const bDown = getNavBinding("spatialDown");
+        const dpadUp = dpadDownFor("spatialUp", curr);
+        const dpadDown = dpadDownFor("spatialDown", curr);
+        const upPressed =
+          bUp.enabled && (dpadUp || (stickOn && leftStickY < -0.5));
+        const downPressed =
+          bDown.enabled && (dpadDown || (stickOn && leftStickY > 0.5));
+        if (upPressed && !dpadUpRef.current && !stickUpRef.current) {
+          dpadUpRef.current = dpadUp;
+          stickUpRef.current = stickOn && leftStickY < -0.5;
+          const st = useShellOverlayStore.getState();
+          st.setContextMenuFocusIndex(st.contextMenuFocusIndex - 1);
+        } else if (!upPressed) {
+          dpadUpRef.current = false;
+          stickUpRef.current = false;
+        }
+        if (downPressed && !dpadDownRef.current && !stickDownRef.current) {
+          dpadDownRef.current = dpadDown;
+          stickDownRef.current = stickOn && leftStickY > 0.5;
+          const st = useShellOverlayStore.getState();
+          st.setContextMenuFocusIndex(st.contextMenuFocusIndex + 1);
+        } else if (!downPressed) {
+          dpadDownRef.current = false;
+          stickDownRef.current = false;
+        }
+        if (gpJust(getNavBinding("back"))) {
+          useShellOverlayStore.getState().setGameContextMenuOpen(false);
+        }
+        if (gpJust(getNavBinding("primary"))) {
+          const st = useShellOverlayStore.getState();
+          window.dispatchEvent(
+            new CustomEvent(EXECUTE_GAME_CONTEXT_EVENT, { detail: st.contextMenuFocusIndex })
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    const sh = useShellOverlayStore.getState();
-    if (sh.gameContextMenuOpen) {
+      const fa = getEffectiveFocusArea();
+      const currentView = useAppShellStore.getState().currentView;
+      const gs0 = useGameStore.getState();
+      const ds0 = useTmdbDiscoverStore.getState();
+      const hasGameSelection = Boolean(gs0.filteredGames[gs0.selectedIndex]);
+      const hasDiscoverSelection =
+        isDiscoverLibraryView() && Boolean(ds0.getItems()[ds0.selectedIndex]);
+      const hasPrimaryGridSelection = hasDiscoverSelection || hasGameSelection;
+
+      if (
+        currentView === "games" &&
+        fa === "games" &&
+        hasPrimaryGridSelection &&
+        !isDiscoverLibraryView() &&
+        hasGameSelection &&
+        gpJust(getNavBinding("gameMenu"))
+      ) {
+        useShellOverlayStore.getState().toggleGameContextMenu();
+      }
+
+      if (
+        (currentView === "games" || currentView === "details") &&
+        gpJust(getNavBinding("gamepadQuickAccessOverlay"))
+      ) {
+        useShellOverlayStore.getState().toggleQuickAccess();
+      }
+
+      const leftStickX = gamepad.axes[0];
       const leftStickY = gamepad.axes[1];
-      const dpadUp = gamepad.buttons[12]?.pressed;
-      const dpadDown = gamepad.buttons[13]?.pressed;
-      const upPressed = dpadUp || leftStickY < -0.5;
-      const downPressed = dpadDown || leftStickY > 0.5;
+
+      const bU = getNavBinding("spatialUp");
+      const bD = getNavBinding("spatialDown");
+      const bL = getNavBinding("spatialLeft");
+      const bR = getNavBinding("spatialRight");
+      const dUp = dpadDownFor("spatialUp", curr);
+      const dDown = dpadDownFor("spatialDown", curr);
+      const dLeft = dpadDownFor("spatialLeft", curr);
+      const dRight = dpadDownFor("spatialRight", curr);
+
+      const upPressed = bU.enabled && (dUp || (stickOn && leftStickY < -0.5));
+      const downPressed = bD.enabled && (dDown || (stickOn && leftStickY > 0.5));
+      const leftPressed = bL.enabled && (dLeft || (stickOn && leftStickX < -0.5));
+      const rightPressed = bR.enabled && (dRight || (stickOn && leftStickX > 0.5));
+
       if (upPressed && !dpadUpRef.current && !stickUpRef.current) {
-        dpadUpRef.current = dpadUp;
-        stickUpRef.current = leftStickY < -0.5;
-        const st = useShellOverlayStore.getState();
-        st.setContextMenuFocusIndex(st.contextMenuFocusIndex - 1);
+        dpadUpRef.current = dUp;
+        stickUpRef.current = stickOn && leftStickY < -0.5;
+        applySpatialNavigation("up", delayedFocus);
       } else if (!upPressed) {
         dpadUpRef.current = false;
         stickUpRef.current = false;
       }
+
       if (downPressed && !dpadDownRef.current && !stickDownRef.current) {
-        dpadDownRef.current = dpadDown;
-        stickDownRef.current = leftStickY > 0.5;
-        const st = useShellOverlayStore.getState();
-        st.setContextMenuFocusIndex(st.contextMenuFocusIndex + 1);
+        dpadDownRef.current = dDown;
+        stickDownRef.current = stickOn && leftStickY > 0.5;
+        applySpatialNavigation("down", delayedFocus);
       } else if (!downPressed) {
         dpadDownRef.current = false;
         stickDownRef.current = false;
       }
-      const buttonB = gamepad.buttons[1]?.pressed;
-      if (buttonB && !buttonBPressedRef.current) {
-        buttonBPressedRef.current = true;
-        useShellOverlayStore.getState().setGameContextMenuOpen(false);
-      } else if (!buttonB) {
-        buttonBPressedRef.current = false;
+
+      if (leftPressed && !dpadLeftRef.current && !stickLeftRef.current) {
+        dpadLeftRef.current = dLeft;
+        stickLeftRef.current = stickOn && leftStickX < -0.5;
+        applySpatialNavigation("left", delayedFocus);
+      } else if (!leftPressed) {
+        dpadLeftRef.current = false;
+        stickLeftRef.current = false;
       }
-      const buttonA = gamepad.buttons[0]?.pressed;
-      if (buttonA && !buttonAPressedRef.current) {
-        buttonAPressedRef.current = true;
-        const st = useShellOverlayStore.getState();
-        window.dispatchEvent(
-          new CustomEvent(EXECUTE_GAME_CONTEXT_EVENT, { detail: st.contextMenuFocusIndex })
-        );
-      } else if (!buttonA) {
-        buttonAPressedRef.current = false;
+
+      if (rightPressed && !dpadRightRef.current && !stickRightRef.current) {
+        dpadRightRef.current = dRight;
+        stickRightRef.current = stickOn && leftStickX > 0.5;
+        applySpatialNavigation("right", delayedFocus);
+      } else if (!rightPressed) {
+        dpadRightRef.current = false;
+        stickRightRef.current = false;
       }
-      return;
-    }
 
-    const fa = getEffectiveFocusArea();
-    const currentView = useAppShellStore.getState().currentView;
-    const gs0 = useGameStore.getState();
-    const ds0 = useTmdbDiscoverStore.getState();
-    const hasGameSelection = Boolean(gs0.filteredGames[gs0.selectedIndex]);
-    const hasDiscoverSelection =
-      isDiscoverLibraryView() && Boolean(ds0.getItems()[ds0.selectedIndex]);
-    const hasPrimaryGridSelection = hasDiscoverSelection || hasGameSelection;
-
-    const btn9 = gamepad.buttons[9]?.pressed;
-    if (
-      currentView === "games" &&
-      fa === "games" &&
-      hasPrimaryGridSelection &&
-      !isDiscoverLibraryView() &&
-      hasGameSelection &&
-      btn9 &&
-      !buttonMenu9Ref.current
-    ) {
-      buttonMenu9Ref.current = true;
-      useShellOverlayStore.getState().toggleGameContextMenu();
-    } else if (!btn9) {
-      buttonMenu9Ref.current = false;
-    }
-
-    const btn8 = gamepad.buttons[8]?.pressed;
-    if ((currentView === "games" || currentView === "details") && btn8 && !buttonView8Ref.current) {
-      buttonView8Ref.current = true;
-      useShellOverlayStore.getState().toggleQuickAccess();
-    } else if (!btn8) {
-      buttonView8Ref.current = false;
-    }
-
-    const leftStickX = gamepad.axes[0];
-    const leftStickY = gamepad.axes[1];
-    const dpadLeft = gamepad.buttons[14]?.pressed;
-    const dpadRight = gamepad.buttons[15]?.pressed;
-    const dpadUp = gamepad.buttons[12]?.pressed;
-    const dpadDown = gamepad.buttons[13]?.pressed;
-
-    const upPressed = dpadUp || leftStickY < -0.5;
-    const downPressed = dpadDown || leftStickY > 0.5;
-
-    if (upPressed && !dpadUpRef.current && !stickUpRef.current) {
-      dpadUpRef.current = dpadUp;
-      stickUpRef.current = leftStickY < -0.5;
-      applySpatialNavigation("up", delayedFocus);
-    } else if (!upPressed) {
-      dpadUpRef.current = false;
-      stickUpRef.current = false;
-    }
-
-    if (downPressed && !dpadDownRef.current && !stickDownRef.current) {
-      dpadDownRef.current = dpadDown;
-      stickDownRef.current = leftStickY > 0.5;
-      applySpatialNavigation("down", delayedFocus);
-    } else if (!downPressed) {
-      dpadDownRef.current = false;
-      stickDownRef.current = false;
-    }
-
-    const leftPressed = dpadLeft || leftStickX < -0.5;
-    const rightPressed = dpadRight || leftStickX > 0.5;
-
-    if (leftPressed && !dpadLeftRef.current && !stickLeftRef.current) {
-      dpadLeftRef.current = dpadLeft;
-      stickLeftRef.current = leftStickX < -0.5;
-      applySpatialNavigation("left", delayedFocus);
-    } else if (!leftPressed) {
-      dpadLeftRef.current = false;
-      stickLeftRef.current = false;
-    }
-
-    if (rightPressed && !dpadRightRef.current && !stickRightRef.current) {
-      dpadRightRef.current = dpadRight;
-      stickRightRef.current = leftStickX > 0.5;
-      applySpatialNavigation("right", delayedFocus);
-    } else if (!rightPressed) {
-      dpadRightRef.current = false;
-      stickRightRef.current = false;
-    }
-
-    const buttonA = gamepad.buttons[0]?.pressed;
-    if (buttonA && !buttonAPressedRef.current) {
-      buttonAPressedRef.current = true;
-      applyPrimaryAction();
-    } else if (!buttonA) {
-      buttonAPressedRef.current = false;
-    }
-
-    const buttonY = gamepad.buttons[3]?.pressed;
-    if (buttonY && !buttonYPressedRef.current) {
-      buttonYPressedRef.current = true;
-      openShellSearch();
-    } else if (!buttonY) {
-      buttonYPressedRef.current = false;
-    }
-
-    const buttonB = gamepad.buttons[1]?.pressed;
-    if (buttonB && !buttonBPressedRef.current) {
-      buttonBPressedRef.current = true;
-      applyBackOrEscape(delayedFocus);
-    } else if (!buttonB) {
-      buttonBPressedRef.current = false;
-    }
-
-    const buttonX = gamepad.buttons[2]?.pressed;
-    if (
-      currentView === "games" &&
-      fa === "games" &&
-      hasPrimaryGridSelection &&
-      buttonX &&
-      !buttonXPressedRef.current
-    ) {
-      buttonXPressedRef.current = true;
-      if (isDiscoverLibraryView()) {
-        openDetailsForSelectedGame();
-      } else {
-        const g = useGameStore.getState().filteredGames[useGameStore.getState().selectedIndex];
-        if (g) void useGameStore.getState().launchGame(g);
+      if (gpJust(getNavBinding("primary"))) {
+        applyPrimaryAction();
       }
-    } else if (!buttonX) {
-      buttonXPressedRef.current = false;
-    }
 
-    const buttonLB = gamepad.buttons[4]?.pressed;
-    if (buttonLB && !buttonLBPressedRef.current) {
-      buttonLBPressedRef.current = true;
-      if (fa === "category") {
-        applyCategoryStripStep("left");
-      } else if (fa === "games") {
-        applyCategoryBumperFromGames("left", delayedFocus);
+      if (gpJust(getNavBinding("openSearch"))) {
+        openShellSearch();
       }
-    } else if (!buttonLB) {
-      buttonLBPressedRef.current = false;
-    }
 
-    const buttonRB = gamepad.buttons[5]?.pressed;
-    if (buttonRB && !buttonRBPressedRef.current) {
-      buttonRBPressedRef.current = true;
-      if (fa === "category") {
-        applyCategoryStripStep("right");
-      } else if (fa === "games") {
-        applyCategoryBumperFromGames("right", delayedFocus);
+      if (gpJust(getNavBinding("back"))) {
+        applyBackOrEscape(delayedFocus);
       }
-    } else if (!buttonRB) {
-      buttonRBPressedRef.current = false;
-    }
 
-    const buttonLT =
-      gamepad.buttons[6]?.pressed ||
-      (gamepad.buttons[6]?.value ? gamepad.buttons[6].value > 0.5 : false);
-    if (buttonLT && !buttonLTPressedRef.current) {
-      buttonLTPressedRef.current = true;
-      if (fa === "games") {
+      if (
+        currentView === "games" &&
+        fa === "games" &&
+        hasPrimaryGridSelection &&
+        gpJust(getNavBinding("quickLaunch"))
+      ) {
         if (isDiscoverLibraryView()) {
-          useTmdbDiscoverStore.getState().selectPrevious();
+          openDetailsForSelectedGame();
         } else {
-          useGameStore.getState().selectPrevious();
+          const g = useGameStore.getState().filteredGames[useGameStore.getState().selectedIndex];
+          if (g) void useGameStore.getState().launchGame(g);
         }
-      } else if (fa === "category") {
-        applyShoulderScrollFromCategory("prev", delayedFocus, UNIVERSAL_NAV_FOCUS_DELAY_MS);
       }
-    } else if (!buttonLT) {
-      buttonLTPressedRef.current = false;
-    }
 
-    const buttonRT =
-      gamepad.buttons[7]?.pressed ||
-      (gamepad.buttons[7]?.value ? gamepad.buttons[7].value > 0.5 : false);
-    if (buttonRT && !buttonRTPressedRef.current) {
-      buttonRTPressedRef.current = true;
-      if (fa === "games") {
-        if (isDiscoverLibraryView()) {
-          useTmdbDiscoverStore.getState().selectNext();
-        } else {
-          useGameStore.getState().selectNext();
+      const catLeft = getNavBinding("categoryBumperLeft");
+      if (
+        catLeft.enabled &&
+        catLeft.gamepadButtons.length > 0 &&
+        anyGamepadButtonJustPressed(catLeft.gamepadButtons, prev, curr)
+      ) {
+        if (fa === "category") {
+          applyCategoryStripStep("left");
+        } else if (fa === "games") {
+          applyCategoryBumperFromGames("left", delayedFocus);
         }
-      } else if (fa === "category") {
-        applyShoulderScrollFromCategory("next", delayedFocus, UNIVERSAL_NAV_FOCUS_DELAY_MS);
       }
-    } else if (!buttonRT) {
-      buttonRTPressedRef.current = false;
+
+      const catRight = getNavBinding("categoryBumperRight");
+      if (
+        catRight.enabled &&
+        catRight.gamepadButtons.length > 0 &&
+        anyGamepadButtonJustPressed(catRight.gamepadButtons, prev, curr)
+      ) {
+        if (fa === "category") {
+          applyCategoryStripStep("right");
+        } else if (fa === "games") {
+          applyCategoryBumperFromGames("right", delayedFocus);
+        }
+      }
+
+      const scrollPrev = getNavBinding("scrollSelectionPrev");
+      if (
+        scrollPrev.enabled &&
+        scrollPrev.gamepadButtons.length > 0 &&
+        anyGamepadButtonJustPressed(scrollPrev.gamepadButtons, prev, curr)
+      ) {
+        if (fa === "games") {
+          if (isDiscoverLibraryView()) {
+            useTmdbDiscoverStore.getState().selectPrevious();
+          } else {
+            useGameStore.getState().selectPrevious();
+          }
+        } else if (fa === "category") {
+          applyShoulderScrollFromCategory("prev", delayedFocus, UNIVERSAL_NAV_FOCUS_DELAY_MS);
+        }
+      }
+
+      const scrollNext = getNavBinding("scrollSelectionNext");
+      if (
+        scrollNext.enabled &&
+        scrollNext.gamepadButtons.length > 0 &&
+        anyGamepadButtonJustPressed(scrollNext.gamepadButtons, prev, curr)
+      ) {
+        if (fa === "games") {
+          if (isDiscoverLibraryView()) {
+            useTmdbDiscoverStore.getState().selectNext();
+          } else {
+            useGameStore.getState().selectNext();
+          }
+        } else if (fa === "category") {
+          applyShoulderScrollFromCategory("next", delayedFocus, UNIVERSAL_NAV_FOCUS_DELAY_MS);
+        }
+      }
+    } finally {
+      for (let i = 0; i < 32; i++) {
+        prev[i] = curr[i];
+      }
     }
   }, [setInputMethod, delayedFocus]);
 

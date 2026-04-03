@@ -98,13 +98,13 @@ function PlatformSyncCard({ platform }: { platform: Platform }) {
   const status = platforms[platform];
 
   return (
-    <div className="glass rounded-xl p-6 space-y-4 border border-white/5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div className="glass rounded-xl p-4 sm:p-5 space-y-3 border border-white/5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
           <PlatformIcon platform={platform} />
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h4 className="text-lg font-semibold text-white">{platformConfig[platform].name}</h4>
+              <h4 className="text-base font-semibold text-white truncate">{platformConfig[platform].name}</h4>
               {status.isConnected ? (
                 <CheckCircle2 className="w-5 h-5 text-green-400" />
               ) : (
@@ -155,9 +155,8 @@ function PlatformSyncCard({ platform }: { platform: Platform }) {
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-white/60 text-sm">
-            Detect {platform} installation and scan for locally installed games. Full library sync with API
-            authentication is not yet implemented.
+          <p className="text-white/50 text-xs">
+            Local install detection only — no cloud library sync yet.
           </p>
           {status.error && (
             <div className="flex items-center gap-2 text-sm text-yellow-400 bg-yellow-400/10 rounded-lg p-2">
@@ -184,16 +183,14 @@ function ArchivedLibraryCard() {
   const unarchiveGame = useGameStore((s) => s.unarchiveGame);
 
   return (
-    <div className="glass rounded-xl p-6 space-y-4 border border-white/5">
+    <div className="glass rounded-xl p-4 sm:p-5 space-y-3 border border-white/5">
       <div>
-        <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-          <Archive className="w-5 h-5 text-white/80 shrink-0" aria-hidden />
-          Archived items
+        <h3 className="text-base font-semibold text-white flex items-center gap-2">
+          <Archive className="w-4 h-4 text-white/80 shrink-0" aria-hidden />
+          Archived
         </h3>
-        <p className="text-white/60 text-sm mt-1">
-          Archived items are removed from <span className="text-white/80">All</span> and every sidebar tab until
-          you restore them here. (To hide something from only one tab—e.g. Games—use item details or right-click
-          and choose <span className="text-white/80">Hide from … tab</span>.)
+        <p className="text-white/50 text-xs mt-0.5">
+          Hidden from the library until restored. Per-tab hide lives in item details.
         </p>
       </div>
       {archivedGames.length === 0 ? (
@@ -236,30 +233,32 @@ export function SettingsGamePage() {
   return (
     <>
       <Card className="glass-dark border-white/10">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold text-white">Library &amp; platforms</CardTitle>
-          <CardDescription className="text-white/60">Scan installed games and sync launchers</CardDescription>
+        <CardHeader className="space-y-1 pb-4">
+          <CardTitle className="text-2xl font-semibold tracking-tight text-white">Library &amp; platforms</CardTitle>
+          <CardDescription className="text-white/55 text-sm">
+            Scan disk, manage platforms, restore archived titles.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-8">
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-white">Game library</h3>
-            <div className="space-y-3">
+        <CardContent className="space-y-6 pt-0">
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-white/90 uppercase tracking-wide">Library</h3>
+            <div className="flex flex-wrap gap-2">
               <Button
                 onClick={() => void scanGames()}
                 disabled={isLoading}
-                className="h-12 px-8 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="h-10 px-5 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground"
               >
-                <RefreshCw className={isLoading ? "animate-spin mr-2 w-5 h-5" : "mr-2 w-5 h-5"} />
-                {isLoading ? "Scanning..." : "Scan for Installed Games"}
+                <RefreshCw className={isLoading ? "animate-spin mr-2 w-4 h-4" : "mr-2 w-4 h-4"} />
+                {isLoading ? "Scanning…" : "Scan for games"}
               </Button>
               {hasConnectedPlatforms && (
                 <Button
                   onClick={() => void syncAllPlatforms()}
                   variant="outline"
-                  className="h-12 px-8 text-base font-semibold border-white/20 text-white hover:bg-white/10"
+                  className="h-10 px-5 text-sm font-medium border-white/20 text-white hover:bg-white/10"
                 >
-                  <Cloud className="mr-2 w-5 h-5" />
-                  Sync All Platforms
+                  <Cloud className="mr-2 w-4 h-4" />
+                  Sync all platforms
                 </Button>
               )}
             </div>
@@ -267,19 +266,15 @@ export function SettingsGamePage() {
 
           <ArchivedLibraryCard />
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-white">Platform sync</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-white/90 uppercase tracking-wide">Platforms</h3>
               {hasConnectedPlatforms && (
-                <span className="text-sm text-white/60">
-                  {connectedPlatforms.length} platform{connectedPlatforms.length !== 1 ? "s" : ""} connected
+                <span className="text-xs text-white/50 tabular-nums">
+                  {connectedPlatforms.length} connected
                 </span>
               )}
             </div>
-            <p className="text-white/60 text-sm">
-              Detect installed gaming platforms and scan for locally installed games. Note: Full library sync with
-              API authentication is not yet implemented - this only detects locally installed games.
-            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <PlatformSyncCard platform="Steam" />
               <PlatformSyncCard platform="Epic Games" />

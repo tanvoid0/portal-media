@@ -14,12 +14,16 @@ import {
 } from "@/config/contentGridPresets";
 import { useGridColumnCountSync } from "@/hooks/useGridColumnCountSync";
 import { useKeepGridSelectionVisible } from "@/hooks/useKeepGridSelectionVisible";
+import { RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function GameGrid() {
   const {
     filteredGames: games,
     selectedIndex,
     setSelectedIndex,
+    selectedCategory,
+    scanGames,
     isLoading,
     launchOverlay,
     error,
@@ -146,10 +150,34 @@ export function GameGrid() {
         </div>
       ) : null}
 
-      {/* PS5-style background and info panel */}
+      {/* Full-width shelf background and info panel */}
       <GameInfoPanel game={selectedGame} />
-      
-      {/* Cards container - positioned at top with enhanced spacing and PS5-style scrolling */}
+
+      {selectedCategory === "App" ? (
+        <div
+          className={cn(
+            "relative z-30 shrink-0 flex flex-wrap items-center gap-3 px-6 lg:px-10 py-2.5",
+            "border-b border-border/50 bg-background/85 backdrop-blur-md"
+          )}
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="rounded-xl h-9 gap-2"
+            disabled={isLoading}
+            onClick={() => void scanGames()}
+          >
+            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} aria-hidden />
+            {isLoading ? "Syncing…" : "Sync apps & icons"}
+          </Button>
+          <p className="text-xs text-muted-foreground max-w-xl leading-snug">
+            Rescans Start Menu entries and rebuilds cached shortcut / executable icons (same as Settings → Scan for games).
+          </p>
+        </div>
+      ) : null}
+
+      {/* Cards container — horizontal row with smooth scroll behavior */}
       <div
         ref={containerRef}
         className={buildContentGridContainerClassName(LIBRARY_GAMES_GRID_PRESET)}

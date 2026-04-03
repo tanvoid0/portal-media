@@ -1,12 +1,13 @@
 /**
  * Heuristic controller layout for hint glyphs (Gamepad API id string varies by browser/OS).
+ * `letters` = face buttons labeled A/B/X/Y style; `shapes` = ✕ ○ △ □ style.
  */
-export type ControllerLayoutKind = "xbox" | "playstation" | "generic";
+export type ControllerLayoutKind = "letters" | "shapes" | "generic";
 
 export function detectControllerLayout(gamepad: Gamepad | null): ControllerLayoutKind {
   if (!gamepad) return "generic";
   const id = (gamepad.id || "").toLowerCase();
-  if (id.includes("xbox") || id.includes("microsoft")) return "xbox";
+  if (id.includes("xbox") || id.includes("microsoft")) return "letters";
   if (
     id.includes("playstation") ||
     id.includes("dualsense") ||
@@ -14,7 +15,7 @@ export function detectControllerLayout(gamepad: Gamepad | null): ControllerLayou
     id.includes("sony") ||
     id.includes("054c") // Sony USB vendor
   ) {
-    return "playstation";
+    return "shapes";
   }
   return "generic";
 }
@@ -30,7 +31,7 @@ export type HintAction =
   | "rb";
 
 const LABELS: Record<ControllerLayoutKind, Record<HintAction, string>> = {
-  xbox: {
+  letters: {
     select: "A",
     back: "B",
     menu: "☰",
@@ -40,7 +41,7 @@ const LABELS: Record<ControllerLayoutKind, Record<HintAction, string>> = {
     lb: "LB",
     rb: "RB",
   },
-  playstation: {
+  shapes: {
     select: "✕",
     back: "○",
     menu: "Options",

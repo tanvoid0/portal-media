@@ -10,13 +10,14 @@ interface GameInfoPanelProps {
 
 export function GameInfoPanel({ game }: GameInfoPanelProps) {
   const { isGamepadActive } = useNavigationState();
+  const igdbCover = useMetadataDisplayStore((s) =>
+    game ? s.igdbCoverUrlByGameId[game.id] : undefined
+  );
 
   // Only show when gamepad is active and we have a game
   if (!isGamepadActive || !game) {
     return null;
   }
-
-  const igdbCover = useMetadataDisplayStore((s) => s.igdbCoverUrlByGameId[game.id]);
   const backgroundImage = getSafeImageSource(game.cover_art || game.icon || igdbCover);
 
   return (
@@ -40,7 +41,7 @@ export function GameInfoPanel({ game }: GameInfoPanelProps) {
       {/* Enhanced gradient overlay - stronger on bottom for text readability */}
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-background/80" />
       
-      {/* Info Panel - Enhanced PS5 style */}
+      {/* Detail panel — large type, shelf-friendly layout */}
       <div className="absolute bottom-0 left-0 right-0 p-10 pb-6 animate-slide-in-bottom">
         <div className="max-w-6xl">
           <div className="flex items-start gap-10 mb-6">

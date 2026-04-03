@@ -20,7 +20,8 @@ import { DetailsFocusControl } from "@/components/details/DetailsFocusControl";
 import { DetailsHeroFrame } from "@/components/layout/DetailsHeroFrame";
 import { DetailsPageShell } from "@/components/layout/DetailsPageShell";
 import { cn } from "@/lib/utils";
-import { ExternalLink, Loader2, Play } from "lucide-react";
+import { ExternalLinkGlyph } from "@/components/content/ExternalLinkGlyph";
+import { Loader2 } from "lucide-react";
 
 type StreamAction = {
   label: string;
@@ -296,17 +297,12 @@ export function TmdbDetailsContent({
                   )}
                   onClick={() => openBrowser(a.url)}
                 >
-                  {a.useExternalGlyph ? (
-                    <ExternalLink className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-                  ) : a.logoUrl ? (
-                    <img
-                      src={a.logoUrl}
-                      alt=""
-                      className="h-7 w-7 shrink-0 rounded-md object-contain bg-background/80 border border-border/35 p-0.5"
-                    />
-                  ) : (
-                    <Play className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-                  )}
+                  <ExternalLinkGlyph
+                    url={a.url}
+                    labelHint={a.label}
+                    imageUrl={a.useExternalGlyph ? null : a.logoUrl}
+                    size="md"
+                  />
                   <span className="text-left min-w-0">
                     <span className="block font-medium text-sm leading-tight truncate max-w-[12rem]">
                       {a.label}
@@ -317,7 +313,6 @@ export function TmdbDetailsContent({
                       </span>
                     ) : null}
                   </span>
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-40 ml-0.5" aria-hidden />
                 </Button>
               </DetailsFocusControl>
             ))}

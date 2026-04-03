@@ -1,4 +1,4 @@
-import type { IgdbDiscoverHit, TmdbDiscoverPayload } from "@/types/metadata";
+import type { IgdbDiscoverHit, ProviderStatus, TmdbDiscoverPayload } from "@/types/metadata";
 
 const CACHE_KEY = "portal_media_discover_cache_v1";
 
@@ -10,7 +10,42 @@ export type DiscoverCacheSnapshot = {
   savedAt: number;
   tmdb: TmdbDiscoverPayload | null;
   igdb: IgdbDiscoverHit[];
+  /** Whether credentials existed when this snapshot was written (newer builds only). */
+  hadIgdbCredentials?: boolean;
+  hadTmdbCredentials?: boolean;
 };
+
+function tmdbDiscoverPayloadEmpty(tmdb: TmdbDiscoverPayload | null): boolean {
+  if (!tmdb) return true;
+  const a = tmdb.nowPlaying;
+  const b = tmdb.trendingMovies;
+  const c = tmdb.trendingTv;
+  const has =
+    (Array.isArray(a) && a.length > 0) ||
+    (Array.isArray(b) && b.length > 0) ||
+    (Array.isArray(c) && c.length > 0);
+  return !has;
+}
+
+/**
+ * True when cached Discover data was fetched before the user configured a provider,
+ * or legacy cache has empty IGDB/TMDB data while that provider is now configured.
+ */
+export function discoverCacheNeedsRefetchVersusCredentials(
+  cached: DiscoverCacheSnapshot,
+  status: ProviderStatus
+): boolean {
+  const { igdbConfigured, tmdbConfigured } = status;
+
+  if (igdbConfigured && cached.hadIgdbCredentials === false) return true;
+  if (tmdbConfigured && cached.hadTmdbCredentials === false) return true;
+
+  if (cached.hadIgdbCredentials === undefined && igdbConfigured && cached.igdb.length === 0) return true;
+  if (cached.hadTmdbCredentials === undefined && tmdbConfigured && tmdbDiscoverPayloadEmpty(cached.tmdb))
+    return true;
+
+  return false;
+}
 
 function isSnapshot(x: unknown): x is DiscoverCacheSnapshot {
   if (!x || typeof x !== "object") return false;
@@ -44,6 +79,8 @@ export function writeDiscoverCache(snapshot: Omit<DiscoverCacheSnapshot, "v"> & 
       savedAt: snapshot.savedAt,
       tmdb: snapshot.tmdb,
       igdb: snapshot.igdb,
+      ...(snapshot.hadIgdbCredentials !== undefined ? { hadIgdbCredentials: snapshot.hadIgdbCredentials } : {}),
+      ...(snapshot.hadTmdbCredentials !== undefined ? { hadTmdbCredentials: snapshot.hadTmdbCredentials } : {}),
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(body));
   } catch {

@@ -87,19 +87,14 @@ export function LibraryManualAddSection() {
 
   return (
     <Card className="glass-dark border-white/10">
-      <CardHeader>
-        <CardTitle className="text-3xl font-bold text-white">Add to library</CardTitle>
-        <CardDescription className="text-white/60">
-          Scanning and platform sync use the same grid as titles you add here. After you add something, it shows up like
-          any other tile—archive, hide from tabs, favorites, and launch behave the same. Use this when a title never
-          appeared in a scan (for example only a Start Menu <span className="text-white/80">.lnk</span>). Targets can be
-          a <span className="text-white/80">.exe</span>, <span className="text-white/80">.lnk</span>, or{" "}
-          <span className="text-white/80">.url</span>—use <span className="text-white/80">Choose file…</span> or paste a
-          path. Streaming and site links are in the next card. Persisted rows live in{" "}
-          <span className="text-white/80">portal_library.db</span> and are merged every time the library is scanned.
+      <CardHeader className="space-y-1 pb-4">
+        <CardTitle className="text-2xl font-semibold tracking-tight text-white">Add to library</CardTitle>
+        <CardDescription className="text-white/55 text-sm">
+          Add a missing <span className="text-white/75">.exe</span>, <span className="text-white/75">.lnk</span>, or{" "}
+          <span className="text-white/75">.url</span>. Merges on the next scan.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-5 pt-0">
         {error && (
           <p className="text-sm text-red-400 bg-red-950/40 border border-red-500/30 rounded-lg px-3 py-2">{error}</p>
         )}
@@ -109,10 +104,10 @@ export function LibraryManualAddSection() {
               clearError();
               setShowForm(true);
             }}
-            className="h-12 px-8 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
+            className="h-10 px-5 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground"
           >
-            <Plus className="mr-2 w-5 h-5" />
-            Add program or shortcut…
+            <Plus className="mr-2 w-4 h-4" />
+            Add program or shortcut
           </Button>
         ) : (
           <div className="space-y-4 max-w-xl">

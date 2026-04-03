@@ -1,9 +1,9 @@
 @import "./themes/her.css";
 @import "./themes/ocean.css";
-@import "./themes/playstation.css";
-@import "./themes/xbox.css";
-@import "./themes/steam.css";
-@import "./themes/netflix.css";
+@import "./themes/nimbus.css";
+@import "./themes/vertex.css";
+@import "./themes/forge.css";
+@import "./themes/velvet.css";
 
 @tailwind base;
 @tailwind components;
@@ -133,7 +133,7 @@
   }
 }
 
-/* PS5-Style Animations */
+/* Shelf / tile motion (card scale, focus ring pulse) */
 @keyframes card-scale-up {
   0% {
     transform: scale(1) translateZ(0);
@@ -513,6 +513,79 @@
   .launch-loader-shimmer {
     animation: none;
     opacity: 0.15;
+  }
+}
+
+/* Boot splash: scattered shards converge into the portal mark */
+@keyframes portal-boot-shard-merge {
+  0% {
+    transform: translate3d(var(--sx), var(--sy), 0) rotate(var(--sr)) scale(1);
+    opacity: 0.52;
+  }
+  55% {
+    opacity: 0.28;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0);
+    opacity: 0;
+  }
+}
+
+.portal-boot-shard {
+  animation: portal-boot-shard-merge 1.82s cubic-bezier(0.55, 0.02, 0.18, 1) both;
+}
+
+@keyframes portal-boot-emblem-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.86);
+    filter: blur(14px);
+  }
+  50% {
+    opacity: 1;
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+.portal-boot-emblem {
+  animation: portal-boot-emblem-in 1.35s cubic-bezier(0.2, 0.9, 0.32, 1) 0.55s both;
+}
+
+.portal-boot-emblem-static {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@keyframes portal-boot-overlay-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.portal-boot-root-exit {
+  animation: portal-boot-overlay-fade 0.58s ease forwards;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-boot-shard {
+    animation: none;
+    opacity: 0;
+  }
+
+  .portal-boot-emblem {
+    animation: none;
+    opacity: 1;
+    filter: none;
+    transform: scale(1);
   }
 }
 

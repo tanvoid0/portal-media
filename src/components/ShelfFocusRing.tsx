@@ -1,14 +1,12 @@
 import { cn } from "@/lib/utils";
 
-interface PS5FocusRingProps {
+interface ShelfFocusRingProps {
   isVisible: boolean;
   className?: string;
 }
 
-/**
- * PS5-style focus ring component with smooth glow animation
- */
-export function PS5FocusRing({ isVisible, className }: PS5FocusRingProps) {
+/** Animated focus ring for horizontal shelf tiles (large cards, soft pulse). */
+export function ShelfFocusRing({ isVisible, className }: ShelfFocusRingProps) {
   if (!isVisible) return null;
 
   return (
@@ -22,4 +20,3 @@ export function PS5FocusRing({ isVisible, className }: PS5FocusRingProps) {
     />
   );
 }
-

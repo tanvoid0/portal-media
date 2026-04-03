@@ -23,7 +23,7 @@ export function SettingsSectionTabs() {
           to={to}
           className={({ isActive }) =>
             cn(
-              "flex items-center gap-2 shrink-0 h-11 px-4 rounded-xl whitespace-nowrap transition-all duration-ps5 spring-ease",
+              "flex items-center gap-2 shrink-0 h-11 px-4 rounded-xl whitespace-nowrap transition-all duration-panel spring-ease",
               "border border-transparent",
               isActive
                 ? "bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"

@@ -4,6 +4,7 @@ import { ACTIVATE_SIDEBAR_EVENT, isActivateSidebarEvent } from "@/types/app";
 import { appNavigate } from "@/nav/appNavigate";
 import { useShellOverlayStore } from "@/stores/shellOverlayStore";
 import { useNavigationStore } from "@/stores/navigationStore";
+import { quickAccessMetaTapEffective } from "@/stores/navBindingsStore";
 
 function isMetaPhysicalKey(e: KeyboardEvent): boolean {
   return (
@@ -53,9 +54,11 @@ export function useAppShellEvents(
     const handleGlobalKeyUp = (e: KeyboardEvent) => {
       if (!isMetaPhysicalKey(e)) return;
       if (metaPhysicallyDown && !e.repeat && !metaCombo) {
-        e.preventDefault();
-        useNavigationStore.getState().setInputMethod("keyboard");
-        useShellOverlayStore.getState().toggleQuickAccess();
+        if (quickAccessMetaTapEffective()) {
+          e.preventDefault();
+          useNavigationStore.getState().setInputMethod("keyboard");
+          useShellOverlayStore.getState().toggleQuickAccess();
+        }
       }
       metaPhysicallyDown = false;
       metaCombo = false;

@@ -19,9 +19,12 @@ import {
 import { appNavigate } from "@/nav/appNavigate";
 import { libraryPathForCategory } from "@/nav/libraryRoutes";
 import { useShellOverlayStore } from "@/stores/shellOverlayStore";
+import { getNavBinding, isNavActionKeyboardMatch, useNavBindingsStore } from "@/stores/navBindingsStore";
+import { spatialDirectionFromKeyboard } from "@/utils/navBindingMatch";
 
 export const EXECUTE_DETAILS_ACTION = "executeDetailsAction";
 export const EXECUTE_TMDB_DETAILS_ACTION = "executeTmdbDetailsAction";
+export const EXECUTE_IGDB_DETAILS_ACTION = "executeIgdbDetailsAction";
 
 export type SpatialDirection = "up" | "down" | "left" | "right";
 
@@ -82,6 +85,10 @@ export function isTmdbDetailsPath(): boolean {
   return typeof window !== "undefined" && window.location.pathname.startsWith("/tmdb/");
 }
 
+export function isIgdbDetailsPath(): boolean {
+  return typeof window !== "undefined" && window.location.pathname.startsWith("/igdb/");
+}
+
 /** @deprecated Prefer isGamesGridView / isGameDetailsView */
 export function isLibraryViewActive(): boolean {
   return isGamesGridView();
@@ -112,7 +119,7 @@ export function openDetailsForSelectedGame(): void {
     const ds = useTmdbDiscoverStore.getState();
     if (ds.feed === "popularGames") {
       const g = ds.igdbGames[ds.selectedIndex];
-      if (g) useBrowserStore.getState().openBrowser(`https://www.igdb.com/games/${g.id}`);
+      if (g) appNavigate(`/igdb/${g.id}`);
       return;
     }
     const item = ds.getItems()[ds.selectedIndex] as { mediaType?: string; id?: number } | undefined;
@@ -202,22 +209,13 @@ export function shouldDelegateKeyboardToField(event: KeyboardEvent): boolean {
  * Extend here when a new device reports odd `key`/`code` pairs.
  */
 export function keyboardEventToSpatialDirection(event: KeyboardEvent): SpatialDirection | null {
-  const k = event.key;
-  const c = event.code;
-
-  if (k === "ArrowUp" || k === "Up" || c === "ArrowUp" || c === "Numpad8") {
-    return "up";
-  }
-  if (k === "ArrowDown" || k === "Down" || c === "ArrowDown" || c === "Numpad2") {
-    return "down";
-  }
-  if (k === "ArrowLeft" || k === "Left" || c === "ArrowLeft" || c === "Numpad4") {
-    return "left";
-  }
-  if (k === "ArrowRight" || k === "Right" || c === "ArrowRight" || c === "Numpad6") {
-    return "right";
-  }
-  return null;
+  return spatialDirectionFromKeyboard(
+    (id) => {
+      const b = getNavBinding(id);
+      return { enabled: b.enabled, keyboard: b.keyboard };
+    },
+    event
+  );
 }
 
 export type UniversalKeydownResult = "unhandled" | "handled";
@@ -230,6 +228,9 @@ export function processUniversalKeydown(
   event: KeyboardEvent,
   delayedFocus: DelayedFocusArea
 ): UniversalKeydownResult {
+  if (!useNavBindingsStore.getState().keyboardNavigationEnabled) {
+    return "unhandled";
+  }
   if (isSpatialNavigationBlocked()) {
     return "unhandled";
   }
@@ -240,13 +241,7 @@ export function processUniversalKeydown(
   // Compact search popover: Escape / back closes it even while the input is focused
   // (shouldDelegateKeyboardToField would otherwise skip the global key pipeline).
   const shellEarly = useShellOverlayStore.getState();
-  if (
-    shellEarly.searchPopoverOpen &&
-    (event.key === "Escape" ||
-      event.key === "BrowserBack" ||
-      event.key === "GoBack" ||
-      event.code === "BrowserBack")
-  ) {
+  if (shellEarly.searchPopoverOpen && isNavActionKeyboardMatch("back", event)) {
     event.preventDefault();
     window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
     return "handled";
@@ -257,19 +252,19 @@ export function processUniversalKeydown(
   }
 
   // Browser-style in-app history (works on library, details, settings — not the embedded webview).
-  if (
-    event.altKey &&
-    !event.ctrlKey &&
-    !event.metaKey &&
-    (event.key === "ArrowLeft" || event.key === "ArrowRight")
-  ) {
+  if (isNavActionKeyboardMatch("historyBack", event)) {
     event.preventDefault();
     try {
-      if (event.key === "ArrowLeft") {
-        window.history.back();
-      } else {
-        window.history.forward();
-      }
+      window.history.back();
+    } catch {
+      /* no-op */
+    }
+    return "handled";
+  }
+  if (isNavActionKeyboardMatch("historyForward", event)) {
+    event.preventDefault();
+    try {
+      window.history.forward();
     } catch {
       /* no-op */
     }
@@ -280,27 +275,23 @@ export function processUniversalKeydown(
 
   const sh0 = useShellOverlayStore.getState();
   if (sh0.gameContextMenuOpen) {
-    if (
-      event.key === "Escape" ||
-      event.key === "BrowserBack" ||
-      event.code === "BrowserBack"
-    ) {
+    if (isNavActionKeyboardMatch("back", event)) {
       event.preventDefault();
       sh0.setGameContextMenuOpen(false);
       return "handled";
     }
     const max = Math.max(0, sh0.contextMenuItemCount - 1);
-    if (event.key === "ArrowUp") {
+    if (isNavActionKeyboardMatch("spatialUp", event)) {
       event.preventDefault();
       sh0.setContextMenuFocusIndex(Math.max(0, sh0.contextMenuFocusIndex - 1));
       return "handled";
     }
-    if (event.key === "ArrowDown") {
+    if (isNavActionKeyboardMatch("spatialDown", event)) {
       event.preventDefault();
       sh0.setContextMenuFocusIndex(Math.min(max, sh0.contextMenuFocusIndex + 1));
       return "handled";
     }
-    if (event.key === "Enter" || event.key === " " || event.code === "NumpadEnter") {
+    if (isNavActionKeyboardMatch("primary", event)) {
       event.preventDefault();
       window.dispatchEvent(
         new CustomEvent(EXECUTE_GAME_CONTEXT_EVENT, { detail: sh0.contextMenuFocusIndex })
@@ -311,13 +302,14 @@ export function processUniversalKeydown(
     return "handled";
   }
 
-  if (event.key === "Home" && !event.ctrlKey && !event.metaKey) {
+  if (isNavActionKeyboardMatch("quickAccessHome", event)) {
     const path = typeof window !== "undefined" ? window.location.pathname : "";
     if (
       (path === "/" ||
         path.startsWith("/library/") ||
         path.startsWith("/game/") ||
-        path.startsWith("/tmdb/")) &&
+        path.startsWith("/tmdb/") ||
+        path.startsWith("/igdb/")) &&
       !onSettings
     ) {
       event.preventDefault();
@@ -329,7 +321,7 @@ export function processUniversalKeydown(
     return "handled";
   }
 
-  if (event.key === "ContextMenu" || (event.key === "F10" && !event.shiftKey)) {
+  if (isNavActionKeyboardMatch("gameMenu", event)) {
     event.preventDefault();
     if (isGamesGridView() && !onSettings) {
       const nav = useNavigationStore.getState();
@@ -344,12 +336,7 @@ export function processUniversalKeydown(
   }
 
   if (onSettings) {
-    if (
-      event.key === "Escape" ||
-      event.key === "BrowserBack" ||
-      event.key === "GoBack" ||
-      event.code === "BrowserBack"
-    ) {
+    if (isNavActionKeyboardMatch("back", event)) {
       event.preventDefault();
       applyBackOrEscape(delayedFocus);
       return "handled";
@@ -357,13 +344,18 @@ export function processUniversalKeydown(
     return "unhandled";
   }
 
-  if (event.key === "Tab") {
+  if (isNavActionKeyboardMatch("cycleShellTabReverse", event)) {
     event.preventDefault();
-    cycleShellFocusTab(event.shiftKey);
+    cycleShellFocusTab(true);
+    return "handled";
+  }
+  if (isNavActionKeyboardMatch("cycleShellTabForward", event)) {
+    event.preventDefault();
+    cycleShellFocusTab(false);
     return "handled";
   }
 
-  if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+  if (isNavActionKeyboardMatch("openSearch", event)) {
     event.preventDefault();
     openShellSearch();
     return "handled";
@@ -376,18 +368,13 @@ export function processUniversalKeydown(
     return "handled";
   }
 
-  if (event.key === "Enter" || event.key === " " || event.code === "NumpadEnter") {
+  if (isNavActionKeyboardMatch("primary", event)) {
     event.preventDefault();
     applyPrimaryAction();
     return "handled";
   }
 
-  if (
-    event.key === "Escape" ||
-    event.key === "BrowserBack" ||
-    event.key === "GoBack" ||
-    event.code === "BrowserBack"
-  ) {
+  if (isNavActionKeyboardMatch("back", event)) {
     event.preventDefault();
     applyBackOrEscape(delayedFocus);
     return "handled";
@@ -577,6 +564,14 @@ export function applyPrimaryAction(): void {
       }
       return;
     }
+    if (isIgdbDetailsPath()) {
+      if (nav.focusArea === "details") {
+        window.dispatchEvent(
+          new CustomEvent(EXECUTE_IGDB_DETAILS_ACTION, { detail: nav.detailsIndex })
+        );
+      }
+      return;
+    }
     const gs = useGameStore.getState();
     const games = gs.filteredGames;
     const gi = gs.selectedIndex;
@@ -602,7 +597,7 @@ export function applyPrimaryAction(): void {
     if (ds.feed === "popularGames") {
       const g = ds.igdbGames[ds.selectedIndex];
       if (fa === "games" && g) {
-        useBrowserStore.getState().openBrowser(`https://www.igdb.com/games/${g.id}`);
+        appNavigate(`/igdb/${g.id}`);
       }
       if (fa === "sidebar") {
         emitActivateSidebar(nav.sidebarIndex);
@@ -663,7 +658,7 @@ export function applyBackOrEscape(_delayedFocus: DelayedFocusArea): void {
   }
 
   if (isGameDetailsView()) {
-    if (isTmdbDetailsPath()) {
+    if (isTmdbDetailsPath() || isIgdbDetailsPath()) {
       appNavigate("/library/discover");
       gs.setSelectedCategory(DISCOVER_CATEGORY_ID);
       const discoverIdx = CATEGORY_NAV_ORDER.findIndex((row) => row.id === DISCOVER_CATEGORY_ID);

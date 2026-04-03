@@ -80,6 +80,11 @@ pub fn cache_clear_all(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Cache key for a direct IGDB game id (Discover / browse details).
+pub fn cache_key_igdb_id(igdb_id: u64) -> String {
+    format!("igdb:id:{igdb_id}")
+}
+
 pub fn cache_key_igdb(game: &crate::commands::Game) -> String {
     use crate::commands::LaunchType;
     match game.launch_type {

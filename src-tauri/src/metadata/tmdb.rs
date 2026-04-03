@@ -194,6 +194,8 @@ struct MovieDetailResponse {
     tagline: Option<String>,
     runtime: Option<u64>,
     genres: Option<Vec<Genre>>,
+    /// TMDB `append_to_response=watch/providers` nests under the literal key `watch/providers`.
+    #[serde(alias = "watch/providers")]
     watch_providers: Option<WatchProvidersEnvelope>,
 }
 
@@ -213,6 +215,7 @@ struct TvDetailResponse {
     tagline: Option<String>,
     episode_run_time: Option<Vec<u64>>,
     genres: Option<Vec<Genre>>,
+    #[serde(alias = "watch/providers")]
     watch_providers: Option<WatchProvidersEnvelope>,
     external_ids: Option<TvExternalIds>,
 }
@@ -264,7 +267,7 @@ pub async fn fetch_movie(api_key: &str, id: u64) -> Result<TmdbDetailPayload, St
         .build()
         .map_err(|e| e.to_string())?;
     let url = format!(
-        "https://api.themoviedb.org/3/movie/{}?api_key={}&language=en-US&append_to_response=watch_providers",
+        "https://api.themoviedb.org/3/movie/{}?api_key={}&language=en-US&append_to_response=watch/providers",
         id, api_key
     );
     let resp = client.get(url).send().await.map_err(|e| e.to_string())?;
@@ -320,7 +323,7 @@ pub async fn fetch_tv(api_key: &str, id: u64) -> Result<TmdbDetailPayload, Strin
         .build()
         .map_err(|e| e.to_string())?;
     let url = format!(
-        "https://api.themoviedb.org/3/tv/{}?api_key={}&language=en-US&append_to_response=watch_providers,external_ids",
+        "https://api.themoviedb.org/3/tv/{}?api_key={}&language=en-US&append_to_response=watch/providers,external_ids",
         id, api_key
     );
     let resp = client.get(url).send().await.map_err(|e| e.to_string())?;

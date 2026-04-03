@@ -52,6 +52,7 @@ pub fn run() {
             metadata::commands::metadata_test_tmdb_key,
             metadata::commands::metadata_clear_cache,
             metadata::commands::metadata_fetch_igdb_for_game,
+            metadata::commands::metadata_fetch_igdb_by_id,
             metadata::commands::metadata_peek_cached_igdb_covers,
             metadata::commands::metadata_tmdb_search,
             metadata::commands::metadata_tmdb_fetch_detail,

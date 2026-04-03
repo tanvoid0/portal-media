@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { PortalBootSplash } from "@/components/layout/PortalBootSplash";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/layout";
@@ -9,6 +10,7 @@ import { RouterSync } from "@/components/layout/RouterSync";
 import { LibraryMain } from "@/components/layout/LibraryMain";
 import { GameDetailsPage } from "@/components/layout/GameDetailsPage";
 import { TmdbDetailsPage } from "@/components/layout/TmdbDetailsPage";
+import { IgdbDetailsPage } from "@/components/layout/IgdbDetailsPage";
 import { ShellChromeProvider } from "@/context/ShellChromeContext";
 import { SettingsGamePage } from "@/components/settings/pages/SettingsGamePage";
 import { SettingsAppearancePage } from "@/components/settings/pages/SettingsAppearancePage";
@@ -67,6 +69,7 @@ function ShellRoutes() {
             <Route path="library/:section" element={<LibraryMain />} />
             <Route path="game/:gameId" element={<GameDetailsPage />} />
             <Route path="tmdb/:mediaType/:id" element={<TmdbDetailsPage />} />
+            <Route path="igdb/:igdbId" element={<IgdbDetailsPage />} />
           </Route>
           <Route path="settings" element={<SettingsChromeLayout />}>
             <Route index element={<Navigate to="game" replace />} />
@@ -74,6 +77,7 @@ function ShellRoutes() {
             <Route path="appearance" element={<SettingsAppearancePage />} />
             <Route path="api" element={<SettingsApiPage />} />
             <Route path="streaming" element={<SettingsStreamingPage />} />
+            <Route path="navigation" element={<Navigate to="controller" replace />} />
             <Route path="controller" element={<SettingsControllerPage />} />
           </Route>
           <Route index element={<Navigate to="library/all" replace />} />
@@ -85,6 +89,9 @@ function ShellRoutes() {
 }
 
 function App() {
+  const [bootDone, setBootDone] = useState(false);
+  const onBootComplete = useCallback(() => setBootDone(true), []);
+
   useGames();
   useBrowserNavigation();
 
@@ -93,6 +100,7 @@ function App() {
       <NavigateBinder />
       <RouterSync />
       <ShellRoutes />
+      {!bootDone ? <PortalBootSplash onComplete={onBootComplete} /> : null}
     </BrowserRouter>
   );
 }

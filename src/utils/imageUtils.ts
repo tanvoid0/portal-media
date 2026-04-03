@@ -12,7 +12,10 @@ export function isValidImageSource(src: string | undefined | null): boolean {
 
   try {
     const url = new URL(src);
-    return url.protocol === "http:" || url.protocol === "https:";
+    if (url.protocol === "http:" || url.protocol === "https:") return true;
+    // Tauri `convertFileSrc` (and related) asset URLs
+    if (url.protocol === "asset:" || url.protocol === "tauri:") return true;
+    return false;
   } catch {
     // fall through
   }
@@ -49,6 +52,9 @@ export function getSafeImageSource(src: string | undefined | null): string {
   try {
     const url = new URL(src);
     if (url.protocol === "http:" || url.protocol === "https:") {
+      return src;
+    }
+    if (url.protocol === "asset:" || url.protocol === "tauri:") {
       return src;
     }
   } catch {

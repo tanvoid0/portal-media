@@ -484,6 +484,49 @@ pub async fn fetch_igdb_payload(
     Ok(payload)
 }
 
+/// Full IGDB metadata for a known game id (e.g. Discover grid).
+pub async fn fetch_igdb_payload_by_id(
+    client_id: &str,
+    client_secret: &str,
+    game_id: u64,
+) -> Result<IgdbGamePayload, String> {
+    let twitch = twitch_app_token(client_id, client_secret).await?;
+    let http = Client::builder()
+        .timeout(Duration::from_secs(25))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let body = format!(
+        "fields id,name,summary,storyline,first_release_date,cover.image_id,genres.name,themes.name,websites.url,websites.category;\nwhere id = {game_id};\nlimit 1;"
+    );
+    let rows = igdb_post(
+        &http,
+        &twitch.access_token,
+        client_id,
+        "games",
+        &body,
+    )
+    .await?;
+
+    let Some(row) = rows.first() else {
+        return Err("NOT_FOUND".into());
+    };
+
+    let mut payload = parse_game_row(row);
+    let resolved = igdb_cover_image_url_if_needed(
+        &http,
+        &twitch.access_token,
+        client_id,
+        row,
+        payload.cover_url.clone(),
+    )
+    .await;
+    if let Some(url) = resolved {
+        payload.cover_url = Some(url);
+    }
+    Ok(payload)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IgdbDiscoverHit {
@@ -519,25 +562,60 @@ fn parse_discover_game_row(v: &serde_json::Value) -> Option<IgdbDiscoverHit> {
     })
 }
 
-/// Popular / well-rated games for Discover (requires Twitch + IGDB credentials).
+/// Popular games for Discover (requires Twitch + IGDB credentials).
+///
+/// We sort by `rating_count` (IGDB user ratings). Requiring `total_rating_count != null` used to
+/// yield **zero rows** for many API datasets because that field is often unset.
 pub async fn fetch_discover_games(client_id: &str, client_secret: &str) -> Result<Vec<IgdbDiscoverHit>, String> {
     let twitch = twitch_app_token(client_id, client_secret).await?;
     let http = Client::builder()
         .timeout(Duration::from_secs(25))
         .build()
         .map_err(|e| e.to_string())?;
-    let body = "fields id,name,summary,first_release_date,cover.image_id;\n\
-where cover != null & parent_game = null & version_parent = null & category = 0 & total_rating_count != null;\n\
-sort total_rating_count desc;\n\
+
+    let primary = "fields id,name,summary,first_release_date,cover.image_id;\n\
+where cover != null & parent_game = null & version_parent = null & category = 0;\n\
+sort rating_count desc;\n\
 limit 24;\n";
-    let rows = igdb_post(
+
+    let mut rows = igdb_post(
         &http,
         &twitch.access_token,
         client_id,
         "games",
-        body,
+        primary,
     )
     .await?;
+
+    if rows.is_empty() {
+        let fallback = "fields id,name,summary,first_release_date,cover.image_id;\n\
+where cover != null & parent_game = null & version_parent = null;\n\
+sort rating_count desc;\n\
+limit 24;\n";
+        rows = igdb_post(
+            &http,
+            &twitch.access_token,
+            client_id,
+            "games",
+            fallback,
+        )
+        .await?;
+    }
+    if rows.is_empty() {
+        let loose = "fields id,name,summary,first_release_date,cover.image_id;\n\
+where cover != null;\n\
+sort updated_at desc;\n\
+limit 24;\n";
+        rows = igdb_post(
+            &http,
+            &twitch.access_token,
+            client_id,
+            "games",
+            loose,
+        )
+        .await?;
+    }
+
     let mut out: Vec<IgdbDiscoverHit> = Vec::new();
     for row in rows {
         if let Some(hit) = parse_discover_game_row(&row) {

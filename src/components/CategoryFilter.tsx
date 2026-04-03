@@ -53,7 +53,7 @@ function CategoryButton({
       title={count !== null ? `${category.label} (${count})` : category.label}
       className={cn(
         compact ? "w-14 h-14 rounded-card px-0" : "h-11 px-6 rounded-button whitespace-nowrap",
-        "transition-all duration-ps5 spring-ease",
+        "transition-all duration-panel spring-ease",
         "transform-gpu",
         isSelected
           ? "bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30 scale-105"
@@ -64,14 +64,14 @@ function CategoryButton({
       {Icon && (
         <Icon className={cn(
           compact ? "w-5 h-5" : "w-4 h-4 mr-2",
-          "transition-all duration-ps5-fast",
+          "transition-all duration-panel-fast",
           (isSelected || isFocusedItem) && "scale-105"
         )} />
       )}
       {!compact && (
         <>
           <span className={cn(
-            "font-medium text-sm transition-all duration-ps5-fast"
+            "font-medium text-sm transition-all duration-panel-fast"
           )}>
             {category.label}
           </span>
@@ -80,7 +80,7 @@ function CategoryButton({
               key={count}
               className={cn(
                 "ml-2 px-2 py-0.5 rounded-md text-xs font-medium",
-                "transition-all duration-ps5-fast",
+                "transition-all duration-panel-fast",
                 isSelected
                   ? "bg-primary-foreground/15 text-primary-foreground"
                   : "bg-muted/80 text-muted-foreground"

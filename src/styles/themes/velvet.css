@@ -1,6 +1,6 @@
 @layer base {
-  /* Netflix-inspired: black, red CTA, minimal chrome */
-  [data-theme="netflix"].light {
+  /* Near-black with scarlet CTA, minimal chrome (cinema shelf mood) */
+  [data-theme="velvet"].light {
     --background: 0 0% 98%;
     --foreground: 0 0% 8%;
     --card: 0 0% 100%;
@@ -41,7 +41,7 @@
     --glass-saturate: 130%;
   }
 
-  [data-theme="netflix"].dark {
+  [data-theme="velvet"].dark {
     --background: 0 0% 6%;
     --foreground: 0 0% 96%;
     --card: 0 0% 10%;

@@ -35,7 +35,7 @@ export function SortFilter({
             onClick={() => setSortType(option.type)}
             className={cn(
               "rounded-xl whitespace-nowrap",
-              "transition-all duration-ps5 spring-ease",
+              "transition-all duration-panel spring-ease",
               "text-xs font-semibold",
               isVertical ? "h-11 w-full justify-start px-4" : "h-9 px-4",
               isSelected
@@ -43,7 +43,7 @@ export function SortFilter({
                 : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground hover:scale-105"
             )}
           >
-            <Icon className="w-4 h-4 mr-2 transition-transform duration-ps5-fast" />
+            <Icon className="w-4 h-4 mr-2 transition-transform duration-panel-fast" />
             <span>{option.label}</span>
           </Button>
         );

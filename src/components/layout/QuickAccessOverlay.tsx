@@ -5,6 +5,7 @@ import { useBrowserStore } from "@/stores/browserStore";
 import { cn } from "@/lib/utils";
 import { Library, Settings, Rows2, MonitorPlay } from "lucide-react";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useNavBindingsStore } from "@/stores/navBindingsStore";
 
 const actions = [
   { id: "library", label: "Library", icon: Library },
@@ -14,6 +15,7 @@ const actions = [
 ] as const;
 
 export default function QuickAccessOverlay() {
+  const keyboardNavigationEnabled = useNavBindingsStore((s) => s.keyboardNavigationEnabled);
   const quickAccessOpen = useShellOverlayStore((s) => s.quickAccessOpen);
   const setQuickAccessOpen = useShellOverlayStore((s) => s.setQuickAccessOpen);
   const toggleAppSwitcher = useShellOverlayStore((s) => s.toggleAppSwitcher);
@@ -60,6 +62,9 @@ export default function QuickAccessOverlay() {
         close();
         return;
       }
+      if (!useNavBindingsStore.getState().keyboardNavigationEnabled) {
+        return;
+      }
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setFocusIndex((i) => {
@@ -83,7 +88,7 @@ export default function QuickAccessOverlay() {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [quickAccessOpen, close, runAction]);
+  }, [quickAccessOpen, close, runAction, keyboardNavigationEnabled]);
 
   if (!quickAccessOpen) return null;
 

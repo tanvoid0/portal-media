@@ -9,14 +9,14 @@ import {
   isValidLibrarySection,
   categoryFromLibrarySection,
   categoryNavIndexForSection,
-  type LibrarySection,
 } from "@/nav/libraryRoutes";
 
-function useSyncLibraryRoute(section: LibrarySection) {
+function useSyncLibraryRoute(section: string | undefined) {
   const setSelectedCategory = useGameStore((s) => s.setSelectedCategory);
   const setCategoryIndex = useNavigationStore((s) => s.setCategoryIndex);
 
   useLayoutEffect(() => {
+    if (!section || !isValidLibrarySection(section)) return;
     setSelectedCategory(categoryFromLibrarySection(section));
     setCategoryIndex(categoryNavIndexForSection(section));
   }, [section, setSelectedCategory, setCategoryIndex]);
@@ -24,10 +24,11 @@ function useSyncLibraryRoute(section: LibrarySection) {
 
 export function LibraryMain() {
   const { section } = useParams<{ section: string }>();
+  useSyncLibraryRoute(section);
+
   if (!isValidLibrarySection(section)) {
     return <Navigate to="/library/all" replace />;
   }
-  useSyncLibraryRoute(section);
 
   const showDiscover = categoryFromLibrarySection(section) === DISCOVER_CATEGORY_ID;
 

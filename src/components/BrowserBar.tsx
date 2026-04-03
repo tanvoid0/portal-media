@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Minimize2, X, Settings } from "lucide-react";
+import { Minimize2, X, Settings, House, ArrowLeft } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useBrowserStore } from "@/stores/browserStore";
 import { SitePermissions } from "./SitePermissions";
 import { cn } from "@/lib/utils";
+import { ExternalLinkGlyph } from "@/components/content/ExternalLinkGlyph";
 
 interface BrowserBarProps {
   url: string;
@@ -16,12 +17,16 @@ interface BrowserBarProps {
   onGoBack: () => void;
   onGoForward: () => void;
   onReload: () => void;
+  onHome: () => void;
 }
 
 export function BrowserBar({
   url,
   title: _title,
+  canGoBack,
   onNavigate,
+  onGoBack,
+  onHome,
 }: BrowserBarProps) {
   const [urlInput, setUrlInput] = useState(url);
   const [showPermissions, setShowPermissions] = useState(false);
@@ -57,15 +62,44 @@ export function BrowserBar({
   };
 
   return (
-    <div className="h-14 bg-card border-b border-border flex items-center gap-2 px-4" style={{ zIndex: 99999, position: 'relative' }}>
-      <form onSubmit={handleUrlSubmit} className="flex-1 flex items-center">
+    <div
+      className="h-14 bg-card/75 backdrop-blur-md border-b border-border/60 flex items-center gap-2 px-3"
+      style={{ zIndex: 99999, position: "relative" }}
+    >
+      <div className="flex shrink-0 items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onHome}
+          className="h-9 w-9 text-foreground/90"
+          title="Back to app"
+        >
+          <House className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onGoBack}
+          disabled={!canGoBack}
+          className="h-9 w-9 text-foreground/90"
+          title="Back"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+      </div>
+      <form onSubmit={handleUrlSubmit} className="flex-1 flex items-center gap-2 min-w-0">
+        {urlInput.trim() ? (
+          <span className="shrink-0 opacity-90" title="Site type">
+            <ExternalLinkGlyph url={urlInput.trim()} size="sm" />
+          </span>
+        ) : null}
         <Input
           type="text"
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
           onBlur={handleUrlSubmit}
           placeholder="Enter URL or search"
-          className="h-9 bg-muted border-border focus:border-primary"
+          className="h-9 bg-muted border-border focus:border-primary min-w-0 flex-1"
         />
       </form>
 

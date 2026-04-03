@@ -2,7 +2,7 @@ import type { Game } from "@/stores/gameStore";
 
 /**
  * Hide the corner platform badge when the hero art is already the streaming/site icon
- * (avoids duplicating Netflix “N”, Prime smile, etc.).
+ * (avoids duplicating a streaming service mark already in the hero art).
  */
 export function shouldShowLibraryGamePlatformCornerBadge(
   game: Pick<Game, "launch_type" | "platform" | "category">,

@@ -6,7 +6,14 @@ import globals from "globals";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 export default tseslint.config(
-  { ignores: ["dist/**", "src-tauri/target/**", "node_modules/**"] },
+  {
+    ignores: [
+      "dist/**",
+      "src-tauri/target/**",
+      "node_modules/**",
+      "src-tauri/**/*.js",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   eslintConfigPrettier,

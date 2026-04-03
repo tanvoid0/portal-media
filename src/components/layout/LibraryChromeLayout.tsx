@@ -74,7 +74,7 @@ export function LibraryChromeLayout() {
               onClick={toggleAppearance}
               className={cn(
                 "w-14 h-14 rounded-card shrink-0",
-                "transition-all duration-ps5 spring-ease",
+                "transition-all duration-panel spring-ease",
                 "hover:bg-foreground/5 text-muted-foreground hover:text-foreground hover:scale-105"
               )}
               title={appearance === "dark" ? "Switch to light mode" : "Switch to dark mode"}

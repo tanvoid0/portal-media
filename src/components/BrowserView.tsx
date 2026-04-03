@@ -1,5 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useBrowserStore } from "@/stores/browserStore";
+import { useNavigationStore } from "@/stores/navigationStore";
+import { useBrowserChromeReveal } from "@/hooks/useBrowserChromeReveal";
 import { BrowserBar } from "./BrowserBar";
 import { BrowserTabs } from "./BrowserTabs";
 import { VideoControls } from "./VideoControls";
@@ -9,6 +11,7 @@ import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { InteractiveLaunchLoader } from "./ui/InteractiveLaunchLoader";
+import { BrowserEdgeEscapeStrip } from "./BrowserEdgeEscapeStrip";
 
 /** Keeps the shell visible while the OS webview swaps from the app to the stream URL. */
 const MIN_STREAM_OVERLAY_MS = 900;
@@ -50,7 +53,7 @@ function BrowserSidebar({
   onReload,
 }: BrowserSidebarProps) {
   return (
-    <div className="pointer-events-auto w-64 bg-background/95 backdrop-blur-sm shadow-lg border-r border-border flex flex-col">
+    <div className="pointer-events-auto w-64 bg-background/75 backdrop-blur-md shadow-lg border-r border-border/60 flex flex-col">
       <div className="border-b border-border px-3 py-3">
         <div className="grid grid-cols-3 gap-2">
           <Button
@@ -266,6 +269,19 @@ export function BrowserView() {
 
   const showStreamOverlay = shellLoading || isLoading;
 
+  const chromeVisible = useBrowserChromeReveal(isOpen && !isMinimized, {
+    forceVisible: showStreamOverlay,
+  });
+
+  const handleHome = useCallback(() => {
+    useBrowserStore.getState().closeBrowser();
+    useNavigationStore.getState().setFocusArea("games");
+  }, []);
+
+  const handleCloseBrowser = useCallback(() => {
+    useBrowserStore.getState().closeBrowser();
+  }, []);
+
   const handleNavigate = async (url: string) => {
     if (!activeTab) return;
     const startedAt = Date.now();
@@ -341,8 +357,15 @@ export function BrowserView() {
 
   return (
     <div className="fixed inset-0 z-[99999] flex flex-col pointer-events-none" style={{ zIndex: 99999 }}>
-      {/* Top bar - opaque background, always on top */}
-      <div className="bg-background pointer-events-auto shadow-lg" style={{ zIndex: 99999 }}>
+      <div
+        className={cn(
+          "pointer-events-auto shadow-lg transition-all duration-300 ease-out",
+          chromeVisible
+            ? "opacity-100 translate-y-0"
+            : "pointer-events-none opacity-0 -translate-y-2"
+        )}
+        style={{ zIndex: 99999 }}
+      >
         <BrowserBar
           url={activeTab?.url || ""}
           title={activeTab?.title || ""}
@@ -353,9 +376,10 @@ export function BrowserView() {
           onGoBack={handleGoBack}
           onGoForward={handleGoForward}
           onReload={handleReload}
+          onHome={handleHome}
         />
       </div>
-      
+
       <div className="relative flex min-h-0 flex-1">
         {showStreamOverlay ? (
           <div
@@ -371,14 +395,23 @@ export function BrowserView() {
           </div>
         ) : null}
 
-        <BrowserSidebar
-          canGoBack={activeTab?.canGoBack || false}
-          canGoForward={activeTab?.canGoForward || false}
-          isLoading={isLoading}
-          onGoBack={handleGoBack}
-          onGoForward={handleGoForward}
-          onReload={handleReload}
-        />
+        <div
+          className={cn(
+            "pointer-events-auto transition-all duration-300 ease-out",
+            chromeVisible
+              ? "opacity-100 translate-x-0"
+              : "pointer-events-none opacity-0 -translate-x-3"
+          )}
+        >
+          <BrowserSidebar
+            canGoBack={activeTab?.canGoBack || false}
+            canGoForward={activeTab?.canGoForward || false}
+            isLoading={isLoading}
+            onGoBack={handleGoBack}
+            onGoForward={handleGoForward}
+            onReload={handleReload}
+          />
+        </div>
 
         {/* Browser content area - the main window's webview shows through here */}
         {/* We make this transparent and use pointer-events to allow interaction */}
@@ -389,12 +422,25 @@ export function BrowserView() {
         />
       </div>
       
-      {/* Bottom controls - transparent background, pointer events enabled for controls */}
       <div className="bg-transparent pointer-events-none">
-        <div className="pointer-events-auto">
+        <div
+          className={cn(
+            "pointer-events-auto transition-all duration-300 ease-out",
+            chromeVisible
+              ? "opacity-100 translate-y-0"
+              : "pointer-events-none opacity-0 translate-y-2"
+          )}
+        >
           <VideoControls />
         </div>
       </div>
+
+      <BrowserEdgeEscapeStrip
+        canGoBack={activeTab?.canGoBack || false}
+        onHome={handleHome}
+        onGoBack={handleGoBack}
+        onCloseBrowser={handleCloseBrowser}
+      />
     </div>
   );
 }

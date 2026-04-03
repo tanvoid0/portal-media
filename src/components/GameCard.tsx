@@ -104,20 +104,24 @@ export function GameCard({
 
   const iconArt = game.icon ?? pickRecordStr(r, "icon");
 
-  const cardImage = coverArt || iconArt || igdbCover || null;
+  const isApp = game.category === "App";
+  const cardImage = isApp
+    ? iconArt || null
+    : coverArt || iconArt || igdbCover || null;
 
   const subtitle = getGameCardSubtitle(game);
 
-
+  const artMode =
+    isApp && cardImage
+      ? "iconContain"
+      : coverArt || igdbCover
+        ? "posterCover"
+        : "iconContain";
 
   const showPlatformCorner = shouldShowLibraryGamePlatformCornerBadge(game, {
-
     coverArt,
-
     iconArt,
-
     igdbCover,
-
   });
 
 
@@ -136,7 +140,9 @@ export function GameCard({
 
       artImageUrl={cardImage}
 
-      artMode={coverArt || igdbCover ? "posterCover" : "iconContain"}
+      artMode={artMode}
+
+      skipFooterTint={isApp}
 
       placeholder={<LibraryPlaceholderIcon category={game.category} />}
 

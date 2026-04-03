@@ -11,15 +11,36 @@ const LEGACY_THEME_KEY = "theme";
 const APPEARANCE_STORAGE_KEY = "portal_media_appearance";
 const THEME_ID_STORAGE_KEY = "portal_media_theme_id";
 
+/** Older builds stored these ids; map to current theme names so saved prefs keep working */
+const LEGACY_THEME_ID_MAP: Record<string, ThemeId> = {
+  playstation: "nimbus",
+  xbox: "vertex",
+  steam: "forge",
+  netflix: "velvet",
+};
+
 function isThemeId(value: string): value is ThemeId {
   return (THEME_IDS as readonly string[]).includes(value);
+}
+
+function normalizeStoredThemeId(raw: string): ThemeId | null {
+  if (isThemeId(raw)) return raw;
+  const mapped = LEGACY_THEME_ID_MAP[raw];
+  return mapped ?? null;
 }
 
 function loadThemeId(): ThemeId {
   if (typeof window === "undefined") return DEFAULT_THEME_ID;
   try {
     const raw = localStorage.getItem(THEME_ID_STORAGE_KEY);
-    if (raw && isThemeId(raw)) return raw;
+    if (!raw) return DEFAULT_THEME_ID;
+    const id = normalizeStoredThemeId(raw);
+    if (id) {
+      if (raw !== id) {
+        localStorage.setItem(THEME_ID_STORAGE_KEY, id);
+      }
+      return id;
+    }
   } catch {
     // ignore
   }

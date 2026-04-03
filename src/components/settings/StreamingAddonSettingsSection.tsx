@@ -28,6 +28,8 @@ import {
   RotateCcw,
   Trash2,
 } from "lucide-react";
+import { formatDisplayPath } from "@/utils/formatDisplayPath";
+import { formatDiscoverySourcesLine } from "@/utils/streamingAddonDiscoveryUi";
 
 export function StreamingAddonSettingsSection({ embedded = false }: { embedded?: boolean }) {
   const [pluginsDir, setPluginsDir] = useState(() => getStreamingPluginsDirOverride() ?? "");
@@ -188,26 +190,21 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
             Streaming catalog add-ons
           </h3>
         )}
-        <p className={cn("text-white/60 text-sm", !embedded ? "mt-1" : "")}>
-          Archives must contain <span className="text-white/80">manifest.json</span> at the zip root. The{" "}
-          <span className="text-white/80">plugins folder</span> (below) is where the app scans for <span className="font-mono text-[11px] text-white/70">*.zip</span>{" "}
-          and where it looks for <span className="text-white/80">media-stream-addon.zip</span> by default. Leave it empty to use
-          app data, or set it to a folder such as{" "}
-          <span className="font-mono text-[11px] text-white/70">portal_media/plugins</span>. The optional zip field overrides
-          which single archive wins when present. Resolution order: saved zip →{" "}
-          <span className="text-white/80">PORTAL_MEDIA_STREAMING_ADDON_ZIP</span> → default zip in your plugins folder → project{" "}
-          <span className="font-mono text-[11px] text-white/70">plugins/</span> (cwd) → legacy paths. Use{" "}
-          <span className="text-white/80">Save</span> to persist and apply without restarting. Optional{" "}
-          <span className="text-white/80">Restart application</span> is only if you want a full process restart (can
-          interfere with <span className="font-mono text-[11px] text-white/65">tauri dev</span> on Windows when the debug
-          exe is locked).
+        <p className={cn("text-white/50 text-xs leading-relaxed", !embedded ? "mt-1" : "")}>
+          Zips need <span className="text-white/70">manifest.json</span> at the root. Folder scans for{" "}
+          <span className="font-mono text-[11px] text-white/60">*.zip</span>; optional path picks one archive.{" "}
+          <span className="text-white/45">Save applies without restart.</span> Env{" "}
+          <span className="font-mono text-[10px] text-white/55">PORTAL_MEDIA_STREAMING_ADDON_ZIP</span> is also honored.
         </p>
-        <p className="text-[11px] text-white/50 mt-2">
-          Resolved plugins folder{pluginsDir.trim() ? " (custom)" : " (default or preview)"}:
+        <p className="text-[11px] text-white/45 mt-2">
+          Resolved folder{pluginsDir.trim() ? " (override)" : ""}:
         </p>
         {userPluginsDir && (
-          <p className="text-[11px] text-white/45 font-mono break-all leading-relaxed">
-            {userPluginsDir}
+          <p
+            className="text-[11px] text-white/45 font-mono break-all leading-relaxed"
+            title={userPluginsDir}
+          >
+            {formatDisplayPath(userPluginsDir)}
           </p>
         )}
       </div>
@@ -278,8 +275,9 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
           className="border-white/20 text-white hover:bg-white/10"
           onClick={() => void restartApplication()}
           disabled={busy}
+          title="Full process restart. Can conflict with tauri dev on Windows if the exe is locked."
         >
-          Restart application
+          Restart app
         </Button>
         <Button
           type="button"
@@ -294,10 +292,10 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
       </div>
 
       <div className="space-y-2">
-        <h4 className="text-sm font-medium text-white/90">Detected archives</h4>
-        <p className="text-[11px] text-white/45 leading-relaxed">
-          Turn off excludes an archive from being chosen as active (without deleting it). Customize by editing{" "}
-          <span className="font-mono text-white/60">manifest.json</span> in the zip or replacing the file, then refresh.
+        <h4 className="text-sm font-medium text-white/90">Archives</h4>
+        <p className="text-[11px] text-white/45">
+          Turn off skips an archive without deleting it. Edit <span className="font-mono text-white/55">manifest.json</span>{" "}
+          inside the zip, then refresh.
         </p>
         {listError && (
           <div className="flex items-center gap-2 text-sm text-amber-300 bg-amber-400/10 rounded-lg px-3 py-2">
@@ -312,19 +310,19 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
           </p>
         )}
         {!listError && !listBusy && entries.length === 0 && (
-          <p className="text-white/50 text-sm">
-            No add-on zip files found. Copy an archive into your app data <span className="text-white/70">plugins</span>{" "}
-            folder (path above), or use a saved path /{" "}
-            <span className="text-white/70">PORTAL_MEDIA_STREAMING_ADDON_ZIP</span> / local{" "}
-            <span className="font-mono text-[11px] text-white/70">plugins/</span> / legacy locations.
+          <p className="text-white/45 text-xs">
+            No zips found. Add one under the resolved folder, set a zip override, or use the env variable.
           </p>
         )}
-        <ul className="space-y-2 max-h-80 overflow-y-auto pr-1">
-          {entries.map((entry) => (
+        <ul className="space-y-3 max-h-80 overflow-y-auto pr-1">
+          {entries.map((entry) => {
+            const displayPath = formatDisplayPath(entry.path);
+            const discoveryLine = formatDiscoverySourcesLine(entry.discoverySources);
+            return (
             <li
               key={entry.path}
               className={cn(
-                "rounded-lg border px-3 py-2.5 text-sm space-y-1.5",
+                "rounded-xl border p-4 text-sm flex flex-col gap-3",
                 entry.isActive
                   ? "border-emerald-500/40 bg-emerald-500/[0.08]"
                   : entry.isUserDisabled
@@ -332,7 +330,7 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
                     : "border-white/10 bg-white/[0.03]"
               )}
             >
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                 {entry.isActive ? (
                   <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/25 text-emerald-100 px-2 py-0.5 text-xs font-medium">
                     <CheckCircle2 className="w-3.5 h-3.5" aria-hidden />
@@ -349,7 +347,7 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
                 {entry.summary && (
                   <>
                     <span className="font-medium text-white">{entry.summary.displayName}</span>
-                    <span className="text-white/45">
+                    <span className="text-white/45 text-xs sm:text-sm">
                       v{entry.summary.version} · <span className="font-mono text-[11px]">{entry.summary.id}</span>
                     </span>
                     {!entry.summary.enabled && (
@@ -358,39 +356,46 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
                   </>
                 )}
               </div>
-              <p className="font-mono text-[11px] text-white/55 break-all leading-snug">{entry.path}</p>
-              {entry.discoverySources.length > 0 && (
-                <p className="text-[11px] text-white/40 leading-relaxed">
-                  {entry.discoverySources.join(" · ")}
+              <div className="rounded-lg border border-white/10 bg-black/25 px-3 py-2.5">
+                <p
+                  className="font-mono text-xs text-white/70 break-all leading-relaxed"
+                  title={entry.path}
+                >
+                  {displayPath}
                 </p>
-              )}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {!entry.isUserDisabled ? (
-                  <Button
+              </div>
+              {discoveryLine ? (
+                <p className="text-[11px] text-white/45 leading-snug">{discoveryLine}</p>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div className="flex items-center gap-3 min-h-8">
+                  <span className="text-sm font-medium text-white/90">Enabled</span>
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 border-white/15 text-white/85 hover:bg-white/10"
+                    role="switch"
+                    aria-checked={!entry.isUserDisabled}
+                    aria-label={
+                      entry.isUserDisabled
+                        ? "Enable add-on — allow this archive when choosing the active catalog"
+                        : "Disable add-on — exclude this archive without deleting the file"
+                    }
                     disabled={busy || listBusy}
-                    onClick={() => void toggleAddonDisabled(entry.path, true)}
-                    title="Skip this archive when resolving the active add-on"
+                    onClick={() => void toggleAddonDisabled(entry.path, !entry.isUserDisabled)}
+                    className={cn(
+                      "relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      !entry.isUserDisabled ? "bg-primary" : "bg-white/20"
+                    )}
                   >
-                    <Power className="w-3.5 h-3.5 mr-1.5" aria-hidden />
-                    Turn off
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 border-white/15 text-white/85 hover:bg-white/10"
-                    disabled={busy || listBusy}
-                    onClick={() => void toggleAddonDisabled(entry.path, false)}
-                  >
-                    <Power className="w-3.5 h-3.5 mr-1.5" aria-hidden />
-                    Turn on
-                  </Button>
-                )}
+                    <span
+                      className={cn(
+                        "absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-200 ease-out",
+                        !entry.isUserDisabled ? "translate-x-6" : "translate-x-0"
+                      )}
+                      aria-hidden
+                    />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -413,35 +418,41 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
                   <Trash2 className="w-3.5 h-3.5 mr-1.5" aria-hidden />
                   Delete
                 </Button>
+                </div>
               </div>
               {entry.summary && (
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  <span className="text-[10px] uppercase tracking-wide text-white/35">Origin</span>
-                  <span className="text-[11px] text-white/65 truncate max-w-full">{entry.summary.webOrigin}</span>
-                  {entry.summary.libraryBookmark && (
-                    <span className="rounded bg-white/10 px-1.5 py-0 text-[10px] text-white/80">Bookmark</span>
-                  )}
-                  {entry.summary.tmdbStreamButton && (
-                    <span className="rounded bg-white/10 px-1.5 py-0 text-[10px] text-white/80">TMDB button</span>
-                  )}
-                  {entry.summary.browserBrandRuleCount > 0 && (
-                    <span className="rounded bg-white/10 px-1.5 py-0 text-[10px] text-white/80">
-                      {entry.summary.browserBrandRuleCount} brand rules
+                <div className="border-t border-white/10 pt-3 mt-0.5 space-y-2.5">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
+                    <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0">Origin</span>
+                    <span className="text-xs text-white/70 break-all leading-snug">{entry.summary.webOrigin}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {entry.summary.libraryBookmark && (
+                      <span className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white/85">Bookmark</span>
+                    )}
+                    {entry.summary.tmdbStreamButton && (
+                      <span className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white/85">TMDB button</span>
+                    )}
+                    {entry.summary.browserBrandRuleCount > 0 && (
+                      <span className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white/85">
+                        {entry.summary.browserBrandRuleCount} brand rules
+                      </span>
+                    )}
+                    <span className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white/85">
+                      Favicon · {entry.summary.iconFaviconDomain}
                     </span>
-                  )}
-                  <span className="rounded bg-white/10 px-1.5 py-0 text-[10px] text-white/80">
-                    favicon · {entry.summary.iconFaviconDomain}
-                  </span>
+                  </div>
                 </div>
               )}
               {entry.error && (
-                <div className="flex items-start gap-1.5 text-xs text-amber-200/90 pt-0.5">
+                <div className="flex items-start gap-1.5 text-xs text-amber-200/90">
                   <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden />
                   {entry.error}
                 </div>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       </div>
     </div>

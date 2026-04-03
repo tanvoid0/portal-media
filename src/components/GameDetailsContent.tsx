@@ -14,14 +14,12 @@ import {
   launchTypeLabel,
   relativePathUnderBase,
 } from "@/utils/gameDisplay";
-import { igdbLinkIcon } from "@/utils/igdbLinkIcons";
 import { useMetadataDisplayStore } from "@/stores/metadataDisplayStore";
 import { cn } from "@/lib/utils";
 import { openGameFilesystemLocation, canRevealGameInFileManager } from "@/utils/openGameLocation";
 import {
   Archive,
   Copy,
-  ExternalLink,
   FolderOpen,
   LayoutList,
   Link2,
@@ -31,6 +29,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DetailsFocusControl } from "@/components/details/DetailsFocusControl";
+import { IgdbPayloadPanel } from "@/components/details/IgdbPayloadPanel";
+import { ExternalLinkGlyph } from "@/components/content/ExternalLinkGlyph";
+import { displayLabelForExternalUrl } from "@/utils/linkBrandFromUrl";
 import { DetailsPageShell } from "@/components/layout/DetailsPageShell";
 import { DetailsHeroFrame } from "@/components/layout/DetailsHeroFrame";
 
@@ -481,57 +482,7 @@ export function GameDetailsContent({
                 </div>
               )}
 
-              {metaPanel.kind === "igdb" && (
-                <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2.5">
-                  <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-full sm:w-auto sm:mr-2">
-                      IGDB
-                    </p>
-                    {metaPanel.payload.releaseDate ? (
-                      <p className="text-[11px] text-muted-foreground">{metaPanel.payload.releaseDate}</p>
-                    ) : null}
-                  </div>
-                  {metaPanel.payload.genres.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {metaPanel.payload.genres.map((g) => (
-                        <span
-                          key={g}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/15"
-                        >
-                          {g}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {(metaPanel.payload.summary || metaPanel.payload.storyline) && (
-                    <p className="text-xs text-foreground/90 leading-relaxed line-clamp-5">
-                      {metaPanel.payload.summary || metaPanel.payload.storyline}
-                    </p>
-                  )}
-                  {metaPanel.payload.websiteLinks.length > 0 ? (
-                    <ul className="text-[11px] space-y-1">
-                      {metaPanel.payload.websiteLinks.slice(0, 10).map((w) => {
-                        const Icon = igdbLinkIcon(w.label);
-                        return (
-                          <li key={w.url} className="min-w-0">
-                            <a
-                              href={w.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={w.url}
-                              className="group flex items-center gap-2 rounded-md px-1 py-0.5 text-primary hover:bg-primary/10"
-                            >
-                              <Icon className="h-3 w-3 shrink-0 opacity-80" aria-hidden />
-                              <span className="truncate font-medium">{w.label}</span>
-                              <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-40 ml-auto" aria-hidden />
-                            </a>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : null}
-                </div>
-              )}
+              {metaPanel.kind === "igdb" && <IgdbPayloadPanel payload={metaPanel.payload} />}
 
               {metaPanel.kind === "tmdb" && (
                 <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
@@ -574,10 +525,16 @@ export function GameDetailsContent({
                       href={metaPanel.payload.homepage}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
+                      className="text-[11px] text-foreground hover:underline inline-flex items-center gap-1.5"
                     >
-                      Official site
-                      <ExternalLink className="h-3 w-3 opacity-60" />
+                      <ExternalLinkGlyph
+                        url={metaPanel.payload.homepage}
+                        labelHint="Official site"
+                        size="sm"
+                      />
+                      <span className="text-primary font-medium">
+                        {displayLabelForExternalUrl(metaPanel.payload.homepage, "Official site")}
+                      </span>
                     </a>
                   ) : null}
                 </div>
