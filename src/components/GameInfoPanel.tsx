@@ -1,4 +1,5 @@
 import { Game } from "@/stores/gameStore";
+import { useMetadataDisplayStore } from "@/stores/metadataDisplayStore";
 import { useNavigationState } from "@/hooks/useNavigationState";
 import { getSafeImageSource } from "@/utils/imageUtils";
 import { PlatformLabel } from "@/components/PlatformLabel";
@@ -15,7 +16,8 @@ export function GameInfoPanel({ game }: GameInfoPanelProps) {
     return null;
   }
 
-  const backgroundImage = getSafeImageSource(game.cover_art || game.icon);
+  const igdbCover = useMetadataDisplayStore((s) => s.igdbCoverUrlByGameId[game.id]);
+  const backgroundImage = getSafeImageSource(game.cover_art || game.icon || igdbCover);
 
   return (
     <div className="absolute inset-0 pointer-events-none z-0">

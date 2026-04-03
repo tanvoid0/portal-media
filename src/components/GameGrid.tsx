@@ -1,7 +1,9 @@
 import { useGameStore } from "@/stores/gameStore";
 import { GameCard } from "./GameCard";
 import { GameInfoPanel } from "./GameInfoPanel";
-import { useRef, useEffect, useLayoutEffect } from "react";
+import { useRef, useEffect, useLayoutEffect, useState, useCallback, type MouseEvent } from "react";
+import type { Game } from "@/stores/gameStore";
+import { GameCardContextMenu } from "./GameCardContextMenu";
 import { InteractiveLaunchLoader } from "./ui/InteractiveLaunchLoader";
 import { Button } from "./ui/button";
 
@@ -27,6 +29,19 @@ export function GameGrid() {
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedCardRef = useRef<HTMLDivElement>(null);
   const setGridColumnCount = useGameStore((s) => s.setGridColumnCount);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    game: Game;
+  } | null>(null);
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const openContextMenu = useCallback((e: MouseEvent, game: Game) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, game });
+  }, []);
 
   // Keep store in sync with CSS grid column count so up/down moves one row, not one slot in reading order only.
   useEffect(() => {
@@ -141,6 +156,12 @@ export function GameGrid() {
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
+      <GameCardContextMenu
+        open={contextMenu !== null}
+        anchor={contextMenu ? { x: contextMenu.x, y: contextMenu.y } : null}
+        game={contextMenu?.game ?? null}
+        onClose={closeContextMenu}
+      />
       {launchOverlay ? (
         <div
           className="absolute inset-0 z-[80] flex items-center justify-center bg-background/80 backdrop-blur-md"
@@ -180,6 +201,7 @@ export function GameGrid() {
               onMouseEnter={() => {
                 setSelectedIndex(index);
               }}
+              onContextMenu={(e) => openContextMenu(e, game)}
             />
           </div>
         ))}

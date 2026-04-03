@@ -1,10 +1,22 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { getDefaultBookmarks } from "@/utils/defaultBookmarks";
-import type { Game, SortType } from "@/types/game";
+import type { Game, GameCategory, SortType } from "@/types/game";
 import { FAVORITES_CATEGORY_ID } from "@/types/game";
 import { CATEGORY_NAV_ORDER } from "@/constants/categoryNav";
 import { useNavigationStore } from "./navigationStore";
+import {
+  applyCategoryOverrides,
+  buildGamesByCategory,
+  loadArchivedIds,
+  loadCategoryHides,
+  loadCategoryOverrides,
+  mergeScanWithCarry,
+  persistArchivedIds,
+  persistCategoryHides,
+  persistCategoryOverrides,
+  splitArchivedVisible,
+} from "@/utils/libraryPrefs";
 
 export type { Game, SortType } from "@/types/game";
 export { FAVORITES_CATEGORY_ID } from "@/types/game";
@@ -91,9 +103,16 @@ export interface LaunchOverlayState {
 }
 
 interface GameStore {
+  /** Native categories from scanner / bookmarks — overrides are not applied here. */
+  sourceGames: Game[];
   games: Game[];
   filteredGames: Game[];
   gamesByCategory: Record<string, Game[]>;
+  archivedGames: Game[];
+  archivedIds: string[];
+  categoryOverrides: Record<string, GameCategory>;
+  /** Per sidebar tab: item stays in All / other tabs, but not in this tab. */
+  hiddenFromCategories: Record<string, GameCategory[]>;
   searchQuery: string;
   selectedCategory: string | null;
   sortType: SortType;
@@ -119,7 +138,13 @@ interface GameStore {
   selectRowDown: () => void;
   setGridColumnCount: (count: number) => void;
   getLastOpenedTime: (gameId: string) => number;
+  getNativeCategory: (gameId: string) => GameCategory | undefined;
   toggleFavorite: (gameId: string) => void;
+  archiveGame: (gameId: string) => void;
+  unarchiveGame: (gameId: string) => void;
+  setCategoryOverride: (gameId: string, category: GameCategory | null) => void;
+  hideFromCategoryTab: (gameId: string, tab: GameCategory) => void;
+  unhideFromCategoryTab: (gameId: string, tab: GameCategory) => void;
   clearError: () => void;
 }
 
@@ -148,7 +173,7 @@ const setLastOpenedTime = (gameId: string, timestamp: number) => {
 // Helper to sort games
 const sortGames = (games: Game[], sortType: SortType, getLastOpenedTime: (id: string) => number): Game[] => {
   const sorted = [...games];
-  
+
   switch (sortType) {
     case "alphabetical":
       return sorted.sort((a, b) => a.name.localeCompare(b.name));
@@ -156,12 +181,11 @@ const sortGames = (games: Game[], sortType: SortType, getLastOpenedTime: (id: st
       return sorted.sort((a, b) => {
         const timeA = getLastOpenedTime(a.id);
         const timeB = getLastOpenedTime(b.id);
-        // Most recently opened first (higher timestamp = first)
         return timeB - timeA;
       });
     case "default":
     default:
-      return sorted; // Keep original order
+      return sorted;
   }
 };
 
@@ -171,7 +195,8 @@ function filterGamesByPrefs(
   selectedCategory: string | null,
   sortType: SortType,
   favoriteIds: string[],
-  getLastOpenedTime: (gameId: string) => number
+  getLastOpenedTime: (gameId: string) => number,
+  hiddenFromCategories: Record<string, GameCategory[]>
 ): Game[] {
   let filtered = games;
   if (searchQuery.trim()) {
@@ -185,15 +210,58 @@ function filterGamesByPrefs(
     const fav = new Set(favoriteIds);
     filtered = filtered.filter((game) => fav.has(game.id));
   } else if (selectedCategory) {
-    filtered = filtered.filter((game) => game.category === selectedCategory);
+    const tab = selectedCategory as GameCategory;
+    filtered = filtered.filter((game) => {
+      if (game.category !== tab) return false;
+      if (hiddenFromCategories[game.id]?.includes(tab)) return false;
+      return true;
+    });
   }
   return sortGames(filtered, sortType, getLastOpenedTime);
 }
 
+type GetLo = (id: string) => number;
+
+function deriveLibrarySlice(
+  sourceGames: Game[],
+  archivedIds: string[],
+  categoryOverrides: Record<string, GameCategory>,
+  hiddenFromCategories: Record<string, GameCategory[]>,
+  searchQuery: string,
+  selectedCategory: string | null,
+  sortType: SortType,
+  favoriteIds: string[],
+  getLastOpenedTime: GetLo
+) {
+  const normalized = applyCategoryOverrides(sourceGames, categoryOverrides);
+  const { visible, archivedGames } = splitArchivedVisible(normalized, archivedIds);
+  const gamesByCategory = buildGamesByCategory(visible, hiddenFromCategories);
+  const filteredGames = filterGamesByPrefs(
+    visible,
+    searchQuery,
+    selectedCategory,
+    sortType,
+    favoriteIds,
+    getLastOpenedTime,
+    hiddenFromCategories
+  );
+  return {
+    games: visible,
+    archivedGames,
+    gamesByCategory,
+    filteredGames,
+  };
+}
+
 export const useGameStore = create<GameStore>((set, get) => ({
+  sourceGames: [],
   games: [],
   filteredGames: [],
   gamesByCategory: {},
+  archivedGames: [],
+  archivedIds: loadArchivedIds(),
+  categoryOverrides: loadCategoryOverrides(),
+  hiddenFromCategories: loadCategoryHides(),
   searchQuery: "",
   selectedCategory: null,
   sortType: "default",
@@ -211,6 +279,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return times[gameId] || 0;
   },
 
+  getNativeCategory: (gameId: string) => {
+    return get().sourceGames.find((g) => g.id === gameId)?.category;
+  },
+
   toggleFavorite: (gameId: string) => {
     set((state) => {
       const has = state.favoriteIds.includes(gameId);
@@ -218,15 +290,156 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ? state.favoriteIds.filter((id) => id !== gameId)
         : [...state.favoriteIds, gameId];
       persistFavoriteIds(favoriteIds);
-      const filteredGames = filterGamesByPrefs(
-        state.games,
+      const { getLastOpenedTime } = state;
+      const slice = deriveLibrarySlice(
+        state.sourceGames,
+        state.archivedIds,
+        state.categoryOverrides,
+        state.hiddenFromCategories,
         state.searchQuery,
         state.selectedCategory,
         state.sortType,
         favoriteIds,
-        state.getLastOpenedTime
+        getLastOpenedTime
       );
-      return { favoriteIds, filteredGames };
+      return { favoriteIds, ...slice };
+    });
+  },
+
+  archiveGame: (gameId: string) => {
+    set((state) => {
+      if (state.archivedIds.includes(gameId)) return state;
+      const archivedIds = [...state.archivedIds, gameId];
+      persistArchivedIds(archivedIds);
+      const favoriteIds = state.favoriteIds.filter((id) => id !== gameId);
+      if (favoriteIds.length !== state.favoriteIds.length) {
+        persistFavoriteIds(favoriteIds);
+      }
+      const nextHides = { ...state.hiddenFromCategories };
+      delete nextHides[gameId];
+      persistCategoryHides(nextHides);
+      const { getLastOpenedTime } = state;
+      const slice = deriveLibrarySlice(
+        state.sourceGames,
+        archivedIds,
+        state.categoryOverrides,
+        nextHides,
+        state.searchQuery,
+        state.selectedCategory,
+        state.sortType,
+        favoriteIds,
+        getLastOpenedTime
+      );
+      return {
+        archivedIds,
+        favoriteIds,
+        hiddenFromCategories: nextHides,
+        ...slice,
+        selectedIndex: 0,
+      };
+    });
+  },
+
+  unarchiveGame: (gameId: string) => {
+    set((state) => {
+      if (!state.archivedIds.includes(gameId)) return state;
+      const archivedIds = state.archivedIds.filter((id) => id !== gameId);
+      persistArchivedIds(archivedIds);
+      const { getLastOpenedTime } = state;
+      const slice = deriveLibrarySlice(
+        state.sourceGames,
+        archivedIds,
+        state.categoryOverrides,
+        state.hiddenFromCategories,
+        state.searchQuery,
+        state.selectedCategory,
+        state.sortType,
+        state.favoriteIds,
+        getLastOpenedTime
+      );
+      return {
+        archivedIds,
+        ...slice,
+        selectedIndex: 0,
+      };
+    });
+  },
+
+  setCategoryOverride: (gameId: string, category: GameCategory | null) => {
+    set((state) => {
+      const native = state.sourceGames.find((g) => g.id === gameId)?.category;
+      const nextOverrides = { ...state.categoryOverrides };
+      if (category === null || category === native) {
+        delete nextOverrides[gameId];
+      } else {
+        nextOverrides[gameId] = category;
+      }
+      persistCategoryOverrides(nextOverrides);
+      const { getLastOpenedTime } = state;
+      const slice = deriveLibrarySlice(
+        state.sourceGames,
+        state.archivedIds,
+        nextOverrides,
+        state.hiddenFromCategories,
+        state.searchQuery,
+        state.selectedCategory,
+        state.sortType,
+        state.favoriteIds,
+        getLastOpenedTime
+      );
+      return {
+        categoryOverrides: nextOverrides,
+        ...slice,
+        selectedIndex: 0,
+      };
+    });
+  },
+
+  hideFromCategoryTab: (gameId: string, tab: GameCategory) => {
+    set((state) => {
+      if (state.archivedIds.includes(gameId)) return state;
+      const cur = state.hiddenFromCategories[gameId] ?? [];
+      if (cur.includes(tab)) return state;
+      const nextHides = { ...state.hiddenFromCategories, [gameId]: [...cur, tab] };
+      persistCategoryHides(nextHides);
+      const { getLastOpenedTime } = state;
+      const slice = deriveLibrarySlice(
+        state.sourceGames,
+        state.archivedIds,
+        state.categoryOverrides,
+        nextHides,
+        state.searchQuery,
+        state.selectedCategory,
+        state.sortType,
+        state.favoriteIds,
+        getLastOpenedTime
+      );
+      return { hiddenFromCategories: nextHides, ...slice, selectedIndex: 0 };
+    });
+  },
+
+  unhideFromCategoryTab: (gameId: string, tab: GameCategory) => {
+    set((state) => {
+      const cur = state.hiddenFromCategories[gameId] ?? [];
+      if (!cur.includes(tab)) return state;
+      const rest = cur.filter((t) => t !== tab);
+      const nextHides = { ...state.hiddenFromCategories };
+      if (rest.length === 0) delete nextHides[gameId];
+      else nextHides[gameId] = rest;
+      persistCategoryHides(nextHides);
+      const { getLastOpenedTime } = state;
+      const slice = deriveLibrarySlice(
+        state.sourceGames,
+        state.archivedIds,
+        state.categoryOverrides,
+        nextHides,
+        state.searchQuery,
+        state.selectedCategory,
+        state.sortType,
+        state.favoriteIds,
+        getLastOpenedTime
+      );
+      return { hiddenFromCategories: nextHides, ...slice, selectedIndex: 0 };
     });
   },
 
@@ -234,38 +447,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const scannedGames = await invoke<Game[]>("scan_games");
-      
-      // Add default bookmarks (streaming services)
       const defaultBookmarks = getDefaultBookmarks();
-      
-      // Combine scanned games with default bookmarks
-      const allGames = [...defaultBookmarks, ...scannedGames];
-      
-      // Group games by category
-      const gamesByCategory: Record<string, Game[]> = {
-        Game: [],
-        App: [],
-        Media: [],
-        Bookmark: [],
-      };
-      
-      allGames.forEach(game => {
-        const category = game.category || "App";
-        if (!gamesByCategory[category]) {
-          gamesByCategory[category] = [];
-        }
-        gamesByCategory[category].push(game);
-      });
-      
-      const prefs = loadGameUiPrefs();
-      const getLo = (id: string) => {
-        const times = getLastOpenedTimes();
-        return times[id] || 0;
-      };
+      const base = [...defaultBookmarks, ...scannedGames];
+      const previousSource = get().sourceGames;
+      const sourceGames = mergeScanWithCarry(base, previousSource);
 
-      const favoriteIds = get().favoriteIds;
-      const filtered = filterGamesByPrefs(
-        allGames,
+      const prefs = loadGameUiPrefs();
+      const getLo = (id: string) => getLastOpenedTimes()[id] || 0;
+
+      const {
+        archivedIds,
+        categoryOverrides,
+        hiddenFromCategories,
+        favoriteIds,
+      } = get();
+
+      const slice = deriveLibrarySlice(
+        sourceGames,
+        archivedIds,
+        categoryOverrides,
+        hiddenFromCategories,
         prefs.searchQuery,
         prefs.selectedCategory,
         prefs.sortType,
@@ -276,9 +477,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       syncCategoryIndexFromSelection(prefs.selectedCategory);
 
       set({
-        games: allGames,
-        filteredGames: filtered,
-        gamesByCategory,
+        sourceGames,
+        ...slice,
         isLoading: false,
         selectedIndex: 0,
         searchQuery: prefs.searchQuery,
@@ -286,17 +486,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
         sortType: prefs.sortType,
       });
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : "Failed to scan games",
-        isLoading: false 
+        isLoading: false,
       });
     }
   },
 
   setSearchQuery: (query: string) => {
-    const { games, selectedCategory, sortType, favoriteIds, getLastOpenedTime } = get();
-    const filtered = filterGamesByPrefs(
-      games,
+    const {
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      selectedCategory,
+      sortType,
+      favoriteIds,
+      getLastOpenedTime,
+    } = get();
+    const slice = deriveLibrarySlice(
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
       query,
       selectedCategory,
       sortType,
@@ -304,14 +516,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
       getLastOpenedTime
     );
 
-    set({ searchQuery: query, filteredGames: filtered, selectedIndex: 0 });
+    set({ searchQuery: query, ...slice, selectedIndex: 0 });
     persistGameUiPrefs({ searchQuery: query, selectedCategory, sortType });
   },
 
   setSelectedCategory: (category: string | null) => {
-    const { games, searchQuery, sortType, favoriteIds, getLastOpenedTime } = get();
-    const filtered = filterGamesByPrefs(
-      games,
+    const {
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      searchQuery,
+      sortType,
+      favoriteIds,
+      getLastOpenedTime,
+    } = get();
+    const slice = deriveLibrarySlice(
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
       searchQuery,
       category,
       sortType,
@@ -320,14 +544,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
 
     syncCategoryIndexFromSelection(category);
-    set({ selectedCategory: category, filteredGames: filtered, selectedIndex: 0 });
+    set({ selectedCategory: category, ...slice, selectedIndex: 0 });
     persistGameUiPrefs({ searchQuery, selectedCategory: category, sortType });
   },
 
   setSortType: (sortType: SortType) => {
-    const { games, searchQuery, selectedCategory, favoriteIds, getLastOpenedTime } = get();
-    const filtered = filterGamesByPrefs(
-      games,
+    const {
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      searchQuery,
+      selectedCategory,
+      favoriteIds,
+      getLastOpenedTime,
+    } = get();
+    const slice = deriveLibrarySlice(
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
       searchQuery,
       selectedCategory,
       sortType,
@@ -335,19 +571,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       getLastOpenedTime
     );
 
-    set({ sortType, filteredGames: filtered, selectedIndex: 0 });
+    set({ sortType, ...slice, selectedIndex: 0 });
     persistGameUiPrefs({ searchQuery, selectedCategory, sortType });
   },
 
   launchGame: async (game: Game) => {
     try {
-      // Track last opened time
       setLastOpenedTime(game.id, Date.now());
-      
-      // If it's a URL, open in embedded browser
+
       if (game.launch_type === "Url") {
-        // Import browser store dynamically to avoid circular dependency
-        const { openBrowser } = await import("./browserStore").then(m => m.useBrowserStore.getState());
+        const { openBrowser } = await import("./browserStore").then((m) => m.useBrowserStore.getState());
         openBrowser(game.executable);
       } else {
         set({
@@ -362,20 +595,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
           set({ launchOverlay: null });
         }
       }
-      
-      // Re-apply sorting if sort type is "lastOpened"
+
       const { sortType } = get();
       if (sortType === "lastOpened") {
-        const { games, searchQuery, selectedCategory, favoriteIds, getLastOpenedTime } = get();
-        const filtered = filterGamesByPrefs(
-          games,
+        const {
+          sourceGames,
+          archivedIds,
+          categoryOverrides,
+          hiddenFromCategories,
+          searchQuery,
+          selectedCategory,
+          favoriteIds,
+          getLastOpenedTime,
+        } = get();
+        const slice = deriveLibrarySlice(
+          sourceGames,
+          archivedIds,
+          categoryOverrides,
+          hiddenFromCategories,
           searchQuery,
           selectedCategory,
           sortType,
           favoriteIds,
           getLastOpenedTime
         );
-        set({ filteredGames: filtered });
+        set({ filteredGames: slice.filteredGames });
       }
     } catch (error) {
       set({
@@ -389,20 +633,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     try {
       const game = await invoke<Game>("add_manual_game", { name, path, executable });
       set((state) => {
-        const games = [...state.games, game];
-        const filteredGames = filterGamesByPrefs(
-          games,
+        const sourceGames = [...state.sourceGames, game];
+        const { getLastOpenedTime } = state;
+        const slice = deriveLibrarySlice(
+          sourceGames,
+          state.archivedIds,
+          state.categoryOverrides,
+          state.hiddenFromCategories,
           state.searchQuery,
           state.selectedCategory,
           state.sortType,
           state.favoriteIds,
-          state.getLastOpenedTime
+          getLastOpenedTime
         );
-        return { games, filteredGames };
+        return { sourceGames, ...slice };
       });
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : "Failed to add game"
+      set({
+        error: error instanceof Error ? error.message : "Failed to add game",
       });
     }
   },
@@ -420,26 +668,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
       launch_type: "Url",
     };
     set((state) => {
-      const newGames = [...state.games, bookmark];
-      const newGamesByCategory = { ...state.gamesByCategory };
-      if (!newGamesByCategory.Bookmark) {
-        newGamesByCategory.Bookmark = [];
-      }
-      newGamesByCategory.Bookmark.push(bookmark);
-      const filteredGames = filterGamesByPrefs(
-        newGames,
+      const sourceGames = [...state.sourceGames, bookmark];
+      const { getLastOpenedTime } = state;
+      const slice = deriveLibrarySlice(
+        sourceGames,
+        state.archivedIds,
+        state.categoryOverrides,
+        state.hiddenFromCategories,
         state.searchQuery,
         state.selectedCategory,
         state.sortType,
         state.favoriteIds,
-        state.getLastOpenedTime
+        getLastOpenedTime
       );
-
-      return {
-        games: newGames,
-        filteredGames,
-        gamesByCategory: newGamesByCategory,
-      };
+      return { sourceGames, ...slice };
     });
   },
 
@@ -489,4 +731,3 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 }));
-

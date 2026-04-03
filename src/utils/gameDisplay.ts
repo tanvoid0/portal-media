@@ -43,6 +43,25 @@ export function truncateMiddle(str: string, maxLen: number): string {
   return `${str.slice(0, edge)}…${str.slice(-edge)}`;
 }
 
+/**
+ * If `absolute` sits under `baseDir`, returns the path segment after the base (Windows-style slashes).
+ * Used to avoid repeating the full install path for the executable line.
+ */
+export function relativePathUnderBase(baseDir: string, absolute: string): string | null {
+  const baseRaw = baseDir.trim().replace(/[/\\]+$/, "");
+  const absRaw = absolute.trim();
+  if (!baseRaw || !absRaw) return null;
+  const base = baseRaw.replace(/\\/g, "/");
+  const abs = absRaw.replace(/\\/g, "/");
+  const bl = base.toLowerCase();
+  const al = abs.toLowerCase();
+  if (al === bl) return null;
+  const need = `${bl}/`;
+  if (!al.startsWith(need)) return null;
+  const rest = abs.slice(base.length).replace(/^\//, "");
+  return rest.length > 0 ? rest.replace(/\//g, "\\") : null;
+}
+
 export function formatLastOpened(timestamp: number): string {
   if (!timestamp) return "Never opened";
   const diff = Date.now() - timestamp;

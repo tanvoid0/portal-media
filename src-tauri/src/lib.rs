@@ -2,6 +2,7 @@ mod commands;
 mod game_scanner;
 mod icon_extractor;
 mod browser;
+mod metadata;
 mod platform_sync;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -28,6 +29,20 @@ pub fn run() {
             platform_sync::connect_platform_command,
             platform_sync::sync_platform_command,
             platform_sync::disconnect_platform_command,
+            metadata::commands::metadata_get_provider_status,
+            metadata::commands::metadata_save_igdb_credentials,
+            metadata::commands::metadata_clear_igdb_credentials,
+            metadata::commands::metadata_save_tmdb_api_key,
+            metadata::commands::metadata_clear_tmdb_api_key,
+            metadata::commands::metadata_test_igdb,
+            metadata::commands::metadata_test_igdb_credentials,
+            metadata::commands::metadata_test_tmdb,
+            metadata::commands::metadata_test_tmdb_key,
+            metadata::commands::metadata_clear_cache,
+            metadata::commands::metadata_fetch_igdb_for_game,
+            metadata::commands::metadata_tmdb_search,
+            metadata::commands::metadata_tmdb_fetch_detail,
+            metadata::commands::metadata_enrich_all_games,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

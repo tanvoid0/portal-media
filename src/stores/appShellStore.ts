@@ -3,6 +3,7 @@ import type { AppView } from "@/types/app";
 
 /**
  * View + shell state so keyboard/gamepad core can respect Settings vs Library without React context.
+ * Prefer deriving navigation from the URL in UI; this store mirrors the route for `universalNavCore`.
  */
 interface AppShellStore {
   currentView: AppView;

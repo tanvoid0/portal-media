@@ -1,6 +1,7 @@
 import { useEffect, useMemo, type CSSProperties } from "react";
 import type { ThemeAppearance } from "@/types/theme";
 import { useGameStore } from "@/stores/gameStore";
+import { useMetadataDisplayStore } from "@/stores/metadataDisplayStore";
 import { useAmbientStore } from "@/stores/ambientStore";
 import {
   extractVibrantDominantColorFromImageSource,
@@ -36,13 +37,13 @@ export function AmbientBackgroundLayer({
   const dominant = useAmbientStore((s) => s.dominant);
   const setDominant = useAmbientStore((s) => s.setDominant);
 
-  const imageKey = useGameStore((s) => {
-    if (!active) return "";
-    const game = s.filteredGames[s.selectedIndex];
-    if (!game) return "";
-    const src = game.cover_art || game.icon;
-    return `${game.id}|${src ?? ""}`;
-  });
+  const game = useGameStore((s) => (active ? s.filteredGames[s.selectedIndex] : null));
+  const igdbCover = useMetadataDisplayStore((s) =>
+    game ? s.igdbCoverUrlByGameId[game.id] : undefined
+  );
+  const imageKey = game
+    ? `${game.id}|${game.cover_art ?? ""}|${game.icon ?? ""}|${igdbCover ?? ""}`
+    : "";
 
   useEffect(() => {
     if (!active) {
@@ -50,8 +51,11 @@ export function AmbientBackgroundLayer({
       return;
     }
 
-    const game = useGameStore.getState().filteredGames[useGameStore.getState().selectedIndex];
-    const raw = game?.cover_art || game?.icon;
+    const gameNow = useGameStore.getState().filteredGames[useGameStore.getState().selectedIndex];
+    const igdb = gameNow
+      ? useMetadataDisplayStore.getState().igdbCoverUrlByGameId[gameNow.id]
+      : undefined;
+    const raw = gameNow?.cover_art || gameNow?.icon || igdb;
     let cancelled = false;
 
     void (async () => {

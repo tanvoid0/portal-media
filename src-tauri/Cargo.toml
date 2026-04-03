@@ -28,5 +28,8 @@ winreg = "0.52"
 url = "2.5"
 lazy_static = "1.4"
 async-trait = "0.1"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
+keyring = "3"
+chrono = { version = "0.4", default-features = false, features = ["alloc", "std"] }
+urlencoding = "2.1"
 

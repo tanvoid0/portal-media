@@ -1,8 +1,9 @@
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useFocusable } from "@/hooks/useNavigationState";
-import type { AppView } from "@/types/app";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { appNavigate } from "@/nav/appNavigate";
+import { useLocation } from "react-router-dom";
 import {
   Settings as SettingsIcon,
   Home,
@@ -73,28 +74,28 @@ export function SidebarButton({
 }
 
 export function TopBarChromeButtons({
-  currentView,
-  setCurrentView,
   setShowExitModal,
   onToggleWindowSize,
   isFullscreen,
   isMaximized,
 }: {
-  currentView: AppView;
-  setCurrentView: (view: AppView) => void;
   setShowExitModal: (show: boolean) => void;
   onToggleWindowSize: () => void;
   isFullscreen: boolean;
   isMaximized: boolean;
 }) {
+  const isSettingsRoute = useLocation().pathname.startsWith("/settings");
+
   return (
     <>
       <SidebarButton
         index={1}
-        isActive={currentView === "settings"}
-        onClick={() => setCurrentView("settings")}
-        icon={SettingsIcon}
-        title="Settings"
+        isActive={false}
+        onClick={() =>
+          isSettingsRoute ? appNavigate("/") : appNavigate("/settings/game")
+        }
+        icon={isSettingsRoute ? Home : SettingsIcon}
+        title={isSettingsRoute ? "Library" : "Settings"}
       />
       <SidebarButton
         index={2}

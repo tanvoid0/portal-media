@@ -1,11 +1,5 @@
-import type { Dispatch, SetStateAction } from "react";
 import type { ThemeAppearance } from "@/types/theme";
-import type { AppView } from "@/types/app";
-import { GameGrid } from "@/components/GameGrid";
-import { GameDetailsSidebar } from "@/components/GameDetailsSidebar";
 import { Navigation } from "@/components/Navigation";
-import { Settings } from "@/components/Settings";
-import { BookmarkManager } from "@/components/BookmarkManager";
 import { SearchBar } from "@/components/SearchBar";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { FavoritesFilter } from "@/components/FavoritesFilter";
@@ -17,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { Sun, Moon } from "lucide-react";
+import { Outlet, useLocation } from "react-router-dom";
 import {
   SidebarDivider,
   SidebarButton,
@@ -24,10 +19,10 @@ import {
   Home,
 } from "./shellChrome";
 import { AmbientBackgroundLayer } from "./AmbientBackgroundLayer";
+import { SettingsSectionRail } from "./SettingsSectionRail";
+import { appNavigate } from "@/nav/appNavigate";
 
 export interface AppShellProps {
-  currentView: AppView;
-  setCurrentView: Dispatch<SetStateAction<AppView>>;
   showExitModal: boolean;
   setShowExitModal: (open: boolean) => void;
   appearance: ThemeAppearance;
@@ -39,8 +34,6 @@ export interface AppShellProps {
 }
 
 export function AppShell({
-  currentView,
-  setCurrentView,
   showExitModal,
   setShowExitModal,
   appearance,
@@ -50,10 +43,14 @@ export function AppShell({
   onToggleFullscreen,
   onConfirmExit,
 }: AppShellProps) {
+  const { pathname } = useLocation();
+  const isSettingsRoute = pathname.startsWith("/settings");
+  const isLibrary = !isSettingsRoute;
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
       <div className="fixed inset-0 bg-background z-0" />
-      <AmbientBackgroundLayer active={currentView === "games"} appearance={appearance} />
+      <AmbientBackgroundLayer active={isLibrary} appearance={appearance} />
 
       <Navigation />
 
@@ -65,20 +62,24 @@ export function AppShell({
             aria-hidden
           />
           <SidebarDivider />
-          {currentView === "games" && (
+          {isLibrary && (
             <div className="flex flex-col items-center gap-3 w-full">
               <CategoryFilter orientation="compact" />
             </div>
           )}
-          {currentView === "games" && <SidebarDivider />}
+          {isLibrary && <SidebarDivider />}
           <div className="flex-1 min-h-2" />
-          <SidebarButton
-            index={0}
-            isActive={currentView === "games"}
-            onClick={() => setCurrentView("games")}
-            icon={Home}
-            title="Library"
-          />
+          {isSettingsRoute ? (
+            <SettingsSectionRail />
+          ) : (
+            <SidebarButton
+              index={0}
+              isActive={isLibrary}
+              onClick={() => appNavigate("/")}
+              icon={Home}
+              title="Library"
+            />
+          )}
           <div className="flex-1 min-h-2" />
         </div>
 
@@ -92,13 +93,11 @@ export function AppShell({
             <div
               className={cn(
                 "flex-1 min-w-0 min-h-[2.25rem] flex items-center",
-                currentView === "settings" && "cursor-default"
+                isSettingsRoute && "cursor-default"
               )}
-              {...(currentView === "settings"
-                ? { "data-tauri-drag-region": true as const }
-                : {})}
+              {...(isSettingsRoute ? { "data-tauri-drag-region": true as const } : {})}
             >
-              {currentView === "games" && (
+              {isLibrary && (
                 <div className="flex flex-1 min-w-0 items-center gap-3">
                   <FavoritesFilter />
                   <div className="h-9 w-px shrink-0 bg-border/70" aria-hidden />
@@ -107,15 +106,13 @@ export function AppShell({
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {currentView === "games" && (
+              {isLibrary && (
                 <>
                   <SearchBar variant="compact" compactPopupSide="right" />
                   <div className="h-9 w-px shrink-0 bg-border" aria-hidden />
                 </>
               )}
               <TopBarChromeButtons
-                currentView={currentView}
-                setCurrentView={setCurrentView}
                 setShowExitModal={setShowExitModal}
                 onToggleWindowSize={onToggleFullscreen}
                 isFullscreen={isFullscreen}
@@ -133,34 +130,12 @@ export function AppShell({
                 )}
                 title={appearance === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               >
-                {appearance === "dark" ? (
-                  <Sun className="w-5 h-5" />
-                ) : (
-                  <Moon className="w-5 h-5" />
-                )}
+                {appearance === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </Button>
             </div>
           </header>
 
-          {currentView === "games" && (
-            <div className="flex-1 min-h-0 flex flex-col relative overflow-hidden">
-              <div className="flex-1 min-h-0 flex overflow-hidden">
-                <div className="flex-1 min-w-0 overflow-hidden relative">
-                  <GameGrid />
-                </div>
-                <GameDetailsSidebar />
-              </div>
-            </div>
-          )}
-
-          {currentView === "settings" && (
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="container mx-auto p-8 space-y-8 max-w-5xl">
-                <Settings />
-                <BookmarkManager />
-              </div>
-            </div>
-          )}
+          <Outlet />
         </div>
       </div>
 

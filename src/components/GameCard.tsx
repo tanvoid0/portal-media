@@ -7,7 +7,8 @@ import { useSelectable } from "@/hooks/useNavigationState";
 import { PS5FocusRing } from "./PS5FocusRing";
 import { getSafeImageSource } from "@/utils/imageUtils";
 import { getGameCardSubtitle } from "@/utils/gameDisplay";
-import { useState } from "react";
+import { useMetadataDisplayStore } from "@/stores/metadataDisplayStore";
+import { useState, type MouseEvent } from "react";
 import { Star } from "lucide-react";
 
 interface GameCardProps {
@@ -16,6 +17,7 @@ interface GameCardProps {
   onClick: () => void;
   onDoubleClick?: () => void;
   onMouseEnter?: () => void;
+  onContextMenu?: (e: MouseEvent) => void;
 }
 
 export function GameCard({
@@ -24,10 +26,13 @@ export function GameCard({
   onClick,
   onDoubleClick,
   onMouseEnter,
+  onContextMenu,
 }: GameCardProps) {
   const { showSelection } = useSelectable(isSelected);
   const [isHovered, setIsHovered] = useState(false);
   const isFavorite = useGameStore((s) => s.favoriteIds.includes(game.id));
+  const igdbCover = useMetadataDisplayStore((s) => s.igdbCoverUrlByGameId[game.id]);
+  const cardImage = game.cover_art || game.icon || igdbCover;
   const mouseSelected = isSelected && !showSelection;
   const subtitle = getGameCardSubtitle(game);
 
@@ -55,6 +60,10 @@ export function GameCard({
         onMouseEnter?.();
       }}
       onMouseLeave={() => setIsHovered(false)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu?.(e);
+      }}
     >
       <CardContent className="p-0 h-full flex flex-col">
         <div className="relative flex-1 overflow-hidden bg-gradient-to-b from-muted/20 to-muted/40">
@@ -66,19 +75,20 @@ export function GameCard({
               <Star className="h-4 w-4 fill-current" />
             </div>
           )}
-          {game.cover_art || game.icon ? (
+          {cardImage ? (
             <div
               className={cn(
                 "relative h-full w-full",
-                game.icon && !game.cover_art && "flex items-center justify-center bg-muted/50 p-8"
+                game.icon && !game.cover_art && !igdbCover &&
+                  "flex items-center justify-center bg-muted/50 p-8"
               )}
             >
               <img
-                src={getSafeImageSource(game.cover_art || game.icon)}
+                src={getSafeImageSource(cardImage)}
                 alt={game.name}
                 className={cn(
                   "transition-all duration-300",
-                  game.cover_art
+                  game.cover_art || igdbCover
                     ? "h-full w-full object-cover"
                     : "h-full w-full object-contain max-h-48",
                   showSelection && "brightness-105",
@@ -88,7 +98,7 @@ export function GameCard({
                   (e.target as HTMLImageElement).src = getSafeImageSource(null);
                 }}
               />
-              {game.cover_art && (
+              {(game.cover_art || igdbCover) && (
                 <div className="absolute inset-0 bg-gradient-to-t from-background/85 via-background/25 to-transparent pointer-events-none" />
               )}
               <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">

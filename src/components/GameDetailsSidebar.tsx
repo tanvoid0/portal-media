@@ -1,5 +1,8 @@
 import { useEffect, useCallback, type ReactNode } from "react";
+import { useGameMetadata } from "@/hooks/useGameMetadata";
 import { useGameStore } from "@/stores/gameStore";
+import { OVERRIDABLE_CATEGORIES, tabLabel } from "@/utils/libraryPrefs";
+import { appNavigate } from "@/nav/appNavigate";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useFocusable } from "@/hooks/useNavigationState";
 import { EXECUTE_DETAILS_ACTION } from "@/navigation/universalNavCore";
@@ -10,10 +13,23 @@ import {
   formatLastOpened,
   getLinkHostname,
   launchTypeLabel,
-  truncateMiddle,
+  relativePathUnderBase,
 } from "@/utils/gameDisplay";
+import { igdbLinkIcon } from "@/utils/igdbLinkIcons";
+import { useMetadataDisplayStore } from "@/stores/metadataDisplayStore";
 import { cn } from "@/lib/utils";
-import { Copy, LayoutList, Play, Star } from "lucide-react";
+import { openGameFilesystemLocation, canRevealGameInFileManager } from "@/utils/openGameLocation";
+import {
+  Archive,
+  Copy,
+  ExternalLink,
+  FolderOpen,
+  LayoutList,
+  Link2,
+  Loader2,
+  Play,
+  Star,
+} from "lucide-react";
 import { toast } from "sonner";
 
 function DetailsFocusControl({
@@ -49,10 +65,31 @@ export function GameDetailsSidebar() {
   const toggleFavorite = useGameStore((s) => s.toggleFavorite);
   const launchGame = useGameStore((s) => s.launchGame);
   const getLastOpenedTime = useGameStore((s) => s.getLastOpenedTime);
-
+  const archiveGame = useGameStore((s) => s.archiveGame);
+  const setCategoryOverride = useGameStore((s) => s.setCategoryOverride);
+  const getNativeCategory = useGameStore((s) => s.getNativeCategory);
+  const categoryOverrides = useGameStore((s) => s.categoryOverrides);
+  const hiddenFromCategories = useGameStore((s) => s.hiddenFromCategories);
+  const hideFromCategoryTab = useGameStore((s) => s.hideFromCategoryTab);
+  const unhideFromCategoryTab = useGameStore((s) => s.unhideFromCategoryTab);
   const game = filteredGames[selectedIndex] ?? null;
+  const metaPanel = useGameMetadata(game);
+  const igdbGridCover = useMetadataDisplayStore((s) =>
+    game ? s.igdbCoverUrlByGameId[game.id] : undefined
+  );
   const isFavorite = game ? favoriteIds.includes(game.id) : false;
-  const cover = game ? getSafeImageSource(game.cover_art || game.icon) : null;
+  const nativeCategory = game ? getNativeCategory(game.id) : undefined;
+  const hasCategoryOverride = game ? game.id in categoryOverrides : false;
+  const hiddenTabsForGame = game ? hiddenFromCategories[game.id] ?? [] : [];
+  const canHideFromCurrentTab = game ? !hiddenTabsForGame.includes(game.category) : false;
+  const cover = game
+    ? getSafeImageSource(
+        game.cover_art ||
+          game.icon ||
+          igdbGridCover ||
+          (metaPanel.kind === "igdb" ? metaPanel.payload.coverUrl : undefined)
+      )
+    : null;
   const lastOpened = game ? getLastOpenedTime(game.id) : 0;
   const host = game ? getLinkHostname(game) : null;
   const pathLine = game
@@ -60,6 +97,10 @@ export function GameDetailsSidebar() {
       ? game.executable || game.path
       : game.path || game.executable
     : "";
+
+  const openMetadataSettings = useCallback(() => {
+    appNavigate("/settings/api");
+  }, []);
 
   const copyPath = useCallback(async () => {
     if (!pathLine) return;
@@ -71,17 +112,52 @@ export function GameDetailsSidebar() {
     }
   }, [pathLine]);
 
+  const openLocation = useCallback(async () => {
+    if (!game) return;
+    try {
+      await openGameFilesystemLocation(game);
+    } catch {
+      toast.error("Could not open this location");
+    }
+  }, [game]);
+
+  const showOpenLocationButton = game
+    ? Boolean(pathLine) && (game.launch_type === "Url" || canRevealGameInFileManager(game))
+    : false;
+
+  const executableRelative =
+    game && game.launch_type !== "Url" && game.path?.trim() && game.executable?.trim()
+      ? relativePathUnderBase(game.path, game.executable)
+      : null;
+
   useEffect(() => {
     const onExecute = (e: Event) => {
       const idx = (e as CustomEvent<number>).detail;
       if (!game) return;
       if (idx === 0) toggleFavorite(game.id);
       if (idx === 1) void copyPath();
-      if (idx === 2) void launchGame(game);
+      if (idx === 2 && showOpenLocationButton) void openLocation();
+      if (idx === 3) void launchGame(game);
+      if (idx === 4) {
+        archiveGame(game.id);
+        toast.success("Archived — restore from Library settings if needed");
+      }
+      if (idx === 5) setCategoryOverride(game.id, "Game");
+      if (idx === 6) setCategoryOverride(game.id, "App");
+      if (idx === 7) setCategoryOverride(game.id, "Media");
     };
     window.addEventListener(EXECUTE_DETAILS_ACTION, onExecute as EventListener);
     return () => window.removeEventListener(EXECUTE_DETAILS_ACTION, onExecute as EventListener);
-  }, [game, toggleFavorite, copyPath, launchGame]);
+  }, [
+    game,
+    showOpenLocationButton,
+    toggleFavorite,
+    copyPath,
+    openLocation,
+    launchGame,
+    archiveGame,
+    setCategoryOverride,
+  ]);
 
   return (
     <aside
@@ -140,79 +216,363 @@ export function GameDetailsSidebar() {
             </DetailsFocusControl>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            <div>
-              <h2 className="text-xl font-bold text-foreground leading-tight tracking-tight">
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 space-y-3.5 min-h-0">
+            <header className="space-y-2">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight tracking-tight pr-10">
                 {game.name}
               </h2>
               <p
                 className={cn(
-                  "text-sm mt-1.5 truncate font-medium",
+                  "text-xs sm:text-sm truncate font-medium",
                   host ? "text-primary/90" : "text-muted-foreground"
                 )}
                 title={host ?? game.platform}
               >
                 {host ?? game.platform}
               </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <PlatformLabel game={game} size="sm" variant="badge" />
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted/80 text-muted-foreground border border-border/60">
-                {game.category}
-              </span>
-              <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20">
-                {launchTypeLabel(game.launch_type)}
-              </span>
-            </div>
-
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-1">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                Last opened
-              </p>
-              <p className="text-sm text-foreground">{formatLastOpened(lastOpened)}</p>
-            </div>
-
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  {game.launch_type === "Url" ? "URL" : "Install path"}
-                </p>
-                <DetailsFocusControl index={1} className="inline-flex rounded-lg">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => void copyPath()}
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1" />
-                    Copy
-                  </Button>
-                </DetailsFocusControl>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <PlatformLabel game={game} size="sm" variant="badge" />
+                <span
+                  className={cn(
+                    "text-[11px] font-semibold px-2 py-0.5 rounded-md border border-border/60",
+                    hasCategoryOverride
+                      ? "bg-primary/15 text-primary border-primary/35"
+                      : "bg-muted/80 text-muted-foreground"
+                  )}
+                  title={
+                    hasCategoryOverride && nativeCategory
+                      ? `Library default category: ${nativeCategory}`
+                      : undefined
+                  }
+                >
+                  {game.category}
+                  {hasCategoryOverride && nativeCategory ? (
+                    <span className="text-muted-foreground font-normal"> ({nativeCategory})</span>
+                  ) : null}
+                </span>
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                  {launchTypeLabel(game.launch_type)}
+                </span>
               </div>
-              <p
-                className="text-xs font-mono text-foreground/90 break-all leading-relaxed"
-                title={pathLine}
-              >
-                {truncateMiddle(pathLine, 120)}
-              </p>
-            </div>
+            </header>
 
-            <DetailsFocusControl index={2} className="block">
+            <p className="text-[11px] text-muted-foreground" title="Last launch from this device">
+              {formatLastOpened(lastOpened)}
+            </p>
+
+            <section
+              className="rounded-xl border border-border/50 bg-muted/10 overflow-hidden shadow-sm"
+              aria-label={game.launch_type === "Url" ? "Link target" : "Install location"}
+            >
+              <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 sm:px-3 sm:py-2 border-b border-border/40 bg-muted/25">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  {game.launch_type === "Url" ? "Link" : "Install location"}
+                </span>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <DetailsFocusControl index={1} className="inline-flex rounded-md">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      onClick={() => void copyPath()}
+                      disabled={!pathLine}
+                      aria-label="Copy path"
+                      title="Copy path"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </DetailsFocusControl>
+                  <DetailsFocusControl index={2} className="inline-flex rounded-md">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      onClick={() => void openLocation()}
+                      disabled={!showOpenLocationButton}
+                      aria-label={
+                        game.launch_type === "Url" ? "Open in browser" : "Show in file explorer"
+                      }
+                      title={
+                        !showOpenLocationButton
+                          ? "No file path available"
+                          : game.launch_type === "Url"
+                            ? "Open in browser"
+                            : "Show in file explorer"
+                      }
+                    >
+                      {game.launch_type === "Url" ? (
+                        <Link2 className="h-3.5 w-3.5" />
+                      ) : (
+                        <FolderOpen className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </DetailsFocusControl>
+                </div>
+              </div>
+              <div className="px-2.5 py-2 sm:px-3 sm:py-2.5 space-y-1.5">
+                <div className="max-w-full rounded-md bg-background/35 dark:bg-black/20 border border-border/30 px-2 py-1.5">
+                  <div
+                    className="overflow-x-auto max-w-full [scrollbar-width:thin]"
+                    title={pathLine}
+                  >
+                    <p className="text-[11px] font-mono text-foreground/90 leading-5 whitespace-nowrap select-text pr-1">
+                      {pathLine || "—"}
+                    </p>
+                  </div>
+                </div>
+                {game.launch_type !== "Url" &&
+                game.executable?.trim() &&
+                game.path?.trim() &&
+                game.executable !== game.path ? (
+                  executableRelative ? (
+                    <p className="text-[10px] text-muted-foreground leading-snug">
+                      <span className="font-sans not-italic text-muted-foreground/75">Launcher </span>
+                      <span className="font-mono text-foreground/70" title={game.executable}>
+                        {executableRelative}
+                      </span>
+                    </p>
+                  ) : (
+                    <div
+                      className="rounded-md bg-background/20 border border-border/25 px-2 py-1 overflow-x-auto max-w-full [scrollbar-width:thin]"
+                      title={game.executable}
+                    >
+                      <p className="text-[10px] text-muted-foreground whitespace-nowrap font-mono select-text leading-5">
+                        <span className="font-sans text-muted-foreground/75">Executable </span>
+                        {game.executable}
+                      </p>
+                    </div>
+                  )
+                ) : null}
+              </div>
+            </section>
+
+            <DetailsFocusControl index={3} className="block">
               <Button
                 type="button"
-                className="w-full h-12 rounded-xl text-base font-semibold gap-2 shadow-lg shadow-primary/20"
+                className="w-full h-11 sm:h-12 rounded-xl text-sm sm:text-base font-semibold gap-2 shadow-lg shadow-primary/20"
                 onClick={() => void launchGame(game)}
               >
-                <Play className="h-5 w-5 fill-current" />
+                <Play className="h-5 w-5 fill-current shrink-0" />
                 {game.launch_type === "Url" ? "Open" : "Launch"}
               </Button>
             </DetailsFocusControl>
 
-            <p className="text-xs text-muted-foreground text-center pb-2">
-              Escape or Back toggles the grid and this panel. F10 or the Menu key focuses the left
-              rail. Enter / A activates the focused control.
+            <section className="rounded-xl border border-border/60 bg-muted/15 p-3 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  Library
+                </p>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-snug">
+                Hide from a tab only removes it from that sidebar filter; it stays under{" "}
+                <span className="font-medium text-foreground/80">All</span>. Archive removes it
+                everywhere until restored in Settings.
+              </p>
+              {canHideFromCurrentTab ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-9 rounded-lg justify-center text-xs"
+                  onClick={() => {
+                    hideFromCategoryTab(game.id, game.category);
+                    toast.success(`Hidden from ${tabLabel(game.category)} tab`);
+                  }}
+                >
+                  Hide from {tabLabel(game.category)} tab
+                </Button>
+              ) : null}
+              {hiddenTabsForGame.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {hiddenTabsForGame.map((tab) => (
+                    <Button
+                      key={tab}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-8 rounded-lg justify-center text-[11px] text-muted-foreground"
+                      onClick={() => {
+                        unhideFromCategoryTab(game.id, tab);
+                        toast.success(`Shown in ${tabLabel(tab)} tab again`);
+                      }}
+                    >
+                      Show in {tabLabel(tab)} tab again
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+              <DetailsFocusControl index={4} className="block">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="w-full h-9 rounded-lg gap-2 justify-center border-border/60 text-xs"
+                  title="Removes from All and every tab until you restore in Settings → Library."
+                  onClick={() => {
+                    archiveGame(game.id);
+                    toast.success("Archived — restore from Library settings if needed");
+                  }}
+                >
+                  <Archive className="h-4 w-4 shrink-0" />
+                  Archive (entire library)
+                </Button>
+              </DetailsFocusControl>
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-1.5">Move to sidebar tab</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {OVERRIDABLE_CATEGORIES.map((cat, i) => (
+                    <DetailsFocusControl key={cat} index={5 + i} className="inline-flex">
+                      <Button
+                        type="button"
+                        variant={game.category === cat ? "default" : "outline"}
+                        size="sm"
+                        className="rounded-md text-[11px] min-w-[4rem] h-8"
+                        onClick={() => setCategoryOverride(game.id, cat)}
+                      >
+                        {cat === "Game" ? "Games" : cat === "App" ? "Apps" : "Media"}
+                      </Button>
+                    </DetailsFocusControl>
+                  ))}
+                </div>
+                {hasCategoryOverride && nativeCategory ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1.5 h-7 px-2 text-[11px] text-muted-foreground"
+                    onClick={() => setCategoryOverride(game.id, null)}
+                  >
+                    Reset to library default ({nativeCategory})
+                  </Button>
+                ) : null}
+              </div>
+            </section>
+
+            {metaPanel.kind !== "idle" && metaPanel.kind !== "not_applicable" ? (
+            <div className="border-t border-border/50 pt-3 space-y-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-0.5">
+                Metadata
+              </p>
+
+              {metaPanel.kind === "loading" ? (
+                <div
+                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 flex items-center gap-2 text-xs text-muted-foreground"
+                  aria-busy
+                >
+                  <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden />
+                  Loading…
+                </div>
+              ) : null}
+
+              {(metaPanel.kind === "igdb_gate" || metaPanel.kind === "tmdb_gate") && (
+                <div className="rounded-lg border border-dashed border-primary/35 bg-primary/5 p-3 space-y-2">
+                  <p className="text-[10px] uppercase tracking-wider text-primary/80 font-semibold">
+                    {metaPanel.kind === "igdb_gate" ? "Unlock IGDB" : "Unlock TMDB"}
+                  </p>
+                  <p className="text-xs text-foreground/90 leading-relaxed">{metaPanel.message}</p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full rounded-lg h-8 text-xs"
+                    onClick={openMetadataSettings}
+                  >
+                    Metadata settings
+                  </Button>
+                </div>
+              )}
+
+              {(metaPanel.kind === "igdb_note" || metaPanel.kind === "tmdb_note") && (
+                <div className="rounded-lg border border-border/60 bg-muted/15 px-3 py-2">
+                  <p className="text-xs text-muted-foreground leading-relaxed">{metaPanel.message}</p>
+                </div>
+              )}
+
+              {metaPanel.kind === "igdb" && (
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2.5">
+                  <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-full sm:w-auto sm:mr-2">
+                      IGDB
+                    </p>
+                    {metaPanel.payload.releaseDate ? (
+                      <p className="text-[11px] text-muted-foreground">{metaPanel.payload.releaseDate}</p>
+                    ) : null}
+                  </div>
+                  {metaPanel.payload.genres.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {metaPanel.payload.genres.map((g) => (
+                        <span
+                          key={g}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/15"
+                        >
+                          {g}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {(metaPanel.payload.summary || metaPanel.payload.storyline) && (
+                    <p className="text-xs text-foreground/90 leading-relaxed line-clamp-5">
+                      {metaPanel.payload.summary || metaPanel.payload.storyline}
+                    </p>
+                  )}
+                  {metaPanel.payload.websiteLinks.length > 0 ? (
+                    <ul className="text-[11px] space-y-1">
+                      {metaPanel.payload.websiteLinks.slice(0, 10).map((w) => {
+                        const Icon = igdbLinkIcon(w.label);
+                        return (
+                          <li key={w.url} className="min-w-0">
+                            <a
+                              href={w.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={w.url}
+                              className="group flex items-center gap-2 rounded-md px-1 py-0.5 text-primary hover:bg-primary/10"
+                            >
+                              <Icon className="h-3 w-3 shrink-0 opacity-80" aria-hidden />
+                              <span className="truncate font-medium">{w.label}</span>
+                              <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-40 ml-auto" aria-hidden />
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                </div>
+              )}
+
+              {metaPanel.kind === "tmdb" && (
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    TMDB · {metaPanel.payload.mediaType === "tv" ? "TV" : "Film"}
+                  </p>
+                  {metaPanel.payload.releaseLabel ? (
+                    <p className="text-[11px] text-muted-foreground">{metaPanel.payload.releaseLabel}</p>
+                  ) : null}
+                  {metaPanel.payload.overview ? (
+                    <p className="text-xs text-foreground/90 leading-relaxed line-clamp-6">
+                      {metaPanel.payload.overview}
+                    </p>
+                  ) : null}
+                  {metaPanel.payload.homepage ? (
+                    <a
+                      href={metaPanel.payload.homepage}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      Official site
+                      <ExternalLink className="h-3 w-3 opacity-60" />
+                    </a>
+                  ) : null}
+                </div>
+              )}
+            </div>
+            ) : null}
+
+            <p className="text-[10px] text-muted-foreground/80 text-center leading-snug pb-1 pt-0.5">
+              Escape · back to grid · Enter activates focus
             </p>
           </div>
         </div>

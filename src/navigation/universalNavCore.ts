@@ -13,6 +13,7 @@ import {
   CLOSE_SHELL_SEARCH_EVENT,
   OPEN_SHELL_SEARCH_EVENT,
 } from "@/types/app";
+import { appNavigate } from "@/nav/appNavigate";
 
 export const EXECUTE_DETAILS_ACTION = "executeDetailsAction";
 
@@ -70,7 +71,7 @@ function isInsideShellModal(target: EventTarget | null): boolean {
 
 /** Go to library, reset shell focus, collapse search popup. */
 export function applyGoToLibraryView(): void {
-  useAppShellStore.getState().setCurrentView("games");
+  appNavigate("/");
   const nav = useNavigationStore.getState();
   nav.setFocusArea("games");
   nav.setSidebarIndex(0);

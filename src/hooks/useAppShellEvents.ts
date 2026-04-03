@@ -1,9 +1,8 @@
-import { useEffect, type Dispatch, type SetStateAction } from "react";
-import type { AppView } from "@/types/app";
+import { useEffect } from "react";
 import { ACTIVATE_SIDEBAR_EVENT, isActivateSidebarEvent } from "@/types/app";
+import { appNavigate } from "@/nav/appNavigate";
 
 export function useAppShellEvents(
-  setCurrentView: Dispatch<SetStateAction<AppView>>,
   setShowExitModal: (show: boolean) => void,
   handleToggleMaximize: () => void
 ) {
@@ -15,10 +14,15 @@ export function useAppShellEvents(
     const handleActivateSidebar = (e: Event) => {
       if (!isActivateSidebarEvent(e)) return;
       const index = e.detail;
+      const onSettings = window.location.pathname.startsWith("/settings");
       if (index === 0) {
-        setCurrentView("games");
+        appNavigate("/");
       } else if (index === 1) {
-        setCurrentView("settings");
+        if (onSettings) {
+          appNavigate("/");
+        } else {
+          appNavigate("/settings/game");
+        }
       } else if (index === 2) {
         handleToggleMaximize();
       } else if (index === 3) {
@@ -27,7 +31,12 @@ export function useAppShellEvents(
     };
 
     const handleToggleSettings = () => {
-      setCurrentView((v) => (v === "settings" ? "games" : "settings"));
+      const onSettings = window.location.pathname.startsWith("/settings");
+      if (onSettings) {
+        appNavigate("/");
+      } else {
+        appNavigate("/settings/game");
+      }
     };
 
     window.addEventListener("requestExit", handleExitRequest);
@@ -39,5 +48,5 @@ export function useAppShellEvents(
       window.removeEventListener(ACTIVATE_SIDEBAR_EVENT, handleActivateSidebar);
       window.removeEventListener("toggleSettings", handleToggleSettings);
     };
-  }, [setCurrentView, setShowExitModal, handleToggleMaximize]);
+  }, [setShowExitModal, handleToggleMaximize]);
 }
