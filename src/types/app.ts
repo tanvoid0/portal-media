@@ -1,4 +1,4 @@
-export type AppView = "games" | "settings" | "details";
+export type AppView = "games" | "settings" | "details" | "docs";
 
 export const ACTIVATE_SIDEBAR_EVENT = "activateSidebar" as const;
 

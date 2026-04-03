@@ -12,6 +12,8 @@ export default tseslint.config(
       "src-tauri/target/**",
       "node_modules/**",
       "src-tauri/**/*.js",
+      "e2e/**",
+      "playwright.config.ts",
     ],
   },
   js.configs.recommended,

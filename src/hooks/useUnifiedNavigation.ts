@@ -217,7 +217,7 @@ export function useUnifiedNavigation() {
     };
 
     try {
-      if (useAppShellStore.getState().currentView === "settings") {
+      if (useAppShellStore.getState().currentView === "settings" || useAppShellStore.getState().currentView === "docs") {
         if (gpJust(getNavBinding("back"))) {
           applyBackOrEscape(delayedFocus);
         }

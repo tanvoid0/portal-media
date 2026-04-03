@@ -72,18 +72,29 @@ export function useAppShellEvents(
     const handleActivateSidebar = (e: Event) => {
       if (!isActivateSidebarEvent(e)) return;
       const index = e.detail;
-      const onSettings = window.location.pathname.startsWith("/settings");
+      const p = window.location.pathname;
+      const onSettings = p.startsWith("/settings");
+      const onDocs = p.startsWith("/docs");
       if (index === 0) {
         appNavigate("/library/all");
-      } else if (index === 1) {
-        if (onSettings) {
-          appNavigate("/library/all");
-        } else {
-          appNavigate("/settings/game");
-        }
-      } else if (index === 2) {
+        return;
+      }
+      if (index === 1) {
+        if (onSettings || onDocs) appNavigate("/library/all");
+        else appNavigate("/docs");
+        return;
+      }
+      if (index === 2) {
+        if (onDocs) appNavigate("/settings/game");
+        else if (onSettings) appNavigate("/docs");
+        else appNavigate("/settings/game");
+        return;
+      }
+      if (index === 3) {
         handleToggleMaximize();
-      } else if (index === 3) {
+        return;
+      }
+      if (index === 4) {
         setShowExitModal(true);
       }
     };

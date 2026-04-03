@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { PortalBootSplash } from "@/components/layout/PortalBootSplash";
+import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/layout";
@@ -17,6 +18,8 @@ import { SettingsAppearancePage } from "@/components/settings/pages/SettingsAppe
 import { SettingsApiPage } from "@/components/settings/pages/SettingsApiPage";
 import { SettingsControllerPage } from "@/components/settings/pages/SettingsControllerPage";
 import { SettingsStreamingPage } from "@/components/settings/pages/SettingsStreamingPage";
+import { DocsChromeLayout } from "@/components/layout/DocsChromeLayout";
+import { DocsPage } from "@/components/docs/DocsPage";
 import { useGames } from "@/hooks/useGames";
 import { useBrowserNavigation } from "@/hooks/useBrowserNavigation";
 import { useTheme } from "@/hooks/useTheme";
@@ -35,6 +38,10 @@ function ShellRoutes() {
   useAppShellEvents(setShowExitModal, onToggleFullscreen);
 
   const handleExit = useCallback(async () => {
+    if (!isTauri()) {
+      window.close();
+      return;
+    }
     const appWindow = getCurrentWindow();
     await appWindow.close();
   }, []);
@@ -79,6 +86,9 @@ function ShellRoutes() {
             <Route path="streaming" element={<SettingsStreamingPage />} />
             <Route path="navigation" element={<Navigate to="controller" replace />} />
             <Route path="controller" element={<SettingsControllerPage />} />
+          </Route>
+          <Route path="docs" element={<DocsChromeLayout />}>
+            <Route index element={<DocsPage />} />
           </Route>
           <Route index element={<Navigate to="library/all" replace />} />
           <Route path="*" element={<Navigate to="/library/all" replace />} />

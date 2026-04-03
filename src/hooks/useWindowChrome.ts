@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { applyReasonableWindowedSize } from "@/lib/windowLayout";
 
@@ -7,6 +8,7 @@ export function useWindowChrome() {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const handleToggleMaximize = useCallback(async () => {
+    if (!isTauri()) return;
     const appWindow = getCurrentWindow();
     if (await appWindow.isFullscreen()) {
       await appWindow.setFullscreen(false);
@@ -22,6 +24,7 @@ export function useWindowChrome() {
   }, []);
 
   useEffect(() => {
+    if (!isTauri()) return;
     const appWindow = getCurrentWindow();
 
     const syncWindowState = async () => {

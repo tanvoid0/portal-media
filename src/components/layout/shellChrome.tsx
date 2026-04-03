@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { appNavigate } from "@/nav/appNavigate";
 import { useLocation } from "react-router-dom";
-
-export type TopBarChromeVariant = "library" | "settings";
 import {
+  BookOpen,
   Settings as SettingsIcon,
   Home,
   Power,
@@ -14,6 +13,8 @@ import {
   Minimize2,
   type LucideIcon,
 } from "lucide-react";
+
+export type TopBarChromeVariant = "library" | "settings" | "docs";
 
 export function SidebarDivider() {
   return (
@@ -89,35 +90,122 @@ export function TopBarChromeButtons({
   isMaximized: boolean;
 }) {
   const { pathname } = useLocation();
-  const onLibrarySurface = variant === "library";
+  const libraryActive =
+    pathname.startsWith("/library") ||
+    pathname.startsWith("/game/") ||
+    pathname.startsWith("/tmdb/") ||
+    pathname.startsWith("/igdb/");
 
-  return (
-    <>
-      {onLibrarySurface ? (
+  if (variant === "library") {
+    return (
+      <>
         <SidebarButton
           index={0}
-          isActive={
-            pathname.startsWith("/library") ||
-            pathname.startsWith("/game/") ||
-            pathname.startsWith("/tmdb/") ||
-            pathname.startsWith("/igdb/")
-          }
+          isActive={libraryActive}
           onClick={() => appNavigate("/library/all")}
           icon={Home}
           title="Library"
         />
-      ) : null}
+        <SidebarButton
+          index={1}
+          isActive={false}
+          onClick={() => appNavigate("/docs")}
+          icon={BookOpen}
+          title="Documentation"
+        />
+        <SidebarButton
+          index={2}
+          isActive={false}
+          onClick={() => appNavigate("/settings/game")}
+          icon={SettingsIcon}
+          title="Settings"
+        />
+        <SidebarButton
+          index={3}
+          isActive={isFullscreen}
+          onClick={onToggleWindowSize}
+          icon={isFullscreen ? Minimize2 : Maximize2}
+          title={
+            isFullscreen
+              ? "Exit fullscreen"
+              : isMaximized
+                ? "Big Picture — hide taskbar (fullscreen)"
+                : "Big Picture — fullscreen (hides taskbar)"
+          }
+        />
+        <SidebarButton
+          index={4}
+          isActive={false}
+          onClick={() => setShowExitModal(true)}
+          icon={Power}
+          title="Exit"
+          className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+        />
+      </>
+    );
+  }
+
+  if (variant === "settings") {
+    return (
+      <>
+        <SidebarButton
+          index={1}
+          isActive={false}
+          onClick={() => appNavigate("/library/all")}
+          icon={Home}
+          title="Library"
+        />
+        <SidebarButton
+          index={2}
+          isActive={false}
+          onClick={() => appNavigate("/docs")}
+          icon={BookOpen}
+          title="Documentation"
+        />
+        <SidebarButton
+          index={3}
+          isActive={isFullscreen}
+          onClick={onToggleWindowSize}
+          icon={isFullscreen ? Minimize2 : Maximize2}
+          title={
+            isFullscreen
+              ? "Exit fullscreen"
+              : isMaximized
+                ? "Big Picture — hide taskbar (fullscreen)"
+                : "Big Picture — fullscreen (hides taskbar)"
+          }
+        />
+        <SidebarButton
+          index={4}
+          isActive={false}
+          onClick={() => setShowExitModal(true)}
+          icon={Power}
+          title="Exit"
+          className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+        />
+      </>
+    );
+  }
+
+  // docs
+  return (
+    <>
       <SidebarButton
         index={1}
         isActive={false}
-        onClick={() =>
-          variant === "settings" ? appNavigate("/library/all") : appNavigate("/settings/game")
-        }
-        icon={variant === "settings" ? Home : SettingsIcon}
-        title={variant === "settings" ? "Library" : "Settings"}
+        onClick={() => appNavigate("/library/all")}
+        icon={Home}
+        title="Library"
       />
       <SidebarButton
         index={2}
+        isActive={false}
+        onClick={() => appNavigate("/settings/game")}
+        icon={SettingsIcon}
+        title="Settings"
+      />
+      <SidebarButton
+        index={3}
         isActive={isFullscreen}
         onClick={onToggleWindowSize}
         icon={isFullscreen ? Minimize2 : Maximize2}
@@ -130,7 +218,7 @@ export function TopBarChromeButtons({
         }
       />
       <SidebarButton
-        index={3}
+        index={4}
         isActive={false}
         onClick={() => setShowExitModal(true)}
         icon={Power}

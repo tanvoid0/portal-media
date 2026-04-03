@@ -14,6 +14,7 @@ export default function ControllerHintBar() {
   const inputMethod = useNavigationStore((s) => s.inputMethod);
   const focusArea = useNavigationStore((s) => s.focusArea);
   const currentView = useAppShellStore((s) => s.currentView);
+  const formShellSurface = currentView === "settings" || currentView === "docs";
   const quickAccessOpen = useShellOverlayStore((s) => s.quickAccessOpen);
   const appSwitcherOpen = useShellOverlayStore((s) => s.appSwitcherOpen);
   const gameContextOpen = useShellOverlayStore((s) => s.gameContextMenuOpen);
@@ -23,7 +24,7 @@ export default function ControllerHintBar() {
   const layout: ControllerLayoutKind =
     inputMethod === "gamepad" ? detectControllerLayout(gp) : "generic";
 
-  if (browserBlocking || currentView === "settings") {
+  if (browserBlocking || formShellSurface) {
     return null;
   }
 

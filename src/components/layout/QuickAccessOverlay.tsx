@@ -3,12 +3,13 @@ import { useShellOverlayStore } from "@/stores/shellOverlayStore";
 import { appNavigate } from "@/nav/appNavigate";
 import { useBrowserStore } from "@/stores/browserStore";
 import { cn } from "@/lib/utils";
-import { Library, Settings, Rows2, MonitorPlay } from "lucide-react";
+import { BookOpen, Library, Settings, Rows2, MonitorPlay } from "lucide-react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useNavBindingsStore } from "@/stores/navBindingsStore";
 
 const actions = [
   { id: "library", label: "Library", icon: Library },
+  { id: "docs", label: "Documentation", icon: BookOpen },
   { id: "settings", label: "Settings", icon: Settings },
   { id: "switcher", label: "App switcher", icon: Rows2 },
   { id: "browser", label: "Resume browser", icon: MonitorPlay },
@@ -33,7 +34,11 @@ export default function QuickAccessOverlay() {
     (id: (typeof actions)[number]["id"]) => {
       if (id === "library") {
         upsertLibrarySession();
-            appNavigate("/library/all");
+        appNavigate("/library/all");
+        close();
+      }
+      if (id === "docs") {
+        appNavigate("/docs");
         close();
       }
       if (id === "settings") {

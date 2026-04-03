@@ -61,6 +61,7 @@ export function PortalBootSplash({ onComplete }: PortalBootSplashProps) {
 
   return (
     <div
+      data-testid="portal-boot-splash"
       className={cn(
         "portal-boot-root fixed inset-0 z-[200000] flex flex-col items-center justify-center overflow-hidden bg-background",
         exiting && "portal-boot-root-exit"

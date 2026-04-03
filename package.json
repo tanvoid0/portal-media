@@ -1,7 +1,7 @@
 {
   "name": "portal-media",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,9 @@
     "check": "tsc --noEmit && eslint .",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "screenshots": "playwright test e2e/screenshots.spec.ts",
+    "screenshots:install": "playwright install chromium"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
@@ -31,6 +33,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.59.1",
     "@tauri-apps/cli": "^2.10.1",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",

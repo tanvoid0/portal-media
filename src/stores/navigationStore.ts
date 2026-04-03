@@ -7,6 +7,7 @@ export type { FocusArea, InputMethod } from "@/types/navigation";
 export { DETAILS_FOCUS_MAX_INDEX } from "@/types/navigation";
 
 const NAV_UI_PREFS_KEY = "portal_media_nav_ui_prefs";
+const NAV_UI_PREFS_VERSION = 2;
 
 const FOCUS_AREAS: FocusArea[] = ["sidebar", "category", "games", "details"];
 const INPUT_METHODS: InputMethod[] = ["gamepad", "mouse", "keyboard"];
@@ -17,6 +18,15 @@ function migrateLegacySidebarIndex(idx: number): number {
   if (idx === 3) return 2;
   if (idx === 4) return 3;
   return Math.min(3, Math.max(0, idx));
+}
+
+/** Insert Docs between Home and Settings: old 0–3 → new 0,2,3,4. */
+function mapSidebarIndexV4ToV5(legacy03: number): number {
+  if (legacy03 === 0) return 0;
+  if (legacy03 === 1) return 2;
+  if (legacy03 === 2) return 3;
+  if (legacy03 === 3) return 4;
+  return Math.min(4, Math.max(0, legacy03));
 }
 
 function loadNavUiPrefs(): Partial<{
@@ -39,7 +49,12 @@ function loadNavUiPrefs(): Partial<{
       out.inputMethod = p.inputMethod as InputMethod;
     }
     if (typeof p.sidebarIndex === "number" && Number.isInteger(p.sidebarIndex) && p.sidebarIndex >= 0) {
-      out.sidebarIndex = migrateLegacySidebarIndex(p.sidebarIndex);
+      let idx = migrateLegacySidebarIndex(p.sidebarIndex);
+      const ver = typeof p.version === "number" ? p.version : 1;
+      if (ver < NAV_UI_PREFS_VERSION) {
+        idx = mapSidebarIndexV4ToV5(idx);
+      }
+      out.sidebarIndex = idx;
     }
     const maxCat = CATEGORY_NAV_ORDER.length - 1;
     if (typeof p.categoryIndex === "number" && p.categoryIndex >= 0 && p.categoryIndex <= maxCat) {
@@ -70,6 +85,7 @@ function persistNavUiPrefs(state: {
     localStorage.setItem(
       NAV_UI_PREFS_KEY,
       JSON.stringify({
+        version: NAV_UI_PREFS_VERSION,
         focusArea: state.focusArea,
         sidebarIndex: state.sidebarIndex,
         categoryIndex: state.categoryIndex,
@@ -86,7 +102,7 @@ const navUiPrefs = loadNavUiPrefs();
 
 interface NavigationStore {
   focusArea: FocusArea;
-  sidebarIndex: number; // 0 = Home, 1 = Settings, 2 = Maximize/restore, 3 = Exit
+  sidebarIndex: number; // 0 Home, 1 Docs, 2 Settings, 3 size toggle, 4 Exit (library chrome)
   categoryIndex: number;
   detailsIndex: number;
   /** Inclusive upper bound for `detailsIndex` (varies by page: game details vs TMDB). */
@@ -118,7 +134,7 @@ export const useNavigationStore = create<NavigationStore>((set, get) => ({
   setInputMethod: (method) => set({ inputMethod: method }),
 
   setSidebarIndex: (index) => {
-    const maxIndex = 3; // Home, Settings, size toggle, Exit
+    const maxIndex = 4;
     if (index >= 0 && index <= maxIndex) {
       set({ sidebarIndex: index });
     }
@@ -152,7 +168,7 @@ export const useNavigationStore = create<NavigationStore>((set, get) => ({
     if (direction === "up") {
       newIndex = Math.max(0, sidebarIndex - 1);
     } else {
-      newIndex = Math.min(3, sidebarIndex + 1);
+      newIndex = Math.min(4, sidebarIndex + 1);
     }
     set({ sidebarIndex: newIndex });
     return newIndex;

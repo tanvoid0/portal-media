@@ -11,11 +11,13 @@ export function RouterSync() {
   useLayoutEffect(() => {
     const view: AppView = pathname.startsWith("/settings")
       ? "settings"
-      : pathname.startsWith("/game/") ||
-          pathname.startsWith("/tmdb/") ||
-          pathname.startsWith("/igdb/")
-        ? "details"
-        : "games";
+      : pathname.startsWith("/docs")
+        ? "docs"
+        : pathname.startsWith("/game/") ||
+            pathname.startsWith("/tmdb/") ||
+            pathname.startsWith("/igdb/")
+          ? "details"
+          : "games";
     setCurrentView(view);
   }, [pathname, setCurrentView]);
 

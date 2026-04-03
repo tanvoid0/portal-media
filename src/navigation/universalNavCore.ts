@@ -94,9 +94,10 @@ export function isLibraryViewActive(): boolean {
   return isGamesGridView();
 }
 
-/** Library (main grid): spatial + shell shortcuts apply. Settings uses native Tab and focused controls. */
+/** Library (main grid): spatial + shell shortcuts apply. Settings and in-app docs use native Tab and focused controls. */
 export function isSettingsViewActive(): boolean {
-  return useAppShellStore.getState().currentView === "settings";
+  const v = useAppShellStore.getState().currentView;
+  return v === "settings" || v === "docs";
 }
 
 function isInsideShellModal(target: EventTarget | null): boolean {
