@@ -133,6 +133,8 @@ interface GameStore {
   /** Restore last synced library from disk (no platform scan). */
   loadCachedLibrary: () => Promise<void>;
   launchGame: (game: Game) => Promise<void>;
+  installGame: (game: Game) => Promise<void>;
+  uninstallGame: (game: Game) => Promise<void>;
   addManualGame: (name: string, path: string, executable: string) => Promise<void>;
   addBookmark: (name: string, url: string, category?: "Media" | "Bookmark") => Promise<void>;
   setSelectedIndex: (index: number) => void;
@@ -667,6 +669,26 @@ export const useGameStore = create<GameStore>((set, get) => {
       set({
         launchOverlay: null,
         error: error instanceof Error ? error.message : "Failed to launch game",
+      });
+    }
+  },
+
+  installGame: async (game: Game) => {
+    try {
+      await invoke("install_game", { game });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : "Failed to trigger installation",
+      });
+    }
+  },
+
+  uninstallGame: async (game: Game) => {
+    try {
+      await invoke("uninstall_game", { game });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : "Failed to trigger uninstallation",
       });
     }
   },

@@ -22,7 +22,6 @@ function ProviderMark({
   const src = p.logoUrl ?? streamingProviderLogoFallbackUrl(p.providerId);
   const q = (titleForDeepLink ?? p.providerName).trim() || p.providerName;
   const deepUrl = streamingUrlForProvider(p.providerId, p.providerName, q);
-  const Icon = linkIconFromUrl(deepUrl, p.providerName);
   const iconTint = tailwindIconTextClassForExternalUrl(deepUrl, "text-white/70");
 
   useEffect(() => {

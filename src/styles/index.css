@@ -17,6 +17,23 @@
     @apply bg-background text-foreground;
   }
 
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border) / 0.5);
+    border-radius: 5px;
+    border: 2px solid hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.7);
+  }
+
   /**
    * Remote-first tile motion: synced with `contentTileStyles` and theme radius/shadow.
    * Individual themes may override these on `[data-theme]` if needed.

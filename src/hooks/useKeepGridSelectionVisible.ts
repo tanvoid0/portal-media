@@ -33,5 +33,5 @@ export function useKeepGridSelectionVisible(
       block: "nearest",
       inline: "nearest",
     });
-  }, [deps.selectedIndex, deps.itemCount, edgePadding]);
+  }, [deps.selectedIndex, deps.itemCount, edgePadding, containerRef, focusedElementRef]);
 }

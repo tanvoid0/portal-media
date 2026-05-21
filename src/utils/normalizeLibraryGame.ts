@@ -47,6 +47,10 @@ export function normalizeLibraryGame(raw: unknown): Game {
     platform: String(r.platform ?? ""),
     category,
     launch_type,
+    playtime_total: typeof r.playtime_total === "number" ? r.playtime_total : undefined,
+    is_installed: typeof (r.is_installed ?? r.isInstalled) === "boolean" 
+      ? (r.is_installed ?? r.isInstalled) as boolean 
+      : undefined,
   };
 }
 

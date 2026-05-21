@@ -42,6 +42,10 @@ pub struct Game {
     pub category: Category,
     #[serde(alias = "launchType")]
     pub launch_type: LaunchType,
+    #[serde(alias = "playtimeTotal")]
+    pub playtime_total: Option<u32>, // Total playtime in minutes
+    #[serde(default, alias = "isInstalled")]
+    pub is_installed: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -134,6 +138,11 @@ pub fn focus_window_by_pid(pid: u32) -> Result<(), String> {
 #[command]
 pub fn focus_window_by_pid(_pid: u32) -> Result<(), String> {
     Err("focus_window_by_pid is only supported on Windows".to_string())
+}
+
+#[command]
+pub fn get_steam_user_id() -> Result<Option<String>, String> {
+    Ok(game_scanner::get_steam_user_id())
 }
 
 #[command]
@@ -320,6 +329,167 @@ pub async fn launch_game(game: Game) -> Result<LaunchGameResult, String> {
     }
 
     Ok(LaunchGameResult { pid: None })
+}
+
+#[command]
+pub async fn uninstall_game(game: Game) -> Result<(), String> {
+    match game.launch_type {
+        LaunchType::Steam => {
+            #[cfg(target_os = "windows")]
+            {
+                Command::new("cmd")
+                    .args(["/C", "start", "", &format!("steam://uninstall/{}", game.id)])
+                    .spawn()
+                    .map_err(|e| format!("Failed to trigger Steam uninstall: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                Command::new("steam")
+                    .arg(format!("steam://uninstall/{}", game.id))
+                    .spawn()
+                    .map_err(|e| format!("Failed to trigger Steam uninstall: {}", e))?;
+            }
+        }
+        LaunchType::Gog => {
+            #[cfg(target_os = "windows")]
+            {
+                // GOG doesn't have a direct uninstall protocol, so we open the game view
+                Command::new("cmd")
+                    .args(["/C", "start", "", &format!("goggalaxy://openGameView/{}", game.id)])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open GOG game view: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                return Err("GOG Galaxy is only supported on Windows".to_string());
+            }
+        }
+        LaunchType::Epic => {
+            #[cfg(target_os = "windows")]
+            {
+                // Epic doesn't have an uninstall protocol, opening the library might be the best we can do
+                Command::new("cmd")
+                    .args(["/C", "start", "", "com.epicgames.launcher://library"])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open Epic library: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                return Err("Epic Games Launcher is only supported on Windows".to_string());
+            }
+        }
+        LaunchType::Xbox => {
+            #[cfg(target_os = "windows")]
+            {
+                // Opening the product page in Microsoft Store is the closest to an uninstall trigger
+                Command::new("cmd")
+                    .args(["/C", "start", "", &format!("ms-windows-store://pdp/?ProductId={}", game.id)])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open Microsoft Store page: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                return Err("Xbox games are only supported on Windows".to_string());
+            }
+        }
+        LaunchType::Ubisoft => {
+            #[cfg(target_os = "windows")]
+            {
+                // Ubisoft doesn't have a direct uninstall protocol, opening the launcher
+                Command::new("cmd")
+                    .args(["/C", "start", "", "uplay://"])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open Ubisoft Connect: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                return Err("Ubisoft Connect is only supported on Windows".to_string());
+            }
+        }
+        _ => {
+            return Err("Uninstall is not supported for this game type.".to_string());
+        }
+    }
+    Ok(())
+}
+
+#[command]
+pub async fn install_game(game: Game) -> Result<(), String> {
+    match game.launch_type {
+        LaunchType::Steam => {
+            #[cfg(target_os = "windows")]
+            {
+                Command::new("cmd")
+                    .args(["/C", "start", "", &format!("steam://install/{}", game.id)])
+                    .spawn()
+                    .map_err(|e| format!("Failed to trigger Steam install: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                Command::new("steam")
+                    .arg(format!("steam://install/{}", game.id))
+                    .spawn()
+                    .map_err(|e| format!("Failed to trigger Steam install: {}", e))?;
+            }
+        }
+        LaunchType::Epic => {
+            #[cfg(target_os = "windows")]
+            {
+                // Epic supports an install action
+                Command::new("cmd")
+                    .args(["/C", "start", "", &format!("com.epicgames.launcher://apps/{}?action=install", game.id)])
+                    .spawn()
+                    .map_err(|e| format!("Failed to trigger Epic install: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                return Err("Epic Games Launcher is only supported on Windows".to_string());
+            }
+        }
+        LaunchType::Gog => {
+            #[cfg(target_os = "windows")]
+            {
+                Command::new("cmd")
+                    .args(["/C", "start", "", &format!("goggalaxy://openGameView/{}", game.id)])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open GOG game view: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                return Err("GOG Galaxy is only supported on Windows".to_string());
+            }
+        }
+        LaunchType::Xbox => {
+            #[cfg(target_os = "windows")]
+            {
+                Command::new("cmd")
+                    .args(["/C", "start", "", &format!("ms-windows-store://pdp/?ProductId={}", game.id)])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open Microsoft Store page: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                return Err("Xbox games are only supported on Windows".to_string());
+            }
+        }
+        LaunchType::Ubisoft => {
+            #[cfg(target_os = "windows")]
+            {
+                Command::new("cmd")
+                    .args(["/C", "start", "", &format!("uplay://launch/{}/0", game.id)])
+                    .spawn()
+                    .map_err(|e| format!("Failed to trigger Ubisoft install: {}", e))?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                return Err("Ubisoft Connect is only supported on Windows".to_string());
+            }
+        }
+        _ => {
+            return Err("Install is not supported for this game type.".to_string());
+        }
+    }
+    Ok(())
 }
 
 #[command]

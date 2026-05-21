@@ -11,9 +11,24 @@ export function getLinkHostname(game: Game): string | null {
   }
 }
 
+export function formatPlaytime(minutes: number | undefined): string | null {
+  if (minutes === undefined || minutes === null || minutes === 0) return null;
+  if (minutes < 60) return `${minutes}m`;
+  const hours = minutes / 60;
+  if (hours < 10) {
+    return `${hours.toFixed(1)}h`;
+  }
+  return `${Math.floor(hours)}h`;
+}
+
 /** Secondary line for cards: streaming/site host for URLs, otherwise platform name. */
 export function getGameCardSubtitle(game: Game): string {
-  return getLinkHostname(game) ?? game.platform;
+  const host = getLinkHostname(game);
+  const playtime = formatPlaytime(game.playtime_total);
+  if (playtime) {
+    return `${host ?? game.platform} · ${playtime}`;
+  }
+  return host ?? game.platform;
 }
 
 export function launchTypeLabel(launchType: Game["launch_type"]): string {
@@ -74,4 +89,21 @@ export function formatLastOpened(timestamp: number): string {
   const days = Math.floor(hr / 24);
   if (days < 21) return `Opened ${days}d ago`;
   return `Opened ${new Date(timestamp).toLocaleDateString()}`;
+}
+
+export function formatLastOpenedShort(timestamp: number): string {
+  if (!timestamp) return "";
+  const diff = Date.now() - timestamp;
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return "Just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }

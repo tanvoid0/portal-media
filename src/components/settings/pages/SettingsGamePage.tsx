@@ -94,7 +94,7 @@ function PlatformIcon({ platform }: { platform: Platform }) {
 }
 
 function PlatformSyncCard({ platform }: { platform: Platform }) {
-  const { platforms, connectPlatform, disconnectPlatform, syncPlatform } = useSyncStore();
+  const { platforms, connectPlatform, authenticatePlatform, disconnectPlatform, syncPlatform } = useSyncStore();
   const status = platforms[platform];
 
   return (
@@ -111,6 +111,22 @@ function PlatformSyncCard({ platform }: { platform: Platform }) {
                 <XCircle className="w-5 h-5 text-white/40" />
               )}
             </div>
+            {status.isConnected && status.userProfile && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {status.userProfile.avatarUrl ? (
+                  <img 
+                    src={status.userProfile.avatarUrl} 
+                    alt={status.userProfile.displayName}
+                    className="w-4 h-4 rounded-full border border-white/10"
+                  />
+                ) : (
+                  <div className="w-4 h-4 rounded-full bg-white/10 border border-white/5" />
+                )}
+                <span className="text-xs text-white/60 truncate">
+                  Connected as <span className="text-white/80 font-medium">{status.userProfile.displayName}</span>
+                </span>
+              </div>
+            )}
           </div>
         </div>
         {status.isConnected && (
@@ -156,7 +172,7 @@ function PlatformSyncCard({ platform }: { platform: Platform }) {
       ) : (
         <div className="space-y-3">
           <p className="text-white/50 text-xs">
-            Local install detection only — no cloud library sync yet.
+            Connect your account to sync your full library and metadata.
           </p>
           {status.error && (
             <div className="flex items-center gap-2 text-sm text-yellow-400 bg-yellow-400/10 rounded-lg p-2">
@@ -164,14 +180,25 @@ function PlatformSyncCard({ platform }: { platform: Platform }) {
               <span>{status.error}</span>
             </div>
           )}
-          <Button
-            onClick={() => void connectPlatform(platform)}
-            disabled={status.isSyncing}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            <LogIn className={cn("mr-2 w-4 h-4", status.isSyncing && "animate-spin")} />
-            {status.isSyncing ? "Detecting..." : "Detect Installation"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => void authenticatePlatform(platform)}
+              disabled={status.isSyncing}
+              className="flex-1 bg-white text-black hover:bg-white/90"
+            >
+              <LogIn className={cn("mr-2 w-4 h-4", status.isSyncing && "animate-spin")} />
+              {status.isSyncing ? "Connecting..." : "Login"}
+            </Button>
+            <Button
+              onClick={() => void connectPlatform(platform)}
+              disabled={status.isSyncing}
+              variant="outline"
+              className="flex-1 border-white/10 text-white hover:bg-white/5"
+            >
+              <RefreshCw className={cn("mr-2 w-4 h-4", status.isSyncing && "animate-spin")} />
+              {status.isSyncing ? "Detecting..." : "Detect Local"}
+            </Button>
+          </div>
         </div>
       )}
     </div>

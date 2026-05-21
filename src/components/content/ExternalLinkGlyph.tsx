@@ -61,12 +61,10 @@ export function ExternalLinkGlyph({
     );
   }
 
-  const Icon = linkIconFromUrl(url, labelHint);
   const brandTint = tailwindIconTextClassForExternalUrl(url, neutralIconClassName ?? "text-muted-foreground");
   return (
     <Icon
       className={cn(s.icon, "shrink-0 opacity-95", brandTint, iconClassName, className)}
       aria-hidden
     />
-  );
-}
+  );}

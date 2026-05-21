@@ -2,6 +2,212 @@ use std::path::PathBuf;
 use crate::commands::{Game, Category};
 use serde_json::Value;
 
+use crate::platform_sync::UserProfile;
+
+pub async fn get_steam_user_profile() -> Option<UserProfile> {
+    #[cfg(target_os = "windows")]
+    {
+        use winreg::enums::*;
+        use winreg::RegKey;
+        
+        // Find Steam path from registry
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let steam_path = if let Ok(steam_key) = hkcu.open_subkey(r"Software\Valve\Steam") {
+            steam_key.get_value::<String, _>("SteamPath").ok().map(PathBuf::from)
+        } else {
+            None
+        };
+        
+        let steam_path = steam_path.or_else(|| {
+            let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+            if let Ok(steam_key) = hklm.open_subkey(r"SOFTWARE\WOW6432Node\Valve\Steam") {
+                steam_key.get_value::<String, _>("InstallPath").ok().map(PathBuf::from)
+            } else {
+                None
+            }
+        });
+        
+        if let Some(path) = steam_path {
+            let loginusers_vdf = path.join("config").join("loginusers.vdf");
+            if loginusers_vdf.exists() {
+                if let Ok(content) = std::fs::read_to_string(loginusers_vdf) {
+                    let mut current_user_id = None;
+                    let mut current_persona_name = None;
+                    
+                    let mut lines = content.lines().peekable();
+                    
+                    while let Some(line) = lines.next() {
+                        let trimmed = line.trim();
+                        if trimmed.starts_with("\"765") && trimmed.len() > 15 {
+                            let steam_id = trimmed.trim_matches('"').to_string();
+                            let mut persona_name = None;
+                            let mut is_most_recent = false;
+                            
+                            while let Some(next_line) = lines.peek() {
+                                let next_trimmed = next_line.trim();
+                                if next_trimmed.starts_with("\"765") || next_trimmed == "}" {
+                                    break;
+                                }
+                                
+                                if next_trimmed.contains("\"PersonaName\"") {
+                                    let parts: Vec<&str> = next_trimmed.split('"').collect();
+                                    if parts.len() >= 4 {
+                                        persona_name = Some(parts[3].to_string());
+                                    }
+                                }
+                                
+                                if next_trimmed.contains("\"MostRecent\"") && next_trimmed.contains("\"1\"") {
+                                    is_most_recent = true;
+                                }
+                                lines.next();
+                            }
+                            
+                            if is_most_recent {
+                                let mut profile = UserProfile {
+                                    user_id: steam_id,
+                                    display_name: persona_name.unwrap_or_else(|| "Steam User".to_string()),
+                                    avatar_url: None,
+                                };
+                                
+                                // Try to fetch avatar
+                                if let Some(avatar) = fetch_steam_avatar(&profile.user_id).await {
+                                    profile.avatar_url = Some(avatar);
+                                }
+                                
+                                return Some(profile);
+                            }
+                            
+                            if current_user_id.is_none() {
+                                current_user_id = Some(steam_id);
+                                current_persona_name = persona_name;
+                            }
+                        }
+                    }
+                    
+                    if let Some(id) = current_user_id {
+                        let mut profile = UserProfile {
+                            user_id: id,
+                            display_name: current_persona_name.unwrap_or_else(|| "Steam User".to_string()),
+                            avatar_url: None,
+                        };
+                        
+                        // Try to fetch avatar
+                        if let Some(avatar) = fetch_steam_avatar(&profile.user_id).await {
+                            profile.avatar_url = Some(avatar);
+                        }
+                        
+                        return Some(profile);
+                    }
+                }
+            }
+        }
+        None
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    {
+        None
+    }
+}
+
+async fn fetch_steam_avatar(steam_id: &str) -> Option<String> {
+    let url = format!("https://steamcommunity.com/profiles/{}/?xml=1", steam_id);
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .ok()?;
+    
+    let response = client.get(url).send().await.ok()?;
+    let text = response.text().await.ok()?;
+    
+    // Simple XML parsing for <avatarMedium><![CDATA[...]]></avatarMedium>
+    if let Some(start_idx) = text.find("<avatarMedium>") {
+        let after_tag = &text[start_idx + "<avatarMedium>".len()..];
+        if let Some(end_idx) = after_tag.find("</avatarMedium>") {
+            let content = &after_tag[..end_idx];
+            // Extract from CDATA if present
+            if let Some(cdata_start) = content.find("<![CDATA[") {
+                let after_cdata = &content[cdata_start + "<![CDATA[".len()..];
+                if let Some(cdata_end) = after_cdata.find("]]>") {
+                    return Some(after_cdata[..cdata_end].to_string());
+                }
+            }
+            return Some(content.trim().to_string());
+        }
+    }
+    
+    None
+}
+
+pub fn get_steam_user_id() -> Option<String> {
+    #[cfg(target_os = "windows")]
+    {
+        use winreg::enums::*;
+        use winreg::RegKey;
+        
+        // Find Steam path from registry
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let steam_path = if let Ok(steam_key) = hkcu.open_subkey(r"Software\Valve\Steam") {
+            steam_key.get_value::<String, _>("SteamPath").ok().map(PathBuf::from)
+        } else {
+            None
+        };
+        
+        let steam_path = steam_path.or_else(|| {
+            let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+            if let Ok(steam_key) = hklm.open_subkey(r"SOFTWARE\WOW6432Node\Valve\Steam") {
+                steam_key.get_value::<String, _>("InstallPath").ok().map(PathBuf::from)
+            } else {
+                None
+            }
+        });
+        
+        if let Some(path) = steam_path {
+            let loginusers_vdf = path.join("config").join("loginusers.vdf");
+            if loginusers_vdf.exists() {
+                if let Ok(content) = std::fs::read_to_string(loginusers_vdf) {
+                    // Very simple VDF parser for loginusers.vdf
+                    // Look for the user with "MostRecent" "1"
+                    let mut current_user_id = None;
+                    let mut lines = content.lines().peekable();
+                    
+                    while let Some(line) = lines.next() {
+                        let trimmed = line.trim();
+                        // SteamIDs are 64-bit numbers in quotes like "7656119..."
+                        if trimmed.starts_with("\"765") && trimmed.len() > 15 {
+                            let steam_id = trimmed.trim_matches('"').to_string();
+                            
+                            // Check the block for this user
+                            while let Some(next_line) = lines.peek() {
+                                let next_trimmed = next_line.trim();
+                                if next_trimmed.starts_with("\"765") || next_trimmed == "}" {
+                                    break;
+                                }
+                                if next_trimmed.contains("\"MostRecent\"") && next_trimmed.contains("\"1\"") {
+                                    return Some(steam_id.clone());
+                                }
+                                lines.next();
+                            }
+                            
+                            // Keep track of the first user found as fallback
+                            if current_user_id.is_none() {
+                                current_user_id = Some(steam_id);
+                            }
+                        }
+                    }
+                    return current_user_id;
+                }
+            }
+        }
+        None
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    {
+        None
+    }
+}
+
 pub fn scan_steam_games() -> Vec<crate::commands::Game> {
     #[cfg(target_os = "windows")]
     {
@@ -279,13 +485,11 @@ fn parse_steam_acf(path: &PathBuf) -> Result<crate::commands::Game, String> {
     let name = name.ok_or("Missing name")?;
     let installdir = installdir.ok_or("Missing installdir")?;
     
-    // Check if game is actually installed (StateFlags & 0x00000004 == installed)
-    // StateFlags: 0x00000002 = needs update, 0x00000004 = fully installed
-    if let Some(flags) = state_flags {
-        if (flags & 0x00000004) == 0 {
-            return Err("Game not fully installed".to_string());
-        }
-    }
+    let is_installed = if let Some(flags) = state_flags {
+        (flags & 0x00000004) != 0
+    } else {
+        true
+    };
     
     // Filter out Steam tools, DLC, and non-game content
     // Steam tools typically have appids < 1000 or are in specific ranges
@@ -315,11 +519,6 @@ fn parse_steam_acf(path: &PathBuf) -> Result<crate::commands::Game, String> {
     
     let game_path = library_path.join("steamapps").join("common").join(&installdir);
     
-    // Check if game directory exists
-    if !game_path.exists() {
-        return Err("Game directory does not exist".to_string());
-    }
-    
     // Try to find executable, but don't fail if not found (Steam can launch by appid)
     let executable = find_executable(&game_path).unwrap_or_else(|_| {
         // Fallback to a dummy path - Steam will launch by appid anyway
@@ -336,6 +535,8 @@ fn parse_steam_acf(path: &PathBuf) -> Result<crate::commands::Game, String> {
         platform: "Steam".to_string(),
         category: Category::Game,
         launch_type: crate::commands::LaunchType::Steam,
+        playtime_total: None,
+        is_installed: Some(is_installed),
     })
 }
 
@@ -456,6 +657,8 @@ fn scan_directory_for_apps(dir: &PathBuf, apps: &mut Vec<crate::commands::Game>)
                                 platform: "Windows".to_string(),
                                 category,
                                 launch_type: crate::commands::LaunchType::Executable,
+                                playtime_total: None,
+                                is_installed: Some(true),
                             });
                         }
                     }
@@ -496,6 +699,8 @@ fn scan_directory_for_apps(dir: &PathBuf, apps: &mut Vec<crate::commands::Game>)
                             platform: "Windows".to_string(),
                             category,
                             launch_type: crate::commands::LaunchType::Executable,
+                            playtime_total: None,
+                            is_installed: Some(true),
                         });
                     }
                 }
@@ -817,10 +1022,8 @@ fn parse_epic_manifest(path: &PathBuf) -> Result<crate::commands::Game, String> 
         .ok_or("Missing InstallLocation")?
         .to_string();
     
-    // Check if installation is incomplete
-    if json["bIsIncompleteInstall"].as_bool().unwrap_or(false) {
-        return Err("Game installation is incomplete".to_string());
-    }
+    // bIsIncompleteInstall means it's not fully installed, but we want to show it now
+    let is_installed = !json["bIsIncompleteInstall"].as_bool().unwrap_or(false);
     
     // Get launch executable
     let launch_executable = json["LaunchExecutable"]
@@ -829,9 +1032,6 @@ fn parse_epic_manifest(path: &PathBuf) -> Result<crate::commands::Game, String> 
         .to_string();
     
     let install_path = PathBuf::from(&install_location);
-    if !install_path.exists() {
-        return Err("Install location does not exist".to_string());
-    }
     
     // Build executable path
     let executable = if !launch_executable.is_empty() {
@@ -871,6 +1071,8 @@ fn parse_epic_manifest(path: &PathBuf) -> Result<crate::commands::Game, String> 
         platform: "Epic Games".to_string(),
         category,
         launch_type: crate::commands::LaunchType::Epic,
+        playtime_total: None,
+        is_installed: Some(is_installed),
     })
 }
 
@@ -1048,9 +1250,11 @@ pub fn scan_gog_games() -> Vec<crate::commands::Game> {
                     SELECT DISTINCT
                         gp.value as game_id,
                         gp2.value as game_title,
-                        lgp.value as install_path
+                        lgp.value as install_path,
+                        gp3.value as playtime
                     FROM GamePieces gp
                     JOIN GamePieces gp2 ON gp.gameReleaseKey = gp2.gameReleaseKey AND gp2.key = 'title'
+                    LEFT JOIN GamePieces gp3 ON gp.gameReleaseKey = gp3.gameReleaseKey AND gp3.key = 'totalPlaytime'
                     JOIN LocalGamePieces lgp ON gp.gameReleaseKey = lgp.gameReleaseKey
                     WHERE gp.key = 'gameId'
                     AND lgp.key = 'path'
@@ -1065,6 +1269,7 @@ pub fn scan_gog_games() -> Vec<crate::commands::Game> {
                                 row.get::<_, String>(0)?, // game_id
                                 row.get::<_, String>(1)?, // game_title
                                 row.get::<_, String>(2)?, // install_path
+                                row.get::<_, Option<String>>(3)?, // playtime (JSON string or null)
                             ))
                         });
                         
@@ -1074,9 +1279,15 @@ pub fn scan_gog_games() -> Vec<crate::commands::Game> {
                                 for row_result in rows {
                                     row_count += 1;
                                     match row_result {
-                                        Ok((game_id, game_title, install_path)) => {
+                                        Ok((game_id, game_title, install_path, playtime_json)) => {
                                             let install_path_buf = PathBuf::from(&install_path);
                                             if install_path_buf.exists() {
+                                                // Parse playtime from JSON if available
+                                                let playtime_mins = playtime_json.and_then(|json_str| {
+                                                    // GOG stores it as a JSON string like "12345" (seconds)
+                                                    json_str.parse::<u32>().ok().map(|seconds| seconds / 60)
+                                                });
+
                                                 // Try to find executable
                                                 let executable = find_executable(&install_path_buf)
                                                     .unwrap_or_else(|_| {
@@ -1094,6 +1305,8 @@ pub fn scan_gog_games() -> Vec<crate::commands::Game> {
                                                     platform: "GOG".to_string(),
                                                     category: Category::Game,
                                                     launch_type: crate::commands::LaunchType::Gog,
+                                                    playtime_total: playtime_mins,
+                                                    is_installed: Some(true),
                                                 });
                                             } else {
                                                 println!("  ✗ Install path does not exist: {:?}", install_path);
@@ -1202,6 +1415,8 @@ pub fn scan_ubisoft_games() -> Vec<crate::commands::Game> {
                                     platform: "Ubisoft Connect".to_string(),
                                     category: Category::Game,
                                     launch_type: crate::commands::LaunchType::Ubisoft,
+                                    playtime_total: None,
+                                    is_installed: Some(true),
                                 });
                             }
                         }
@@ -1298,6 +1513,8 @@ pub fn scan_xbox_games() -> Vec<crate::commands::Game> {
                                             platform: "Xbox".to_string(),
                                             category: Category::Game,
                                             launch_type: crate::commands::LaunchType::Xbox,
+                                            playtime_total: None,
+                                            is_installed: Some(true),
                                         });
                                     }
                                 }
@@ -1316,4 +1533,3 @@ pub fn scan_xbox_games() -> Vec<crate::commands::Game> {
         vec![]
     }
 }
-

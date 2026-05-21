@@ -28,5 +28,5 @@ export function useGridColumnCountSync(
     const ro = new ResizeObserver(sync);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [enabled, itemCount, layoutEpoch, setColumnCount]);
+  }, [enabled, itemCount, layoutEpoch, setColumnCount, containerRef]);
 }

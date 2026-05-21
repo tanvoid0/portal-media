@@ -206,6 +206,44 @@ export function GameCardContextMenu({
       >
         Archive (remove from entire library)
       </button>
+
+      {/* Platform-specific actions: Install/Uninstall */}
+      {["Steam", "Epic", "Gog", "Ubisoft", "Xbox"].includes(game.launch_type) && (
+        <>
+          <div className="my-1.5 h-px bg-border/70 mx-1" role="separator" />
+          {game.is_installed !== false ? (
+            <button
+              type="button"
+              role="menuitem"
+              className={menuItemClass("text-destructive hover:bg-destructive/15 hover:text-destructive")}
+              onClick={() =>
+                runClose(() => {
+                  const { uninstallGame } = useGameStore.getState();
+                  uninstallGame(game);
+                  toast.info(`Triggering uninstallation for ${game.name}...`);
+                })
+              }
+            >
+              Uninstall from {game.platform}
+            </button>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              className={menuItemClass("text-primary hover:bg-primary/15 hover:text-primary")}
+              onClick={() =>
+                runClose(() => {
+                  const { installGame } = useGameStore.getState();
+                  installGame(game);
+                  toast.info(`Triggering installation for ${game.name}...`);
+                })
+              }
+            >
+              Install from {game.platform}
+            </button>
+          )}
+        </>
+      )}
     </div>,
     document.body
   );

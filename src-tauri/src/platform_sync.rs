@@ -35,12 +35,21 @@ impl Platform {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UserProfile {
+    pub user_id: String,
+    pub display_name: String,
+    pub avatar_url: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncResult {
     pub success: bool,
     pub game_count: Option<usize>, // Serialized as "gameCount" due to rename_all
     pub error: Option<String>,
+    pub user_profile: Option<UserProfile>,
 }
 
 impl SyncResult {
@@ -49,6 +58,16 @@ impl SyncResult {
             success: true,
             game_count: Some(game_count),
             error: None,
+            user_profile: None,
+        }
+    }
+
+    pub fn success_with_profile(game_count: usize, profile: UserProfile) -> Self {
+        Self {
+            success: true,
+            game_count: Some(game_count),
+            error: None,
+            user_profile: Some(profile),
         }
     }
 
@@ -57,6 +76,7 @@ impl SyncResult {
             success: false,
             game_count: None,
             error: Some(error),
+            user_profile: None,
         }
     }
 }
@@ -260,18 +280,28 @@ impl Platform {
             helpers::store_token(self.as_str());
             
             // Try to get initial game count (don't fail connection if sync fails)
-            let game_count = match self.sync().await {
+            let sync_result = match self.sync().await {
                 Ok(result) => {
                     println!("{} sync successful: {} games", self.as_str(), result.game_count.unwrap_or(0));
-                    result.game_count.unwrap_or(0)
+                    result
                 },
                 Err(e) => {
                     println!("{} sync error during connection (non-fatal): {}", self.as_str(), e);
-                    0
+                    SyncResult::success(0)
                 },
             };
             
-            Ok(SyncResult::success(game_count))
+            let mut final_result = sync_result;
+            
+            // For Steam, also try to get the user profile
+            if let Platform::Steam = self {
+                if let Some(profile) = crate::game_scanner::get_steam_user_profile().await {
+                    println!("✓ Steam profile found: {} ({})", profile.display_name, profile.user_id);
+                    final_result.user_profile = Some(profile);
+                }
+            }
+            
+            Ok(final_result)
         }
         #[cfg(not(target_os = "windows"))]
         {
@@ -364,6 +394,27 @@ pub async fn sync_platform_command(platform: String) -> Result<SyncResult, Strin
         Err(e) => {
             println!("✗ Sync failed for {}: {}", platform, e);
             Err(e)
+        }
+    }
+}
+
+#[command]
+pub async fn authenticate_platform_command(platform: String, _app: tauri::AppHandle) -> Result<SyncResult, String> {
+    println!("=== Authenticating platform: {} ===", platform);
+    
+    let platform_enum = Platform::from_str(&platform)
+        .ok_or_else(|| format!("Unknown platform: {}", platform))?;
+    
+    match platform_enum {
+        Platform::Steam => {
+            // Steam is mostly local detection
+            connect_platform(&platform).await
+        },
+        _ => {
+            // For others, we might want to open a browser
+            // For now, let's just use the connect logic which does local detection
+            // but we can expand this to actual OAuth later.
+            connect_platform(&platform).await
         }
     }
 }

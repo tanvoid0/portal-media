@@ -1,16 +1,18 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
-import type { Platform, PlatformSyncStatus } from "@/types/sync";
+import type { Platform, PlatformSyncStatus, UserProfile } from "@/types/sync";
 
-export type { Platform, PlatformSyncStatus } from "@/types/sync";
+export type { Platform, PlatformSyncStatus, UserProfile } from "@/types/sync";
 
 interface SyncStore {
   platforms: Record<Platform, PlatformSyncStatus>;
   connectPlatform: (platform: Platform) => Promise<void>;
+  authenticatePlatform: (platform: Platform) => Promise<void>;
   disconnectPlatform: (platform: Platform) => Promise<void>;
   syncPlatform: (platform: Platform) => Promise<void>;
   syncAllPlatforms: () => Promise<void>;
+  refreshProfiles: () => Promise<void>;
   getPlatformStatus: (platform: Platform) => PlatformSyncStatus;
 }
 
@@ -22,6 +24,7 @@ const initialPlatforms: Record<Platform, PlatformSyncStatus> = {
     lastSync: null,
     gameCount: 0,
     error: null,
+    userProfile: undefined,
   },
   "Epic Games": {
     platform: "Epic Games",
@@ -30,6 +33,7 @@ const initialPlatforms: Record<Platform, PlatformSyncStatus> = {
     lastSync: null,
     gameCount: 0,
     error: null,
+    userProfile: undefined,
   },
   GOG: {
     platform: "GOG",
@@ -38,6 +42,7 @@ const initialPlatforms: Record<Platform, PlatformSyncStatus> = {
     lastSync: null,
     gameCount: 0,
     error: null,
+    userProfile: undefined,
   },
   Ubisoft: {
     platform: "Ubisoft",
@@ -46,6 +51,7 @@ const initialPlatforms: Record<Platform, PlatformSyncStatus> = {
     lastSync: null,
     gameCount: 0,
     error: null,
+    userProfile: undefined,
   },
   Xbox: {
     platform: "Xbox",
@@ -54,6 +60,7 @@ const initialPlatforms: Record<Platform, PlatformSyncStatus> = {
     lastSync: null,
     gameCount: 0,
     error: null,
+    userProfile: undefined,
   },
 };
 
@@ -112,7 +119,12 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
 
     try {
       console.log(`Invoking connect_platform_command for: ${platform}`);
-      const result = await invoke<{ success: boolean; gameCount?: number; error?: string }>(
+      const result = await invoke<{ 
+        success: boolean; 
+        gameCount?: number; 
+        error?: string;
+        userProfile?: UserProfile;
+      }>(
         "connect_platform_command",
         { platform }
       );
@@ -130,21 +142,22 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
               isSyncing: false,
               lastSync: new Date(),
               gameCount,
-              error: null, // Clear any previous errors
+              error: null,
+              userProfile: result.userProfile,
             },
           };
           saveStatus(updated);
-          console.log(`Platform ${platform} connected successfully with ${gameCount} games`);
+          console.log(`Platform ${platform} connected successfully as ${result.userProfile?.displayName || 'unknown'}`);
           return { platforms: updated };
         });
         
         if (gameCount > 0) {
-          toast.success(`${platform} detected`, {
-            description: `Found ${gameCount} locally installed game${gameCount !== 1 ? 's' : ''}`,
+          toast.success(`${platform} connected`, {
+            description: `Found ${gameCount} games. Connected as ${result.userProfile?.displayName || 'user'}.`,
           });
         } else {
-          toast.success(`${platform} detected`, {
-            description: "Platform found. Click 'Sync Now' to scan for games.",
+          toast.success(`${platform} connected`, {
+            description: `Connected as ${result.userProfile?.displayName || 'user'}.`,
           });
         }
       } else {
@@ -168,6 +181,75 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
       });
       
       toast.error(`Failed to detect ${platform}`, {
+        description: errorMessage,
+      });
+    }
+  },
+
+  authenticatePlatform: async (platform: Platform) => {
+    console.log(`Attempting to authenticate platform: ${platform}`);
+    
+    set((state) => ({
+      platforms: {
+        ...state.platforms,
+        [platform]: {
+          ...state.platforms[platform],
+          isSyncing: true,
+          error: null,
+        },
+      },
+    }));
+
+    try {
+      console.log(`Invoking authenticate_platform_command for: ${platform}`);
+      const result = await invoke<{ 
+        success: boolean; 
+        gameCount?: number; 
+        error?: string;
+        userProfile?: UserProfile;
+      }>(
+        "authenticate_platform_command",
+        { platform }
+      );
+
+      if (result.success) {
+        const gameCount = result.gameCount || 0;
+        set((state) => {
+          const updated = {
+            ...state.platforms,
+            [platform]: {
+              ...state.platforms[platform],
+              isConnected: true,
+              isSyncing: false,
+              lastSync: new Date(),
+              gameCount,
+              error: null,
+              userProfile: result.userProfile,
+            },
+          };
+          saveStatus(updated);
+          return { platforms: updated };
+        });
+        
+        toast.success(`${platform} authenticated`, {
+          description: `Connected as ${result.userProfile?.displayName || 'user'}.`,
+        });
+      } else {
+        throw new Error(result.error || "Authentication failed");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Authentication failed";
+      set((state) => ({
+        platforms: {
+          ...state.platforms,
+          [platform]: {
+            ...state.platforms[platform],
+            isSyncing: false,
+            error: errorMessage,
+          },
+        },
+      }));
+      toast.error(`Failed to authenticate ${platform}`, {
         description: errorMessage,
       });
     }
@@ -303,5 +385,49 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
       });
     }
   },
+
+  refreshProfiles: async () => {
+    const { platforms } = get();
+    const connectedPlatforms = Object.values(platforms).filter((p) => p.isConnected && !p.userProfile);
+    
+    if (connectedPlatforms.length === 0) return;
+
+    console.log(`Refreshing profiles for ${connectedPlatforms.length} platforms...`);
+    
+    for (const p of connectedPlatforms) {
+      try {
+        const result = await invoke<{ 
+          success: boolean; 
+          userProfile?: UserProfile;
+        }>(
+          "authenticate_platform_command",
+          { platform: p.platform }
+        );
+
+        if (result.success && result.userProfile) {
+          set((state) => {
+            const updated = {
+              ...state.platforms,
+              [p.platform]: {
+                ...state.platforms[p.platform],
+                userProfile: result.userProfile,
+              },
+            };
+            saveStatus(updated);
+            return { platforms: updated };
+          });
+        }
+      } catch (e) {
+        console.error(`Failed to refresh profile for ${p.platform}:`, e);
+      }
+    }
+  },
 }));
+
+// Initialize store and refresh profiles
+if (typeof window !== "undefined") {
+  setTimeout(() => {
+    useSyncStore.getState().refreshProfiles().catch(console.error);
+  }, 1000);
+}
 

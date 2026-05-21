@@ -14,6 +14,8 @@ export interface Game {
   platform: string;
   category: GameCategory;
   launch_type: LaunchType;
+  playtime_total?: number;
+  is_installed?: boolean;
 }
 
 /** Virtual category: filter by `favoriteIds`, not `game.category`. */

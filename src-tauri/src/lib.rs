@@ -1,4 +1,5 @@
 mod commands;
+mod console_mode;
 mod streaming_addon;
 mod game_scanner;
 mod icon_extractor;
@@ -21,7 +22,10 @@ pub fn run() {
             streaming_addon::delete_streaming_addon_zip,
             commands::scan_games,
             commands::load_cached_library,
+            commands::get_steam_user_id,
             commands::launch_game,
+            commands::install_game,
+            commands::uninstall_game,
             commands::focus_window_by_pid,
             commands::add_manual_game,
             commands::extract_icon,
@@ -40,6 +44,7 @@ pub fn run() {
             platform_sync::connect_platform_command,
             platform_sync::sync_platform_command,
             platform_sync::disconnect_platform_command,
+            platform_sync::authenticate_platform_command,
             library_store::library_manual_add,
             metadata::commands::metadata_get_provider_status,
             metadata::commands::metadata_save_igdb_credentials,
@@ -60,7 +65,17 @@ pub fn run() {
             metadata::commands::metadata_tmdb_discover,
             metadata::commands::metadata_igdb_discover_games,
             metadata::commands::metadata_enrich_all_games,
+            console_mode::console_mode_is_supported,
+            console_mode::console_mode_get_status,
+            console_mode::console_mode_set_launch_at_login,
+            console_mode::console_mode_apply_desktop,
+            console_mode::console_mode_restore_desktop,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                console_mode::restore_desktop_chrome();
+            }
+        });
 }

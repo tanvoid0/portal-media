@@ -200,6 +200,8 @@ pub fn library_manual_add_impl(app: &AppHandle, add: LibraryManualAdd) -> Result
                 platform: "Windows".to_string(),
                 category,
                 launch_type: LaunchType::Executable,
+                playtime_total: None,
+                is_installed: Some(true),
             }
         }
         LibraryManualAdd::Web {
@@ -222,6 +224,8 @@ pub fn library_manual_add_impl(app: &AppHandle, add: LibraryManualAdd) -> Result
                 platform: "Web".to_string(),
                 category,
                 launch_type: LaunchType::Url,
+                playtime_total: None,
+                is_installed: Some(true),
             }
         }
     };
