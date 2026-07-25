@@ -237,7 +237,8 @@ export function getNavBinding(id: NavActionId): NavActionBinding {
   return s.actions[id];
 }
 
-export function useLeftStickForSpatialEffective(): boolean {
+/** Not a hook — reads store state imperatively (safe inside gamepad poll callbacks). */
+export function leftStickForSpatialEffective(): boolean {
   const s = useNavBindingsStore.getState();
   if (!s.remoteBindingsEnabled) return true;
   return s.useLeftStickForSpatial;

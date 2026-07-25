@@ -14,8 +14,8 @@ import {
 } from "@/config/contentGridPresets";
 import { useGridColumnCountSync } from "@/hooks/useGridColumnCountSync";
 import { useKeepGridSelectionVisible } from "@/hooks/useKeepGridSelectionVisible";
-import { RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { registerGridContainer } from "@/navigation/focusRegistry";
+import { AppCategoryBar } from "./AppCategoryBar";
 
 export function GameGrid() {
   const {
@@ -23,11 +23,12 @@ export function GameGrid() {
     selectedIndex,
     setSelectedIndex,
     selectedCategory,
-    scanGames,
     isLoading,
     launchOverlay,
+    launchGame,
     error,
     clearError,
+    searchQuery,
   } = useGameStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedCardRef = useRef<HTMLDivElement>(null);
@@ -50,6 +51,8 @@ export function GameGrid() {
     itemCount: games.length,
     layoutEpoch: isLoading,
   });
+
+  useEffect(() => registerGridContainer("games", containerRef), []);
 
   useKeepGridSelectionVisible(containerRef, selectedCardRef, {
     selectedIndex,
@@ -90,13 +93,13 @@ export function GameGrid() {
           aria-describedby="launch-error-desc"
         >
           <p id="launch-error-title" className="text-destructive text-2xl font-bold mb-2">
-            Error
+            Something went wrong
           </p>
-          <p id="launch-error-desc" className="text-white/70 mb-4">
+          <p className="text-foreground/80 mb-3">
+            The library couldn&apos;t load. Check your game installations and try again.
+          </p>
+          <p id="launch-error-desc" className="text-muted-foreground text-xs mb-6 break-words">
             {error}
-          </p>
-          <p className="text-white/50 text-sm mb-6">
-            Please check your game installations and try again
           </p>
           <Button
             type="button"
@@ -114,14 +117,40 @@ export function GameGrid() {
   }
 
   if (games.length === 0) {
+    const isSearchActive = Boolean(searchQuery.trim());
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center glass-dark rounded-2xl p-12 max-w-md">
-          <div className="text-6xl mb-6 opacity-50">🎮</div>
-          <p className="text-white text-2xl font-bold mb-3">No games found</p>
-          <p className="text-white/60 text-sm">
-            Games will appear here after scanning. Go to Settings to scan for games.
+          <div className="text-6xl mb-6 opacity-50">{isSearchActive ? "🔍" : "🎮"}</div>
+          <p className="text-foreground text-2xl font-bold mb-3">
+            {isSearchActive ? "No results" : "Your library is empty"}
           </p>
+          <p className="text-muted-foreground text-sm mb-8">
+            {isSearchActive
+              ? `Nothing matched "${searchQuery}". Try a different search.`
+              : "Scan this PC for installed games and apps, or add titles manually in Settings."}
+          </p>
+          {!isSearchActive ? (
+            <div className="flex items-center justify-center gap-3">
+              <Button
+                type="button"
+                variant="default"
+                autoFocus
+                className="min-w-[9rem] rounded-xl"
+                onClick={() => void useGameStore.getState().scanGames()}
+              >
+                Scan this PC
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-w-[9rem] rounded-xl"
+                onClick={() => appNavigate("/settings/game")}
+              >
+                Open Settings
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -153,29 +182,7 @@ export function GameGrid() {
       {/* Full-width shelf background and info panel */}
       <GameInfoPanel game={selectedGame} />
 
-      {selectedCategory === "App" ? (
-        <div
-          className={cn(
-            "relative z-30 shrink-0 flex flex-wrap items-center gap-3 px-6 lg:px-10 py-2.5",
-            "border-b border-border/50 bg-background/85 backdrop-blur-md"
-          )}
-        >
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            className="rounded-xl h-9 gap-2"
-            disabled={isLoading}
-            onClick={() => void scanGames()}
-          >
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} aria-hidden />
-            {isLoading ? "Syncing…" : "Sync apps & icons"}
-          </Button>
-          <p className="text-xs text-muted-foreground max-w-xl leading-snug">
-            Rescans Start Menu entries and rebuilds cached shortcut / executable icons (same as Settings → Scan for games).
-          </p>
-        </div>
-      ) : null}
+      {selectedCategory === "App" ? <AppCategoryBar /> : null}
 
       {/* Cards container — horizontal row with smooth scroll behavior */}
       <div
@@ -198,6 +205,10 @@ export function GameGrid() {
               onClick={() => {
                 setSelectedIndex(index);
                 appNavigate(`/game/${encodeURIComponent(game.id)}`);
+              }}
+              onDoubleClick={() => {
+                setSelectedIndex(index);
+                void launchGame(game);
               }}
               onMouseEnter={() => {
                 setSelectedIndex(index);

@@ -11,6 +11,7 @@ export interface Game {
   executable: string;
   cover_art?: string;
   icon?: string;
+  app_subcategory?: string;
   platform: string;
   category: GameCategory;
   launch_type: LaunchType;

@@ -78,10 +78,7 @@ export function GameInfoPanel({ game }: GameInfoPanelProps) {
                 </span>
               </div>
               <p className="text-foreground/85 text-lg leading-relaxed max-w-2xl font-normal mb-4">
-                {game.category === "Game" && "Ready to play. Press Enter to launch this game and start your adventure."}
-                {game.category === "App" && "Application ready to launch. Press Enter to start and begin using this application."}
-                {game.category === "Media" && "Media content available. Press Enter to open and enjoy your media."}
-                {game.category === "Bookmark" && "Web bookmark. Press Enter to open this link in your browser."}
+                {game.platform}
               </p>
             </div>
           </div>

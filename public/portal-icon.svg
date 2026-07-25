@@ -1,17 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Portal Media">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Portal">
   <defs>
-    <linearGradient id="pm-ring" x1="72" y1="56" x2="440" y2="456" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8b5cf6" />
-      <stop offset="0.55" stop-color="#6366f1" />
-      <stop offset="1" stop-color="#22d3ee" />
+    <linearGradient id="body-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e1030"/>
+      <stop offset="100%" stop-color="#130820"/>
     </linearGradient>
-    <radialGradient id="pm-core" cx="38%" cy="32%" r="68%">
-      <stop stop-color="#e9d5ff" />
-      <stop offset="0.45" stop-color="#a78bfa" />
-      <stop offset="1" stop-color="#5b21b6" />
-    </radialGradient>
+    <linearGradient id="ring-g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff6b35"/><stop offset="100%" stop-color="#e11d48"/>
+    </linearGradient>
   </defs>
-  <circle cx="256" cy="256" r="198" fill="#07080d" stroke="url(#pm-ring)" stroke-width="44" />
-  <circle cx="256" cy="256" r="118" fill="none" stroke="url(#pm-ring)" stroke-opacity="0.22" stroke-width="14" />
-  <circle cx="256" cy="256" r="68" fill="url(#pm-core)" />
+
+  <g transform="translate(256, 256)">
+    <!-- controller pill body -->
+    <path d="M -180,-140 Q 0,-118 180,-140 A 140,140 0 0,1 180,140 Q 0,118 -180,140 A 140,140 0 0,1 -180,-140 Z"
+          fill="#0d0018" transform="translate(8,10)"/>
+    <path d="M -180,-140 Q 0,-118 180,-140 A 140,140 0 0,1 180,140 Q 0,118 -180,140 A 140,140 0 0,1 -180,-140 Z"
+          fill="url(#body-grad)" stroke="#32185a" stroke-width="5"/>
+
+    <!-- D-PAD left -->
+    <rect x="-226" y="-42" width="34" height="88" fill="#0a0010" rx="9"/>
+    <rect x="-258" y="-10" width="96" height="31" fill="#0a0010" rx="9"/>
+    <rect x="-224" y="-38" width="29" height="21" fill="#18003a" rx="5"/>
+    <rect x="-256" y="-8" width="26" height="13" fill="#18003a" rx="5"/>
+
+    <!-- CENTER portal ring home button -->
+    <circle cx="0" cy="15" r="41" fill="#100018" stroke="url(#ring-g)" stroke-width="11.5"/>
+    <circle cx="0" cy="15" r="15" fill="#fbbf24" opacity="0.8"/>
+
+    <!-- select/start bars -->
+    <rect x="-72" y="10" width="41" height="18" fill="#0a0014" rx="9"/>
+    <rect x="31" y="10" width="41" height="18" fill="#0a0014" rx="9"/>
+
+    <!-- FACE BUTTONS right — diamond -->
+    <!-- Top: games — red -->
+    <circle cx="175" cy="-36" r="28" fill="#e11d48" opacity="0.85"/>
+    <path d="M163,-26 C163,-36 167,-41 172,-41 L178,-41 C183,-41 187,-36 187,-26 Z" fill="white" opacity="0.7"/>
+    <circle cx="168" cy="-44" r="5.5" fill="white" opacity="0.7"/>
+    <circle cx="182" cy="-44" r="5.5" fill="white" opacity="0.7"/>
+
+    <!-- Right: media — orange -->
+    <circle cx="216" cy="15" r="28" fill="#ff6b35" opacity="0.9"/>
+    <polygon points="204,0 204,30 232,15" fill="white" opacity="0.85"/>
+
+    <!-- Bottom: discover — blue -->
+    <circle cx="175" cy="66" r="28" fill="#0284c7" opacity="0.85"/>
+    <polygon points="175,48 170,64 180,64" fill="white" opacity="0.85"/>
+    <polygon points="175,84 180,68 170,68" fill="white" opacity="0.35"/>
+    <circle cx="175" cy="66" r="5" fill="white" opacity="0.7"/>
+
+    <!-- Left: apps — indigo -->
+    <circle cx="134" cy="15" r="28" fill="#6366f1" opacity="0.85"/>
+    <rect x="116" y="0" width="36" height="28" fill="white" rx="5" opacity="0.2"/>
+    <rect x="116" y="0" width="36" height="13" fill="white" rx="5" opacity="0.6"/>
+    <rect x="120" y="13" width="28" height="4" fill="white" opacity="0.5"/>
+    <rect x="120" y="19" width="21" height="4" fill="white" opacity="0.5"/>
+  </g>
 </svg>

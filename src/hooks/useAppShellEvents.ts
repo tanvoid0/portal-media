@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { performAppExit } from "@/utils/performAppExit";
 import { ACTIVATE_SIDEBAR_EVENT, isActivateSidebarEvent } from "@/types/app";
 import { appNavigate } from "@/nav/appNavigate";
 import { useShellOverlayStore } from "@/stores/shellOverlayStore";
@@ -37,7 +37,7 @@ export function useAppShellEvents(
         (e.key === "F4" || e.code === "F4")
       ) {
         e.preventDefault();
-        void getCurrentWindow().close().catch(console.error);
+        void performAppExit();
         return;
       }
 

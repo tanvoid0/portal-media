@@ -34,6 +34,7 @@ import { ExternalLinkGlyph } from "@/components/content/ExternalLinkGlyph";
 import { displayLabelForExternalUrl } from "@/utils/linkBrandFromUrl";
 import { DetailsPageShell } from "@/components/layout/DetailsPageShell";
 import { DetailsHeroFrame } from "@/components/layout/DetailsHeroFrame";
+import { GameSaveDataSection } from "@/components/saves/GameSaveDataSection";
 
 export function GameDetailsContent({
   game,
@@ -127,6 +128,7 @@ export function GameDetailsContent({
       if (idx === 5) setCategoryOverride(game.id, "Game");
       if (idx === 6) setCategoryOverride(game.id, "App");
       if (idx === 7) setCategoryOverride(game.id, "Media");
+      if (idx === 8) appNavigate(`/game/${encodeURIComponent(game.id)}/saves`);
     };
     window.addEventListener(EXECUTE_DETAILS_ACTION, onExecute as EventListener);
     return () => window.removeEventListener(EXECUTE_DETAILS_ACTION, onExecute as EventListener);
@@ -350,6 +352,8 @@ export function GameDetailsContent({
                 ) : null}
               </div>
             </section>
+
+            <GameSaveDataSection game={game} />
 
             <section className="rounded-xl border border-border/60 bg-muted/15 p-3 space-y-2.5">
               <div className="flex items-center justify-between gap-2">

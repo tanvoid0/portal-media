@@ -18,9 +18,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2.10", features = ["protocol-asset"] }
+tauri = { version = "2.11", features = ["protocol-asset"] }
 tauri-plugin-opener = "2"
-tauri-plugin-dialog = "2"
+tauri-plugin-dialog = "2.7"
 tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -31,19 +31,37 @@ winreg = "0.52"
 url = "2.5"
 lazy_static = "1.4"
 async-trait = "0.1"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "blocking", "multipart"] }
 keyring = "3"
-chrono = { version = "0.4", default-features = false, features = ["alloc", "std"] }
+chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "clock"] }
 urlencoding = "2.1"
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
+sha2 = "0.10"
+rand = "0.8"
+tokio = { version = "1", features = ["sync", "net", "io-util"] }
 
 [target.'cfg(windows)'.dependencies]
+windows-core = "0.58"
 windows = { version = "0.58", features = [
     "Win32_Foundation",
+    "Win32_Devices_Display",
+    "Win32_Devices_Properties",
     "Win32_Graphics_Gdi",
+    "Win32_Media_Audio",
+    "Win32_Media_Audio_Endpoints",
     "Win32_Storage_FileSystem",
     "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Ole",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Accessibility",
     "Win32_UI_Shell",
+    "Win32_UI_Shell_PropertiesSystem",
     "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Variant",
+    "Win32_System_Threading",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_Security",
 ] }
 

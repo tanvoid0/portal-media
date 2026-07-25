@@ -89,21 +89,46 @@ function normalizedHost(hostname: string): string {
  * Used to show streaming branding instead of a generic “official site” link.
  */
 
-/** Hash-router deep link for optional catalog add-on (manifest `webOrigin` from runtime zip). */
+/** v1 behaviour when a manifest omits `deepLink` — Stremio-style hash routes. */
+const DEFAULT_DETAIL_TEMPLATE = "{origin}/#/metadetails/{type}/{imdbId}";
+const DEFAULT_SEARCH_TEMPLATE = "{origin}/#/search?search={query}";
+
+export type AddonDeepLinkVars = {
+  origin: string;
+  mediaType: string;
+  imdbId?: string | null;
+  tmdbId?: string | number | null;
+  title: string;
+};
+
+/**
+ * Fill an add-on route template. Placeholders `{origin} {type} {imdbId} {tmdbId} {query}`; every
+ * value except `{origin}` is percent-encoded so a title with `&` or `#` cannot break the route.
+ */
+export function renderAddonTemplate(template: string, vars: AddonDeepLinkVars): string {
+  const origin = vars.origin.replace(/\/$/, "");
+  const values: Record<string, string> = {
+    origin,
+    type: vars.mediaType === "tv" ? "series" : "movie",
+    imdbId: vars.imdbId?.trim() ?? "",
+    tmdbId: vars.tmdbId == null ? "" : String(vars.tmdbId),
+    query: vars.title.trim() || " ",
+  };
+  return template.replace(/\{(origin|type|imdbId|tmdbId|query)\}/g, (_, key: string) =>
+    key === "origin" ? values[key] : encodeURIComponent(values[key])
+  );
+}
+
+/** Deep link for the optional catalog add-on; uses manifest `deepLink` templates when present. */
 export function addonMetadetailsDeepLink(
-  webOrigin: string,
-  mediaType: string,
-  imdbId: string | null | undefined,
-  title: string
+  vars: AddonDeepLinkVars,
+  templates?: { detail?: string | null; search?: string | null } | null
 ): string {
-  const origin = webOrigin.replace(/\/$/, "");
-  const imdb = imdbId?.trim() ?? "";
-  if (imdb.startsWith("tt")) {
-    const catalogType = mediaType === "tv" ? "series" : "movie";
-    return `${origin}/#/metadetails/${catalogType}/${encodeURIComponent(imdb)}`;
-  }
-  const q = encodeURIComponent(title.trim() || " ");
-  return `${origin}/#/search?search=${q}`;
+  const hasImdb = (vars.imdbId?.trim() ?? "").startsWith("tt");
+  const template = hasImdb
+    ? (templates?.detail ?? DEFAULT_DETAIL_TEMPLATE)
+    : (templates?.search ?? DEFAULT_SEARCH_TEMPLATE);
+  return renderAddonTemplate(template, vars);
 }
 
 export function faviconUrlFromDomain(domain: string, size: 128 | 256): string {

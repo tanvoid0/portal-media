@@ -423,8 +423,12 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
               {entry.summary && (
                 <div className="border-t border-white/10 pt-3 mt-0.5 space-y-2.5">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
-                    <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0">Origin</span>
-                    <span className="text-xs text-white/70 break-all leading-snug">{entry.summary.webOrigin}</span>
+                    <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0">
+                      {entry.summary.launchExecutable ? "App" : "Origin"}
+                    </span>
+                    <span className="text-xs text-white/70 break-all leading-snug">
+                      {entry.summary.launchExecutable || entry.summary.webOrigin}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {entry.summary.libraryBookmark && (

@@ -1,14 +1,23 @@
 import { Game } from "@/stores/gameStore";
 import { useGameStore } from "@/stores/gameStore";
-import { PlatformLabel } from "@/components/PlatformLabel";
+import {
+  getGameBrandAccentHex,
+  hasLibraryBrandHeroIcon,
+  LibraryBrandHeroIcon,
+} from "@/components/PlatformLabel";
 import { ShelfCard } from "@/components/content/ShelfCard";
-import { formatLastOpenedShort, getGameCardSubtitle } from "@/utils/gameDisplay";
+import { LibraryCardFooterExtras } from "@/components/content/LibraryCardFooterExtras";
+import { ShelfStatusBadge } from "@/components/content/ShelfStatusBadge";
 import { useMetadataDisplayStore } from "@/stores/metadataDisplayStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { type MouseEvent } from "react";
-import { AppWindow, Bookmark, Clock, Download, Gamepad2, Star, Tv } from "lucide-react";
+import { AppWindow, Bookmark, Download, Gamepad2, Star, Tv } from "lucide-react";
 import type { GameCategory } from "@/types/game";
-import { shouldShowLibraryGamePlatformCornerBadge } from "@/utils/libraryGameVisual";
+import { libraryCardSubtitle } from "@/utils/libraryCardFooterMeta";
+import {
+  libraryTileMarkFrameKind,
+  resolveLibraryTileHeroVariant,
+} from "@/utils/libraryTileLayout";
 
 function pickRecordStr(record: Record<string, unknown>, key: string): string | undefined {
   const v = record[key];
@@ -16,8 +25,7 @@ function pickRecordStr(record: Record<string, unknown>, key: string): string | u
 }
 
 function LibraryPlaceholderIcon({ category }: { category: GameCategory }) {
-  const cls =
-    "h-14 w-14 mx-auto mb-3 opacity-70 text-muted-foreground shrink-0";
+  const cls = "h-16 w-16 opacity-75 text-muted-foreground shrink-0";
   switch (category) {
     case "Media":
       return <Tv className={cls} strokeWidth={1.25} aria-hidden />;
@@ -60,20 +68,25 @@ export function GameCard({
     ? iconArt || null
     : coverArt || iconArt || igdbCover || null;
 
-  const subtitle = getGameCardSubtitle(game);
-
-  const artMode =
-    isApp && cardImage
-      ? "iconContain"
-      : coverArt || igdbCover
-        ? "posterCover"
-        : "iconContain";
-
-  const showPlatformCorner = shouldShowLibraryGamePlatformCornerBadge(game, {
+  const libraryHero = resolveLibraryTileHeroVariant(game, {
+    cardImage,
     coverArt,
-    iconArt,
     igdbCover,
   });
+
+  const useStreamingVectorBrand =
+    libraryHero === "mark" &&
+    !isApp &&
+    (game.category === "Media" ||
+      game.category === "Bookmark" ||
+      game.launch_type === "Url") &&
+    hasLibraryBrandHeroIcon(game);
+  const usePlatformFallback =
+    libraryHero === "mark" && !cardImage && hasLibraryBrandHeroIcon(game);
+
+  const subtitle = libraryCardSubtitle(game, libraryHero);
+
+  const brandAccentHex = getGameBrandAccentHex(game);
 
   return (
     <ShelfCard
@@ -82,48 +95,36 @@ export function GameCard({
       subtitle={subtitle}
       actionHint="Enter · Launch"
       artImageUrl={cardImage}
-      artMode={artMode}
-      skipFooterTint={isApp}
+      libraryLayout={libraryHero}
+      markFrameKind={libraryTileMarkFrameKind(game.category)}
+      brandAccentHex={brandAccentHex}
+      brandHero={
+        useStreamingVectorBrand || usePlatformFallback ? (
+          <LibraryBrandHeroIcon game={game} />
+        ) : undefined
+      }
       placeholder={<LibraryPlaceholderIcon category={game.category} />}
       topLeft={
         <div className="flex flex-col gap-1.5">
           {isFavorite ? (
-            <div
-              className="pointer-events-none flex h-9 w-9 items-center justify-center rounded-xl bg-black/45 text-amber-400 backdrop-blur-md border border-white/15 shadow-lg"
-              aria-hidden
-            >
-              <Star className="h-4 w-4 fill-current" />
-            </div>
+            <ShelfStatusBadge className="text-amber-400">
+              <Star className="h-3.5 w-3.5 fill-current" />
+            </ShelfStatusBadge>
           ) : null}
           {game.is_installed === false ? (
-            <div
-              className="pointer-events-none flex h-9 w-9 items-center justify-center rounded-xl bg-black/45 text-muted-foreground backdrop-blur-md border border-white/15 shadow-lg"
-              title="Not installed"
-              aria-hidden
-            >
-              <Download className="h-4 w-4" />
-            </div>
+            <ShelfStatusBadge className="text-muted-foreground" title="Not installed">
+              <Download className="h-3.5 w-3.5" />
+            </ShelfStatusBadge>
           ) : null}
         </div>
       }
-      topRight={
-        showPlatformCorner ? <PlatformLabel game={game} size="lg" variant="overlay" /> : null
-      }
       footerAccessory={
-        isRunning ? (
-          <div className="mt-1.5 flex items-center gap-2 text-[10px] text-primary font-bold tracking-wider">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-            </span>
-            <span>PLAYING</span>
-          </div>
-        ) : lastOpened > 0 ? (
-          <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground/80 font-medium">
-            <Clock className="h-3 w-3" />
-            <span>{formatLastOpenedShort(lastOpened)}</span>
-          </div>
-        ) : null
+        <LibraryCardFooterExtras
+          game={game}
+          hero={libraryHero}
+          isRunning={isRunning}
+          lastOpened={lastOpened}
+        />
       }
       onClick={onClick}
       onDoubleClick={(e) => {
@@ -140,4 +141,3 @@ export function GameCard({
     />
   );
 }
-

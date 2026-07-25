@@ -15,6 +15,12 @@ const SERVICE: &str = "com.tanvoid0.portal-media";
 const IGDB_CLIENT_ID: &str = "metadata_igdb_client_id";
 const IGDB_CLIENT_SECRET: &str = "metadata_igdb_client_secret";
 const TMDB_API_KEY: &str = "metadata_tmdb_api_key";
+const GOOGLE_DRIVE_TOKENS: &str = "save_sync_google_drive_tokens";
+
+const SPOTIFY_CLIENT_ID: &str = "spotify_client_id";
+const SPOTIFY_ACCESS_TOKEN: &str = "spotify_access_token";
+const SPOTIFY_REFRESH_TOKEN: &str = "spotify_refresh_token";
+const SPOTIFY_TOKEN_EXPIRY: &str = "spotify_token_expiry";
 
 const FALLBACK_FILE: &str = "metadata_keyring_fallback.json";
 
@@ -341,4 +347,182 @@ pub fn save_tmdb_api_key(key: &str) -> Result<(), String> {
 
 pub fn clear_tmdb_api_key() -> Result<(), String> {
     delete_entry(TMDB_API_KEY)
+}
+
+pub fn save_google_drive_tokens(json: &str) -> Result<(), String> {
+    set_entry(GOOGLE_DRIVE_TOKENS, json)
+}
+
+pub fn get_google_drive_tokens() -> Option<String> {
+    get_entry(GOOGLE_DRIVE_TOKENS)
+}
+
+pub fn clear_google_drive_tokens() -> Result<(), String> {
+    delete_entry(GOOGLE_DRIVE_TOKENS)
+}
+
+pub fn google_drive_configured() -> bool {
+    get_google_drive_tokens()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false)
+}
+
+// ── Platform credentials ──────────────────────────────────────────────────────
+
+const STEAM_CREDENTIALS: &str = "platform_steam_credentials";
+const EPIC_CREDENTIALS: &str = "platform_epic_credentials";
+const GOG_CREDENTIALS: &str = "platform_gog_credentials";
+
+pub fn save_steam_credentials(steam_id: &str, token: &str) -> Result<(), String> {
+    let json = serde_json::json!({ "steam_id": steam_id, "token": token }).to_string();
+    set_entry(STEAM_CREDENTIALS, &json)
+}
+
+pub fn get_steam_credentials() -> Option<(String, String)> {
+    let raw = get_entry(STEAM_CREDENTIALS)?;
+    let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let id = v["steam_id"].as_str()?.to_string();
+    let token = v["token"].as_str()?.to_string();
+    if id.is_empty() || token.is_empty() { return None; }
+    Some((id, token))
+}
+
+pub fn clear_steam_credentials() -> Result<(), String> {
+    delete_entry(STEAM_CREDENTIALS)
+}
+
+pub fn save_epic_credentials(
+    account_id: &str,
+    display_name: &str,
+    access_token: &str,
+    refresh_token: &str,
+) -> Result<(), String> {
+    let json = serde_json::json!({
+        "account_id": account_id,
+        "display_name": display_name,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+    })
+    .to_string();
+    set_entry(EPIC_CREDENTIALS, &json)
+}
+
+#[derive(serde::Deserialize)]
+pub struct EpicStoredCredentials {
+    pub account_id: String,
+    pub display_name: String,
+    pub access_token: String,
+    pub refresh_token: String,
+}
+
+pub fn get_epic_credentials() -> Option<EpicStoredCredentials> {
+    let raw = get_entry(EPIC_CREDENTIALS)?;
+    serde_json::from_str(&raw).ok()
+}
+
+pub fn clear_epic_credentials() -> Result<(), String> {
+    delete_entry(EPIC_CREDENTIALS)
+}
+
+pub fn save_gog_credentials(user_id: &str, username: &str) -> Result<(), String> {
+    let json = serde_json::json!({ "user_id": user_id, "username": username }).to_string();
+    set_entry(GOG_CREDENTIALS, &json)
+}
+
+pub fn get_gog_credentials() -> Option<(String, String)> {
+    let raw = get_entry(GOG_CREDENTIALS)?;
+    let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let user_id = v["user_id"].as_str()?.to_string();
+    let username = v["username"].as_str()?.to_string();
+    if username.is_empty() { return None; }
+    Some((user_id, username))
+}
+
+pub fn clear_gog_credentials() -> Result<(), String> {
+    delete_entry(GOG_CREDENTIALS)
+}
+
+const XBOX_CREDENTIALS: &str = "platform_xbox_credentials";
+const UBISOFT_CREDENTIALS: &str = "platform_ubisoft_credentials";
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct XboxStoredCredentials {
+    pub xid: String,
+    pub uhs: String,
+    pub xsts_token: String,
+    pub refresh_token: String,
+    pub gamertag: String,
+}
+
+pub fn save_xbox_credentials(creds: &XboxStoredCredentials) -> Result<(), String> {
+    let json = serde_json::to_string(creds).map_err(|e| e.to_string())?;
+    set_entry(XBOX_CREDENTIALS, &json)
+}
+
+pub fn get_xbox_credentials() -> Option<XboxStoredCredentials> {
+    let raw = get_entry(XBOX_CREDENTIALS)?;
+    serde_json::from_str(&raw).ok()
+}
+
+pub fn clear_xbox_credentials() -> Result<(), String> {
+    delete_entry(XBOX_CREDENTIALS)
+}
+
+pub fn save_ubisoft_credentials(username: &str, user_id: &str) -> Result<(), String> {
+    let json = serde_json::json!({ "username": username, "user_id": user_id }).to_string();
+    set_entry(UBISOFT_CREDENTIALS, &json)
+}
+
+pub fn get_ubisoft_credentials() -> Option<(String, String)> {
+    let raw = get_entry(UBISOFT_CREDENTIALS)?;
+    let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let username = v["username"].as_str()?.to_string();
+    let user_id = v["user_id"].as_str().unwrap_or("").to_string();
+    if username.is_empty() { return None; }
+    Some((username, user_id))
+}
+
+pub fn clear_ubisoft_credentials() -> Result<(), String> {
+    delete_entry(UBISOFT_CREDENTIALS)
+}
+
+// ── Spotify ────────────────────────────────────────────────────────────────────
+
+pub fn save_spotify_client_id(client_id: &str) -> Result<(), String> {
+    set_entry(SPOTIFY_CLIENT_ID, client_id)
+}
+
+pub fn get_spotify_client_id() -> Option<String> {
+    get_entry(SPOTIFY_CLIENT_ID)
+}
+
+pub fn save_spotify_access_token(token: &str) -> Result<(), String> {
+    set_entry(SPOTIFY_ACCESS_TOKEN, token)
+}
+
+pub fn get_spotify_access_token() -> Option<String> {
+    get_entry(SPOTIFY_ACCESS_TOKEN)
+}
+
+pub fn save_spotify_refresh_token(token: &str) -> Result<(), String> {
+    set_entry(SPOTIFY_REFRESH_TOKEN, token)
+}
+
+pub fn get_spotify_refresh_token() -> Option<String> {
+    get_entry(SPOTIFY_REFRESH_TOKEN)
+}
+
+pub fn save_spotify_token_expiry(expiry: &str) -> Result<(), String> {
+    set_entry(SPOTIFY_TOKEN_EXPIRY, expiry)
+}
+
+pub fn get_spotify_token_expiry() -> Option<String> {
+    get_entry(SPOTIFY_TOKEN_EXPIRY)
+}
+
+pub fn clear_spotify_tokens() -> Result<(), String> {
+    let _ = delete_entry(SPOTIFY_ACCESS_TOKEN);
+    let _ = delete_entry(SPOTIFY_REFRESH_TOKEN);
+    let _ = delete_entry(SPOTIFY_TOKEN_EXPIRY);
+    Ok(())
 }

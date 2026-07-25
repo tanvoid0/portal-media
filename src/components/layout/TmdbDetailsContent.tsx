@@ -9,6 +9,7 @@ import { getSafeImageSource, isValidImageSource } from "@/utils/imageUtils";
 import { useStreamingAddonStore } from "@/stores/streamingAddonStore";
 import {
   addonMetadetailsDeepLink,
+  renderAddonTemplate,
   faviconUrlFromDomain,
   streamingProviderIdForHomepageUrl,
   streamingProviderLabel,
@@ -30,7 +31,20 @@ type StreamAction = {
   subtitle?: string;
   /** Generic “official site” / unknown destination — use link glyph instead of play. */
   useExternalGlyph: boolean;
+  /** Native add-on target: spawn this instead of opening `url` in the built-in browser. */
+  launch?: { executable: string; args: string[] };
 };
+
+function runStreamAction(action: StreamAction, openBrowser: (url: string) => void): void {
+  if (action.launch) {
+    void invoke("launch_streaming_addon_app", {
+      executable: action.launch.executable,
+      args: action.launch.args,
+    }).catch((e) => console.error("[streaming-addon] launch failed", e));
+    return;
+  }
+  if (action.url) openBrowser(action.url);
+}
 
 function buildStreamActions(
   title: string,
@@ -45,18 +59,31 @@ function buildStreamActions(
     catalogAddon?.enabled &&
     catalogAddon.features.tmdbStreamButton
   ) {
-    const url = addonMetadetailsDeepLink(
-      catalogAddon.webOrigin,
-      payload.mediaType,
-      payload.imdbId,
-      title
-    );
+    const vars = {
+      origin: catalogAddon.webOrigin,
+      mediaType: payload.mediaType,
+      imdbId: payload.imdbId,
+      tmdbId: payload.id,
+      title,
+    };
+    const url = addonMetadetailsDeepLink(vars, catalogAddon.deepLink);
+    const exe = catalogAddon.launch?.executable?.trim();
     out.push({
       label: catalogAddon.displayName,
-      subtitle: payload.imdbId?.startsWith("tt") ? "Catalog" : "Search",
+      subtitle: exe ? "App" : payload.imdbId?.startsWith("tt") ? "Catalog" : "Search",
       url,
       logoUrl: faviconUrlFromDomain(catalogAddon.icon.faviconDomain, 128),
       useExternalGlyph: false,
+      launch: exe
+        ? {
+            executable: exe,
+            args: (catalogAddon.launch?.args ?? []).map((a) =>
+              a.includes("{deepLink}")
+                ? a.replace(/\{deepLink\}/g, url)
+                : renderAddonTemplate(a, vars)
+            ),
+          }
+        : undefined,
     });
   }
 
@@ -190,7 +217,7 @@ export function TmdbDetailsContent({
     const onExecute = (e: Event) => {
       const idx = (e as CustomEvent<number>).detail;
       const a = actions[idx];
-      if (a?.url) openBrowser(a.url);
+      if (a) runStreamAction(a, openBrowser);
     };
     window.addEventListener(EXECUTE_TMDB_DETAILS_ACTION, onExecute as EventListener);
     return () => window.removeEventListener(EXECUTE_TMDB_DETAILS_ACTION, onExecute as EventListener);
@@ -295,7 +322,7 @@ export function TmdbDetailsContent({
                     "h-11 rounded-xl justify-start gap-2.5 px-3 border-border/60 shrink-0",
                     "w-fit max-w-full sm:max-w-[17.5rem]"
                   )}
-                  onClick={() => openBrowser(a.url)}
+                  onClick={() => runStreamAction(a, openBrowser)}
                 >
                   <ExternalLinkGlyph
                     url={a.url}

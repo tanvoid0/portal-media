@@ -5,7 +5,11 @@ import { useBrowserStore } from "@/stores/browserStore";
 import { cn } from "@/lib/utils";
 import { BookOpen, Library, Settings, Rows2, MonitorPlay } from "lucide-react";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useNavBindingsStore } from "@/stores/navBindingsStore";
+import { getNavBinding, useNavBindingsStore } from "@/stores/navBindingsStore";
+import { snapshotGamepadButtons, anyGamepadButtonJustPressed } from "@/utils/navBindingMatch";
+import { getActiveGamepad } from "@/utils/getActiveGamepad";
+import { feedbackSelect, feedbackTick } from "@/utils/uiFeedback";
+import type { NavActionId } from "@/types/navBindings";
 
 const actions = [
   { id: "library", label: "Library", icon: Library },
@@ -17,6 +21,7 @@ const actions = [
 
 export default function QuickAccessOverlay() {
   const keyboardNavigationEnabled = useNavBindingsStore((s) => s.keyboardNavigationEnabled);
+  const gamepadNavigationEnabled = useNavBindingsStore((s) => s.gamepadNavigationEnabled);
   const quickAccessOpen = useShellOverlayStore((s) => s.quickAccessOpen);
   const setQuickAccessOpen = useShellOverlayStore((s) => s.setQuickAccessOpen);
   const toggleAppSwitcher = useShellOverlayStore((s) => s.toggleAppSwitcher);
@@ -27,11 +32,14 @@ export default function QuickAccessOverlay() {
 
   const [focusIndex, setFocusIndex] = useState(0);
   const idxRef = useRef(0);
+  const prevGpRef = useRef<boolean[]>(Array.from({ length: 32 }, () => false));
+  const currGpRef = useRef<boolean[]>(Array.from({ length: 32 }, () => false));
 
   const close = useCallback(() => setQuickAccessOpen(false), [setQuickAccessOpen]);
 
   const runAction = useCallback(
     (id: (typeof actions)[number]["id"]) => {
+      feedbackSelect();
       if (id === "library") {
         upsertLibrarySession();
         appNavigate("/library/all");
@@ -74,6 +82,7 @@ export default function QuickAccessOverlay() {
         e.preventDefault();
         setFocusIndex((i) => {
           const n = Math.min(actions.length - 1, i + 1);
+          if (n !== i) feedbackTick();
           idxRef.current = n;
           return n;
         });
@@ -82,6 +91,7 @@ export default function QuickAccessOverlay() {
         e.preventDefault();
         setFocusIndex((i) => {
           const n = Math.max(0, i - 1);
+          if (n !== i) feedbackTick();
           idxRef.current = n;
           return n;
         });
@@ -94,6 +104,59 @@ export default function QuickAccessOverlay() {
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [quickAccessOpen, close, runAction, keyboardNavigationEnabled]);
+
+  // Gamepad: `useUnifiedNavigation` yields while this overlay is open
+  // (isSpatialNavigationBlocked), so poll here — same pattern as AppSwitcherOverlay.
+  useEffect(() => {
+    if (!quickAccessOpen || !gamepadNavigationEnabled) return;
+    // Seed prev with the current state so the press that opened the overlay
+    // is not immediately re-read as "just pressed" (e.g. toggle button closing it).
+    const seed = getActiveGamepad();
+    if (seed) snapshotGamepadButtons(seed, prevGpRef.current, 31);
+
+    const tick = () => {
+      const gamepad = getActiveGamepad();
+      if (!gamepad) return;
+      const prev = prevGpRef.current;
+      const curr = currGpRef.current;
+      snapshotGamepadButtons(gamepad, curr, 31);
+
+      const just = (id: NavActionId): boolean => {
+        const b = getNavBinding(id);
+        return (
+          b.enabled &&
+          b.gamepadButtons.length > 0 &&
+          anyGamepadButtonJustPressed(b.gamepadButtons, prev, curr)
+        );
+      };
+
+      if (just("spatialDown")) {
+        setFocusIndex((i) => {
+          const n = Math.min(actions.length - 1, i + 1);
+          if (n !== i) feedbackTick();
+          idxRef.current = n;
+          return n;
+        });
+      }
+      if (just("spatialUp")) {
+        setFocusIndex((i) => {
+          const n = Math.max(0, i - 1);
+          if (n !== i) feedbackTick();
+          idxRef.current = n;
+          return n;
+        });
+      }
+      if (just("primary")) {
+        runAction(actions[idxRef.current].id);
+      }
+      if (just("back") || just("gamepadQuickAccessOverlay")) {
+        close();
+      }
+      prevGpRef.current = [...curr];
+    };
+    const id = window.setInterval(tick, 50);
+    return () => window.clearInterval(id);
+  }, [quickAccessOpen, gamepadNavigationEnabled, runAction, close]);
 
   if (!quickAccessOpen) return null;
 

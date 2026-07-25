@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useFocusable } from "@/hooks/useNavigationState";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,79 @@ import {
   Power,
   Maximize2,
   Minimize2,
+  Sun,
+  Moon,
   type LucideIcon,
 } from "lucide-react";
 
+/** Console-style status clock (top-right, like PS5 / SteamOS). */
+export function ShellClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 15_000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <time
+      className="px-2 text-sm font-semibold tabular-nums tracking-wide text-foreground/80 select-none shrink-0"
+      aria-label="Current time"
+    >
+      {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+    </time>
+  );
+}
+
+/** Shared right-side cluster: nav buttons, theme toggle, clock. */
+export function TopBarRightCluster({
+  variant,
+  setShowExitModal,
+  onToggleWindowSize,
+  isFullscreen,
+  isMaximized,
+  appearance,
+  toggleAppearance,
+}: {
+  variant: TopBarChromeVariant;
+  setShowExitModal: (show: boolean) => void;
+  onToggleWindowSize: () => void;
+  isFullscreen: boolean;
+  isMaximized: boolean;
+  appearance: string;
+  toggleAppearance: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <TopBarChromeButtons
+        variant={variant}
+        setShowExitModal={setShowExitModal}
+        onToggleWindowSize={onToggleWindowSize}
+        isFullscreen={isFullscreen}
+        isMaximized={isMaximized}
+      />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={toggleAppearance}
+        className={cn(
+          "w-11 h-11 rounded-card shrink-0",
+          "transition-all duration-panel spring-ease",
+          "hover:bg-foreground/5 text-muted-foreground hover:text-foreground hover:scale-105"
+        )}
+        title={appearance === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      >
+        {appearance === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+      </Button>
+      <ShellClock />
+    </div>
+  );
+}
+
 export type TopBarChromeVariant = "library" | "settings" | "docs";
+
+/** Borderless window: drag from chrome when not fullscreen (no OS title bar). */
+export function topBarDragRegionProps(isFullscreen: boolean) {
+  return isFullscreen ? {} : ({ "data-tauri-drag-region": true } as const);
+}
 
 export function SidebarDivider() {
   return (
@@ -54,7 +124,7 @@ export function SidebarButton({
       onClick={onClick}
       title={title}
       className={cn(
-        "w-14 h-14 rounded-card",
+        "w-11 h-11 rounded-card",
         "transition-all duration-panel spring-ease",
         "transform-gpu",
         isActive
@@ -68,7 +138,7 @@ export function SidebarButton({
     >
       <Icon
         className={cn(
-          "w-6 h-6 transition-all duration-panel-fast spring-ease",
+          "w-5 h-5 transition-all duration-panel-fast spring-ease",
           (isActive || isFocusedItem) && "scale-105"
         )}
       />
@@ -149,6 +219,13 @@ export function TopBarChromeButtons({
     return (
       <>
         <SidebarButton
+          index={0}
+          isActive={true}
+          onClick={() => appNavigate("/settings/game")}
+          icon={SettingsIcon}
+          title="Settings"
+        />
+        <SidebarButton
           index={1}
           isActive={false}
           onClick={() => appNavigate("/library/all")}
@@ -190,6 +267,13 @@ export function TopBarChromeButtons({
   // docs
   return (
     <>
+      <SidebarButton
+        index={0}
+        isActive={true}
+        onClick={() => appNavigate("/docs")}
+        icon={BookOpen}
+        title="Documentation"
+      />
       <SidebarButton
         index={1}
         isActive={false}

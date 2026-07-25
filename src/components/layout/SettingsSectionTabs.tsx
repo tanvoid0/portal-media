@@ -1,9 +1,11 @@
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Gamepad2, KeyRound, Library, Package, Palette } from "lucide-react";
+import { Gamepad2, HardDrive, KeyRound, Library, Monitor, Package, Palette } from "lucide-react";
 
 const sections = [
   { to: "/settings/game", label: "Library & sync", icon: Library },
+  { to: "/settings/saves", label: "Save data", icon: HardDrive },
+  { to: "/settings/system", label: "Console & startup", icon: Monitor },
   { to: "/settings/streaming", label: "Streaming", icon: Package },
   { to: "/settings/appearance", label: "Appearance", icon: Palette },
   { to: "/settings/api", label: "Metadata API", icon: KeyRound },

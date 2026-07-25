@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "portal-media-dev",
+      "url": "http://localhost:1420",
+      "port": 1420
+    }
+  ]
+}

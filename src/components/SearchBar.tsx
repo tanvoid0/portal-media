@@ -18,7 +18,6 @@ export function SearchBar({
     searchQuery,
     searchInput,
     setSearchQuery,
-    clearSearchInput,
     setSelectedIndex,
     filteredGames,
     games,
@@ -94,7 +93,7 @@ export function SearchBar({
   };
 
   const handleClearInput = () => {
-    clearSearchInput();
+    setSearchQuery("");
     focusInput();
   };
 

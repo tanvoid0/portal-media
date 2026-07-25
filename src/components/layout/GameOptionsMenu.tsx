@@ -117,8 +117,15 @@ export default function GameOptionsMenu() {
         close();
       }
     };
+    const onContextMenu = (e: Event) => {
+      e.preventDefault();
+    };
     window.addEventListener(EXECUTE_GAME_CONTEXT_EVENT, onExec as EventListener);
-    return () => window.removeEventListener(EXECUTE_GAME_CONTEXT_EVENT, onExec as EventListener);
+    window.addEventListener("contextmenu", onContextMenu);
+    return () => {
+      window.removeEventListener(EXECUTE_GAME_CONTEXT_EVENT, onExec as EventListener);
+      window.removeEventListener("contextmenu", onContextMenu);
+    };
   }, [gameContextMenuOpen, game, entries, close]);
 
   if (!gameContextMenuOpen || !game) return null;

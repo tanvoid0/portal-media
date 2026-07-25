@@ -44,6 +44,7 @@ export function normalizeLibraryGame(raw: unknown): Game {
     executable: String(r.executable ?? ""),
     cover_art: pickOptStr(r.cover_art ?? r.coverArt),
     icon: pickOptStr(r.icon),
+    app_subcategory: pickOptStr(r.app_subcategory ?? r.appSubcategory),
     platform: String(r.platform ?? ""),
     category,
     launch_type,

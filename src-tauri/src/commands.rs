@@ -38,6 +38,8 @@ pub struct Game {
     pub cover_art: Option<String>,
     #[serde(default, deserialize_with = "deserialize_trimmed_opt_string")]
     pub icon: Option<String>, // Remote URL, data URL, or absolute path to cached PNG (Windows)
+    #[serde(default, deserialize_with = "deserialize_trimmed_opt_string", alias = "appSubcategory")]
+    pub app_subcategory: Option<String>, // e.g. "Development", "Communication", "System", etc.
     pub platform: String,
     pub category: Category,
     #[serde(alias = "launchType")]
@@ -127,7 +129,10 @@ pub fn focus_window_by_pid(pid: u32) -> Result<(), String> {
     let hwnd = search
         .best
         .ok_or_else(|| "No visible window found for that process".to_string())?;
+    use windows::Win32::UI::WindowsAndMessaging::AllowSetForegroundWindow;
+
     unsafe {
+        let _ = AllowSetForegroundWindow(windows::Win32::UI::WindowsAndMessaging::ASFW_ANY);
         let _ = ShowWindow(hwnd, SW_RESTORE);
         let _ = SetForegroundWindow(hwnd);
     }

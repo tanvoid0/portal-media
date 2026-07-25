@@ -168,7 +168,8 @@ The app automatically scans for:
 
 TODO://
 * Uninstall games
-* Save Game
+
+Save cloud sync (Google Drive) is available under **Settings → Library & sync**. See [docs/SAVE_CLOUD_SYNC.md](docs/SAVE_CLOUD_SYNC.md).
 
 ## License
 

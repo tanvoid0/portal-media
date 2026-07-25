@@ -25,13 +25,26 @@ import { EXECUTE_GAME_CONTEXT_EVENT } from "@/types/app";
 import type { NavActionId } from "@/types/navBindings";
 import {
   getNavBinding,
-  useLeftStickForSpatialEffective,
+  leftStickForSpatialEffective,
   useNavBindingsStore,
 } from "@/stores/navBindingsStore";
 import { anyGamepadButtonJustPressed, snapshotGamepadButtons } from "@/utils/navBindingMatch";
+import { getActiveGamepad } from "@/utils/getActiveGamepad";
+import {
+  adjustFocusedRange,
+  domActivateFocused,
+  domSpatialMoveOrScroll,
+} from "@/navigation/domSpatialNav";
 
 /** @deprecated Import from `@/navigation/universalNavCore` for non-hook modules. */
 export { EXECUTE_DETAILS_ACTION } from "@/navigation/universalNavCore";
+
+// Auto-repeat timing for held D-pad / analog stick directions.
+// First repeat fires after INITIAL_MS, then every INTERVAL_MS while held.
+const REPEAT_INITIAL_MS = 400;
+const REPEAT_INTERVAL_MS = 80;
+
+type RepeatState = { pressStart: number; lastFire: number };
 
 /**
  * Routes pointer, keyboard, and gamepad into `universalNavCore.ts`.
@@ -44,17 +57,11 @@ export function useUnifiedNavigation() {
   const keyboardNavigationEnabled = useNavBindingsStore((s) => s.keyboardNavigationEnabled);
   const gamepadNavigationEnabled = useNavBindingsStore((s) => s.gamepadNavigationEnabled);
 
-  const dpadLeftRef = useRef(false);
-  const dpadRightRef = useRef(false);
-  const dpadUpRef = useRef(false);
-  const dpadDownRef = useRef(false);
-  const stickLeftRef = useRef(false);
-  const stickRightRef = useRef(false);
-  const stickUpRef = useRef(false);
-  const stickDownRef = useRef(false);
+  // Auto-repeat tracking: one RepeatState per direction id, null when not held.
+  const repeatRef = useRef<Record<string, RepeatState | null>>({});
+
   const prevGpButtonsRef = useRef<boolean[]>(Array.from({ length: 32 }, () => false));
   const currGpButtonsRef = useRef<boolean[]>(Array.from({ length: 32 }, () => false));
-  const checkGamepadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastMouseActivityRef = useRef<number>(Date.now());
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -77,6 +84,7 @@ export function useUnifiedNavigation() {
     [delayedSetFocusArea]
   );
 
+  // Cursor visibility
   useEffect(() => {
     const root = document.documentElement;
     const body = document.body;
@@ -99,6 +107,7 @@ export function useUnifiedNavigation() {
     };
   }, [inputMethod]);
 
+  // Disable gamepad / keyboard if toggled off in settings
   useEffect(() => {
     if (!gamepadNavigationEnabled && inputMethod === "gamepad") {
       setInputMethod("keyboard");
@@ -111,62 +120,24 @@ export function useUnifiedNavigation() {
     }
   }, [keyboardNavigationEnabled, inputMethod, setInputMethod]);
 
+  // Mouse activity tracking — used to avoid switching to gamepad on accidental input
   useEffect(() => {
     const handleMouseMove = () => {
       setInputMethod("mouse");
       lastMouseActivityRef.current = Date.now();
     };
-
-    const handleMouseClick = () => {
-      setInputMethod("mouse");
-    };
-
-    const handleMouseEnter = () => {
-      setInputMethod("mouse");
-    };
+    const handleMouseDown = () => setInputMethod("mouse");
 
     window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mousedown", handleMouseClick);
-    window.addEventListener("mouseup", handleMouseClick);
-    window.addEventListener("mouseenter", handleMouseEnter);
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mouseup", handleMouseDown);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mousedown", handleMouseClick);
-      window.removeEventListener("mouseup", handleMouseClick);
-      window.removeEventListener("mouseenter", handleMouseEnter);
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mouseup", handleMouseDown);
     };
   }, [setInputMethod]);
-
-  useEffect(() => {
-    const mouseActivityTimeout = 2000;
-
-    const checkGamepadInput = () => {
-      if (!useNavBindingsStore.getState().gamepadNavigationEnabled) return;
-      const gamepads = navigator.getGamepads();
-      const gamepad = gamepads[0];
-
-      if (gamepad) {
-        const hasInput =
-          Array.from(gamepad.buttons).some((btn) => btn.pressed) ||
-          Math.abs(gamepad.axes[0]) > 0.1 ||
-          Math.abs(gamepad.axes[1]) > 0.1;
-
-        const timeSinceMouseActivity = Date.now() - lastMouseActivityRef.current;
-        if (hasInput && timeSinceMouseActivity > mouseActivityTimeout) {
-          setInputMethod("gamepad");
-        }
-      }
-    };
-
-    checkGamepadIntervalRef.current = setInterval(checkGamepadInput, 100);
-
-    return () => {
-      if (checkGamepadIntervalRef.current) {
-        clearInterval(checkGamepadIntervalRef.current);
-      }
-    };
-  }, [setInputMethod, gamepadNavigationEnabled]);
 
   const handleKeyboardNavigation = useCallback(
     (e: KeyboardEvent) => {
@@ -186,19 +157,19 @@ export function useUnifiedNavigation() {
   }, [handleKeyboardNavigation, keyboardNavigationEnabled]);
 
   const handleGamepadInput = useCallback(() => {
-    if (isSpatialNavigationBlocked()) {
-      return;
-    }
-    if (!useNavBindingsStore.getState().gamepadNavigationEnabled) {
-      return;
-    }
+    if (isSpatialNavigationBlocked()) return;
+    if (!useNavBindingsStore.getState().gamepadNavigationEnabled) return;
 
-    const gamepads = navigator.getGamepads();
-    const gamepad = gamepads[0];
-
+    const gamepad = getActiveGamepad();
     if (!gamepad) return;
 
-    setInputMethod("gamepad");
+    // Only switch to gamepad mode when there is real input — prevents stale gamepad
+    // polling from fighting a mouse that was just used.
+    const hasAnyInput =
+      Array.from(gamepad.buttons).some((b) => b.pressed) ||
+      Math.abs(gamepad.axes[0]) > 0.1 ||
+      Math.abs(gamepad.axes[1]) > 0.1;
+    if (hasAnyInput) setInputMethod("gamepad");
 
     const prev = prevGpButtonsRef.current;
     const curr = currGpButtonsRef.current;
@@ -209,15 +180,71 @@ export function useUnifiedNavigation() {
       binding.gamepadButtons.length > 0 &&
       anyGamepadButtonJustPressed(binding.gamepadButtons, prev, curr);
 
-    const stickOn = useLeftStickForSpatialEffective();
+    const stickOn = leftStickForSpatialEffective();
 
     const dpadDownFor = (id: NavActionId, currBuf: boolean[]) => {
       const b = getNavBinding(id);
       return b.enabled && b.gamepadButtons.some((i) => currBuf[i]);
     };
 
+    const leftStickX = gamepad.axes[0];
+    const leftStickY = gamepad.axes[1];
+
+    const bU = getNavBinding("spatialUp");
+    const bD = getNavBinding("spatialDown");
+    const bL = getNavBinding("spatialLeft");
+    const bR = getNavBinding("spatialRight");
+
+    const upPressed    = bU.enabled && (dpadDownFor("spatialUp",    curr) || (stickOn && leftStickY < -0.5));
+    const downPressed  = bD.enabled && (dpadDownFor("spatialDown",  curr) || (stickOn && leftStickY >  0.5));
+    const leftPressed  = bL.enabled && (dpadDownFor("spatialLeft",  curr) || (stickOn && leftStickX < -0.5));
+    const rightPressed = bR.enabled && (dpadDownFor("spatialRight", curr) || (stickOn && leftStickX >  0.5));
+
+    const now = performance.now();
+
+    /**
+     * Fire `action` on first press, then repeat after INITIAL_MS delay at INTERVAL_MS rate.
+     * `id` must be unique per direction per context (use "ctx-up" vs "up" to isolate contexts).
+     */
+    const handleDir = (id: string, isPressed: boolean, action: () => void) => {
+      const state = repeatRef.current[id] ?? null;
+      if (isPressed) {
+        if (!state) {
+          repeatRef.current[id] = { pressStart: now, lastFire: now };
+          action();
+        } else {
+          const elapsed = now - state.pressStart;
+          if (elapsed >= REPEAT_INITIAL_MS && now - state.lastFire >= REPEAT_INTERVAL_MS) {
+            state.lastFire = now;
+            action();
+          }
+        }
+      } else {
+        if (state !== null) repeatRef.current[id] = null;
+      }
+    };
+
     try {
-      if (useAppShellStore.getState().currentView === "settings" || useAppShellStore.getState().currentView === "docs") {
+      if (useShellOverlayStore.getState().exitConfirmOpen) {
+        // Power menu (ExitModal) self-polls the gamepad.
+        return;
+      }
+
+      const currentAppView = useAppShellStore.getState().currentView;
+      if (currentAppView === "settings" || currentAppView === "docs") {
+        // Form surfaces: d-pad moves real DOM focus (domSpatialNav), A activates,
+        // left/right adjust a focused slider instead of leaving it.
+        handleDir("form-up",   upPressed,   () => domSpatialMoveOrScroll("up"));
+        handleDir("form-down", downPressed, () => domSpatialMoveOrScroll("down"));
+        handleDir("form-left", leftPressed, () => {
+          if (!adjustFocusedRange("left")) domSpatialMoveOrScroll("left");
+        });
+        handleDir("form-right", rightPressed, () => {
+          if (!adjustFocusedRange("right")) domSpatialMoveOrScroll("right");
+        });
+        if (gpJust(getNavBinding("primary"))) {
+          domActivateFocused();
+        }
         if (gpJust(getNavBinding("back"))) {
           applyBackOrEscape(delayedFocus);
         }
@@ -229,33 +256,15 @@ export function useUnifiedNavigation() {
 
       const sh = useShellOverlayStore.getState();
       if (sh.gameContextMenuOpen) {
-        const leftStickY = gamepad.axes[1];
-        const bUp = getNavBinding("spatialUp");
-        const bDown = getNavBinding("spatialDown");
-        const dpadUp = dpadDownFor("spatialUp", curr);
-        const dpadDown = dpadDownFor("spatialDown", curr);
-        const upPressed =
-          bUp.enabled && (dpadUp || (stickOn && leftStickY < -0.5));
-        const downPressed =
-          bDown.enabled && (dpadDown || (stickOn && leftStickY > 0.5));
-        if (upPressed && !dpadUpRef.current && !stickUpRef.current) {
-          dpadUpRef.current = dpadUp;
-          stickUpRef.current = stickOn && leftStickY < -0.5;
+        handleDir("ctx-up",   upPressed,   () => {
           const st = useShellOverlayStore.getState();
-          st.setContextMenuFocusIndex(st.contextMenuFocusIndex - 1);
-        } else if (!upPressed) {
-          dpadUpRef.current = false;
-          stickUpRef.current = false;
-        }
-        if (downPressed && !dpadDownRef.current && !stickDownRef.current) {
-          dpadDownRef.current = dpadDown;
-          stickDownRef.current = stickOn && leftStickY > 0.5;
+          st.setContextMenuFocusIndex(Math.max(0, st.contextMenuFocusIndex - 1));
+        });
+        handleDir("ctx-down", downPressed, () => {
           const st = useShellOverlayStore.getState();
-          st.setContextMenuFocusIndex(st.contextMenuFocusIndex + 1);
-        } else if (!downPressed) {
-          dpadDownRef.current = false;
-          stickDownRef.current = false;
-        }
+          const max = Math.max(0, st.contextMenuItemCount - 1);
+          st.setContextMenuFocusIndex(Math.min(max, st.contextMenuFocusIndex + 1));
+        });
         if (gpJust(getNavBinding("back"))) {
           useShellOverlayStore.getState().setGameContextMenuOpen(false);
         }
@@ -269,16 +278,14 @@ export function useUnifiedNavigation() {
       }
 
       const fa = getEffectiveFocusArea();
-      const currentView = useAppShellStore.getState().currentView;
       const gs0 = useGameStore.getState();
       const ds0 = useTmdbDiscoverStore.getState();
       const hasGameSelection = Boolean(gs0.filteredGames[gs0.selectedIndex]);
-      const hasDiscoverSelection =
-        isDiscoverLibraryView() && Boolean(ds0.getItems()[ds0.selectedIndex]);
+      const hasDiscoverSelection = isDiscoverLibraryView() && Boolean(ds0.getItems()[ds0.selectedIndex]);
       const hasPrimaryGridSelection = hasDiscoverSelection || hasGameSelection;
 
       if (
-        currentView === "games" &&
+        currentAppView === "games" &&
         fa === "games" &&
         hasPrimaryGridSelection &&
         !isDiscoverLibraryView() &&
@@ -289,64 +296,16 @@ export function useUnifiedNavigation() {
       }
 
       if (
-        (currentView === "games" || currentView === "details") &&
+        (currentAppView === "games" || currentAppView === "details") &&
         gpJust(getNavBinding("gamepadQuickAccessOverlay"))
       ) {
         useShellOverlayStore.getState().toggleQuickAccess();
       }
 
-      const leftStickX = gamepad.axes[0];
-      const leftStickY = gamepad.axes[1];
-
-      const bU = getNavBinding("spatialUp");
-      const bD = getNavBinding("spatialDown");
-      const bL = getNavBinding("spatialLeft");
-      const bR = getNavBinding("spatialRight");
-      const dUp = dpadDownFor("spatialUp", curr);
-      const dDown = dpadDownFor("spatialDown", curr);
-      const dLeft = dpadDownFor("spatialLeft", curr);
-      const dRight = dpadDownFor("spatialRight", curr);
-
-      const upPressed = bU.enabled && (dUp || (stickOn && leftStickY < -0.5));
-      const downPressed = bD.enabled && (dDown || (stickOn && leftStickY > 0.5));
-      const leftPressed = bL.enabled && (dLeft || (stickOn && leftStickX < -0.5));
-      const rightPressed = bR.enabled && (dRight || (stickOn && leftStickX > 0.5));
-
-      if (upPressed && !dpadUpRef.current && !stickUpRef.current) {
-        dpadUpRef.current = dUp;
-        stickUpRef.current = stickOn && leftStickY < -0.5;
-        applySpatialNavigation("up", delayedFocus);
-      } else if (!upPressed) {
-        dpadUpRef.current = false;
-        stickUpRef.current = false;
-      }
-
-      if (downPressed && !dpadDownRef.current && !stickDownRef.current) {
-        dpadDownRef.current = dDown;
-        stickDownRef.current = stickOn && leftStickY > 0.5;
-        applySpatialNavigation("down", delayedFocus);
-      } else if (!downPressed) {
-        dpadDownRef.current = false;
-        stickDownRef.current = false;
-      }
-
-      if (leftPressed && !dpadLeftRef.current && !stickLeftRef.current) {
-        dpadLeftRef.current = dLeft;
-        stickLeftRef.current = stickOn && leftStickX < -0.5;
-        applySpatialNavigation("left", delayedFocus);
-      } else if (!leftPressed) {
-        dpadLeftRef.current = false;
-        stickLeftRef.current = false;
-      }
-
-      if (rightPressed && !dpadRightRef.current && !stickRightRef.current) {
-        dpadRightRef.current = dRight;
-        stickRightRef.current = stickOn && leftStickX > 0.5;
-        applySpatialNavigation("right", delayedFocus);
-      } else if (!rightPressed) {
-        dpadRightRef.current = false;
-        stickRightRef.current = false;
-      }
+      handleDir("up",    upPressed,    () => applySpatialNavigation("up",    delayedFocus));
+      handleDir("down",  downPressed,  () => applySpatialNavigation("down",  delayedFocus));
+      handleDir("left",  leftPressed,  () => applySpatialNavigation("left",  delayedFocus));
+      handleDir("right", rightPressed, () => applySpatialNavigation("right", delayedFocus));
 
       if (gpJust(getNavBinding("primary"))) {
         applyPrimaryAction();
@@ -361,7 +320,7 @@ export function useUnifiedNavigation() {
       }
 
       if (
-        currentView === "games" &&
+        currentAppView === "games" &&
         fa === "games" &&
         hasPrimaryGridSelection &&
         gpJust(getNavBinding("quickLaunch"))
@@ -440,10 +399,11 @@ export function useUnifiedNavigation() {
     }
   }, [setInputMethod, delayedFocus]);
 
+  // Gamepad polling at ~60 fps via rAF
   useEffect(() => {
     let animationFrameId: number;
     let lastTime = 0;
-    const throttleMs = 200;
+    const throttleMs = 16;
 
     const pollGamepad = (currentTime: number) => {
       if (currentTime - lastTime >= throttleMs) {
@@ -456,9 +416,7 @@ export function useUnifiedNavigation() {
     animationFrameId = requestAnimationFrame(pollGamepad);
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
+      cancelAnimationFrame(animationFrameId);
     };
   }, [handleGamepadInput]);
 

@@ -25,6 +25,7 @@ import {
 } from "@/config/contentGridPresets";
 import { useGridColumnCountSync } from "@/hooks/useGridColumnCountSync";
 import { useKeepGridSelectionVisible } from "@/hooks/useKeepGridSelectionVisible";
+import { registerGridContainer } from "@/navigation/focusRegistry";
 
 function DiscoverTmdbShelfCard({
   hit,
@@ -140,6 +141,8 @@ export function TmdbDiscoverGrid() {
     itemCount: items.length,
     layoutEpoch: loading,
   });
+
+  useEffect(() => registerGridContainer("discover", containerRef), []);
 
   useKeepGridSelectionVisible(containerRef, selectedCardRef, {
     selectedIndex,

@@ -86,6 +86,7 @@ export function DocsPage() {
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
             <JumpLink to="/settings/game">Library & sync</JumpLink>
+            <JumpLink to="/settings/system">Console & startup</JumpLink>
             <JumpLink to="/settings/streaming">Streaming</JumpLink>
             <JumpLink to="/settings/appearance">Appearance</JumpLink>
             <JumpLink to="/settings/api">Metadata API</JumpLink>
@@ -165,6 +166,50 @@ export function DocsPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
+            <Monitor className="w-4 h-4 text-rose-400" aria-hidden />
+            Console mode (Windows)
+          </CardTitle>
+          <CardDescription className="text-sm">
+            Living-room shell integration — by default Explorer stays running; Portal manages desktop chrome.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <GuideList
+            items={[
+              "Settings → Console & startup: enable Console mode, hide the taskbar while Portal runs, optional Big Picture fullscreen after boot, launch at login (HKCU Run), and Phase 3 launch/exit automation (disable secondary displays, switch default audio, optional companion tools like RTSS).",
+              "Phase 2: Ctrl+Shift+Tab (app switcher), Ctrl+Shift+H (quick access), focus watchdog return-to-Portal when a tracked game exits.",
+              "Ctrl+Shift+Q restores the taskbar and turns off Console mode if the taskbar was hidden.",
+              "If Portal exits unexpectedly, relaunch Portal or sign out of Windows; the app restores taskbar state on the next start when needed.",
+            ]}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Shield className="w-4 h-4 text-amber-400" aria-hidden />
+            Windows shell (Phase 4)
+          </CardTitle>
+          <CardDescription className="text-sm">
+            Optional advanced setting — boot straight into Portal instead of the desktop.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <GuideList
+            items={[
+              "Settings → Console & startup → Use Portal as Windows shell. A confirmation dialog appears the first time. Requires UAC; sign out or restart after enabling.",
+              "Recovery: Revert to Explorer on next Portal start, run portal-media.exe --revert-winlogon-shell from Task Manager, disable the shell toggle in Settings, or Safe Mode → Shell = explorer.exe. See docs/WINLOGON_SHELL.md.",
+              "Emergency: Ctrl+Shift+Esc (Task Manager → run explorer.exe), Ctrl+Shift+Q (Console mode escape while Portal runs).",
+              "When Portal is the logon shell, it starts explorer.exe in the background for the system tray and applies Console mode defaults for that session.",
+            ]}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
             <Monitor className="w-4 h-4 text-amber-500" aria-hidden />
             Embedded browser
           </CardTitle>
@@ -192,7 +237,8 @@ export function DocsPage() {
           <GuideList
             items={[
               "Quick access (Win / Meta tap when enabled) jumps to Library, this documentation, Settings, the app switcher, or a minimized browser.",
-              "The app switcher lists recent in-app surfaces so you can bounce between library, details, and browser sessions.",
+              "Global shell hotkeys (Windows, Settings → System): Ctrl+Shift+Tab opens the app switcher; Ctrl+Shift+H opens quick access — even while a game has focus.",
+              "The app switcher lists recent surfaces, shows running/ended games, and can return you to Portal when a launched game exits (focus watchdog). Automation profiles restore displays and audio when the tracked game process ends.",
               "Controller hint text at the bottom is hidden on Settings, Documentation, and whenever remote-style navigation is disabled.",
             ]}
           />

@@ -2,6 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { BookmarkManager } from "@/components/BookmarkManager";
 import { LibraryManualAddSection } from "@/components/LibraryManualAddSection";
+import { SaveCloudSyncSection } from "@/components/settings/SaveCloudSyncSection";
+import { appNavigate } from "@/nav/appNavigate";
+import { HardDrive } from "lucide-react";
 import { useGameStore } from "@/stores/gameStore";
 import { useSyncStore, Platform } from "@/stores/syncStore";
 import {
@@ -269,6 +272,17 @@ export function SettingsGamePage() {
         <CardContent className="space-y-6 pt-0">
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-white/90 uppercase tracking-wide">Library</h3>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 px-5 text-sm font-medium border-white/20 text-white hover:bg-white/10"
+                onClick={() => appNavigate("/settings/saves")}
+              >
+                <HardDrive className="mr-2 w-4 h-4" aria-hidden />
+                Save data explorer
+              </Button>
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 onClick={() => void scanGames()}
@@ -312,6 +326,7 @@ export function SettingsGamePage() {
           </div>
         </CardContent>
       </Card>
+      <SaveCloudSyncSection />
       <LibraryManualAddSection />
       <BookmarkManager />
     </>

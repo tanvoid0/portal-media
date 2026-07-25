@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { getSafeImageSource, isValidImageSource } from "@/utils/imageUtils";
 import { linkIconFromUrl } from "@/utils/igdbLinkIcons";
@@ -61,10 +61,12 @@ export function ExternalLinkGlyph({
     );
   }
 
+  // createElement + lowercase var: the icon is a component *reference* (lucide),
+  // not a component created during render — avoids the react-hooks false positive.
+  const icon = linkIconFromUrl(url, labelHint);
   const brandTint = tailwindIconTextClassForExternalUrl(url, neutralIconClassName ?? "text-muted-foreground");
-  return (
-    <Icon
-      className={cn(s.icon, "shrink-0 opacity-95", brandTint, iconClassName, className)}
-      aria-hidden
-    />
-  );}
+  return createElement(icon, {
+    className: cn(s.icon, "shrink-0 opacity-95", brandTint, iconClassName, className),
+    "aria-hidden": true,
+  });
+}

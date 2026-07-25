@@ -267,40 +267,118 @@ impl Platform {
         }
     }
     
-    /// Connect to the platform (detect installation and store token)
+    /// Connect to the platform. For Steam/Epic/GOG, restores from stored
+    /// credentials if available. Falls back to installation detection otherwise.
     pub async fn connect(&self) -> Result<SyncResult, String> {
         #[cfg(target_os = "windows")]
         {
-            // Check installation
-            if !self.is_installed() {
-                return Err(format!("{} installation not found. Please ensure it is installed.", self.as_str()));
+            // Check for stored WebView credentials first (Steam/Epic/GOG)
+            match self {
+                Platform::Steam => {
+                    if let Some((steam_id, _token)) =
+                        crate::metadata::get_steam_credentials()
+                    {
+                        helpers::store_token("Steam");
+                        let games = crate::game_scanner::scan_steam_games();
+                        let mut profile = UserProfile {
+                            user_id: steam_id.clone(),
+                            display_name: "Steam User".to_string(),
+                            avatar_url: None,
+                        };
+                        if let Some(p) = crate::game_scanner::get_steam_user_profile().await {
+                            profile = p;
+                        }
+                        println!("✓ Steam restored from stored credentials ({})", profile.display_name);
+                        return Ok(SyncResult::success_with_profile(games.len(), profile));
+                    }
+                }
+                Platform::EpicGames => {
+                    if let Some(creds) = crate::metadata::get_epic_credentials() {
+                        helpers::store_token("Epic Games");
+                        let games = crate::game_scanner::scan_epic_games();
+                        let profile = UserProfile {
+                            user_id: creds.account_id,
+                            display_name: creds.display_name,
+                            avatar_url: None,
+                        };
+                        println!("✓ Epic restored from stored credentials ({})", profile.display_name);
+                        return Ok(SyncResult::success_with_profile(games.len(), profile));
+                    }
+                }
+                Platform::Gog => {
+                    if let Some((user_id, username)) =
+                        crate::metadata::get_gog_credentials()
+                    {
+                        helpers::store_token("GOG");
+                        let games = crate::game_scanner::scan_gog_games();
+                        let profile = UserProfile {
+                            user_id,
+                            display_name: username.clone(),
+                            avatar_url: None,
+                        };
+                        println!("✓ GOG restored from stored credentials ({})", username);
+                        return Ok(SyncResult::success_with_profile(games.len(), profile));
+                    }
+                }
+                Platform::Xbox => {
+                    if let Some(creds) = crate::metadata::get_xbox_credentials() {
+                        helpers::store_token("Xbox");
+                        let games = crate::game_scanner::scan_xbox_games();
+                        let profile = UserProfile {
+                            user_id: creds.xid,
+                            display_name: creds.gamertag.clone(),
+                            avatar_url: None,
+                        };
+                        println!("✓ Xbox restored from stored credentials ({})", creds.gamertag);
+                        return Ok(SyncResult::success_with_profile(games.len(), profile));
+                    }
+                }
+                Platform::Ubisoft => {
+                    if let Some((username, user_id)) = crate::metadata::get_ubisoft_credentials() {
+                        helpers::store_token("Ubisoft");
+                        let games = crate::game_scanner::scan_ubisoft_games();
+                        let profile = UserProfile {
+                            user_id,
+                            display_name: username.clone(),
+                            avatar_url: None,
+                        };
+                        println!("✓ Ubisoft restored from stored credentials ({})", username);
+                        return Ok(SyncResult::success_with_profile(games.len(), profile));
+                    }
+                }
             }
-            
-            // Store token
+
+            // Fall back to installation detection (Ubisoft, Xbox, or any platform
+            // without stored credentials)
+            if !self.is_installed() {
+                return Err(format!(
+                    "{} installation not found. Please ensure it is installed.",
+                    self.as_str()
+                ));
+            }
+
             helpers::store_token(self.as_str());
-            
-            // Try to get initial game count (don't fail connection if sync fails)
+
             let sync_result = match self.sync().await {
                 Ok(result) => {
                     println!("{} sync successful: {} games", self.as_str(), result.game_count.unwrap_or(0));
                     result
-                },
+                }
                 Err(e) => {
                     println!("{} sync error during connection (non-fatal): {}", self.as_str(), e);
                     SyncResult::success(0)
-                },
+                }
             };
-            
+
             let mut final_result = sync_result;
-            
-            // For Steam, also try to get the user profile
+
             if let Platform::Steam = self {
                 if let Some(profile) = crate::game_scanner::get_steam_user_profile().await {
                     println!("✓ Steam profile found: {} ({})", profile.display_name, profile.user_id);
                     final_result.user_profile = Some(profile);
                 }
             }
-            
+
             Ok(final_result)
         }
         #[cfg(not(target_os = "windows"))]
@@ -339,9 +417,16 @@ impl Platform {
         Ok(SyncResult::success(game_count))
     }
     
-    /// Disconnect from the platform (remove token)
+    /// Disconnect from the platform (remove token and stored credentials)
     pub fn disconnect(&self) -> Result<(), String> {
         helpers::remove_token(self.as_str());
+        match self {
+            Platform::Steam => { let _ = crate::metadata::clear_steam_credentials(); }
+            Platform::EpicGames => { let _ = crate::metadata::clear_epic_credentials(); }
+            Platform::Gog => { let _ = crate::metadata::clear_gog_credentials(); }
+            Platform::Xbox => { let _ = crate::metadata::clear_xbox_credentials(); }
+            Platform::Ubisoft => { let _ = crate::metadata::clear_ubisoft_credentials(); }
+        }
         Ok(())
     }
 }
@@ -399,22 +484,94 @@ pub async fn sync_platform_command(platform: String) -> Result<SyncResult, Strin
 }
 
 #[command]
-pub async fn authenticate_platform_command(platform: String, _app: tauri::AppHandle) -> Result<SyncResult, String> {
+pub async fn authenticate_platform_command(platform: String, app: tauri::AppHandle) -> Result<SyncResult, String> {
     println!("=== Authenticating platform: {} ===", platform);
-    
+
     let platform_enum = Platform::from_str(&platform)
         .ok_or_else(|| format!("Unknown platform: {}", platform))?;
-    
+
     match platform_enum {
         Platform::Steam => {
-            // Steam is mostly local detection
-            connect_platform(&platform).await
-        },
-        _ => {
-            // For others, we might want to open a browser
-            // For now, let's just use the connect logic which does local detection
-            // but we can expand this to actual OAuth later.
-            connect_platform(&platform).await
+            let result = crate::platform_auth::steam_login(app).await?;
+            crate::metadata::save_steam_credentials(
+                &result.steam_id,
+                &result.access_token,
+            )?;
+            helpers::store_token("Steam");
+            let games = crate::game_scanner::scan_steam_games();
+            Ok(SyncResult::success_with_profile(games.len(), result.profile))
+        }
+        Platform::EpicGames => {
+            let result = crate::platform_auth::epic_login(app).await?;
+            crate::metadata::save_epic_credentials(
+                &result.account_id,
+                &result.display_name,
+                &result.access_token,
+                &result.refresh_token,
+            )?;
+            helpers::store_token("Epic Games");
+            let games = crate::game_scanner::scan_epic_games();
+            let profile = UserProfile {
+                user_id: result.account_id,
+                display_name: result.display_name,
+                avatar_url: None,
+            };
+            Ok(SyncResult::success_with_profile(games.len(), profile))
+        }
+        Platform::Gog => {
+            let result = crate::platform_auth::gog_login(app).await?;
+            crate::metadata::save_gog_credentials(
+                &result.user_id,
+                &result.username,
+            )?;
+            helpers::store_token("GOG");
+            let games = crate::game_scanner::scan_gog_games();
+            let profile = UserProfile {
+                user_id: result.user_id,
+                display_name: result.username,
+                avatar_url: None,
+            };
+            Ok(SyncResult::success_with_profile(games.len(), profile))
+        }
+        Platform::Xbox => {
+            let result = crate::platform_auth::xbox_login(app).await?;
+            crate::metadata::save_xbox_credentials(
+                &crate::metadata::XboxStoredCredentials {
+                    xid: result.xid.clone(),
+                    uhs: result.uhs,
+                    xsts_token: result.xsts_token,
+                    refresh_token: result.refresh_token,
+                    gamertag: result.gamertag.clone(),
+                },
+            )?;
+            helpers::store_token("Xbox");
+            let games = crate::game_scanner::scan_xbox_games();
+            let profile = UserProfile {
+                user_id: result.xid,
+                display_name: result.gamertag,
+                avatar_url: None,
+            };
+            Ok(SyncResult::success_with_profile(games.len(), profile))
+        }
+        Platform::Ubisoft => {
+            // Ubisoft has no public OAuth. Check installation and read local profile.
+            if !Platform::Ubisoft.is_installed() {
+                return Err("Ubisoft Connect installation not found".to_string());
+            }
+            let profile_info = crate::platform_auth::ubisoft_read_local_profile();
+            let (username, user_id) = match &profile_info {
+                Some(p) => (p.username.clone(), p.user_id.clone()),
+                None => ("Ubisoft User".to_string(), String::new()),
+            };
+            crate::metadata::save_ubisoft_credentials(&username, &user_id)?;
+            helpers::store_token("Ubisoft");
+            let games = crate::game_scanner::scan_ubisoft_games();
+            let profile = UserProfile {
+                user_id,
+                display_name: username,
+                avatar_url: None,
+            };
+            Ok(SyncResult::success_with_profile(games.len(), profile))
         }
     }
 }

@@ -156,6 +156,7 @@ export function BrowserView() {
     const currentTab = activeTab; // Capture for use in async functions
     let cancelled = false;
     isNavigating.current = true;
+    const previousUrl = lastNavigatedUrl.current;
     lastNavigatedUrl.current = currentTab.url;
     
     const navigate = async () => {
@@ -223,20 +224,20 @@ export function BrowserView() {
             const url = new URL(currentTab.url);
             updateTab(currentTab.id, {
               title: url.hostname.replace("www.", ""),
-              canGoBack: true,
+              canGoBack: previousUrl !== null,
               canGoForward: false,
             });
           } else {
             updateTab(currentTab.id, {
               title: currentTab.url || "New Tab",
-              canGoBack: true,
+              canGoBack: previousUrl !== null,
               canGoForward: false,
             });
           }
         } catch {
           updateTab(currentTab.id, {
             title: currentTab.url || "New Tab",
-            canGoBack: true,
+            canGoBack: previousUrl !== null,
             canGoForward: false,
           });
         }

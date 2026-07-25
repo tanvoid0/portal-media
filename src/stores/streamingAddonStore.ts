@@ -71,16 +71,18 @@ export const useStreamingAddonStore = create<StreamingAddonState>((set, get) => 
   libraryBookmarkRow: () => {
     const m = get().manifest;
     if (!m?.enabled || !m.features.libraryBookmark) return null;
-    const origin = m.webOrigin.replace(/\/$/, "");
+    const exe = m.launch?.executable?.trim();
+    const target = exe || m.webOrigin.replace(/\/$/, "");
+    if (!target) return null;
     return {
       name: m.displayName,
-      path: origin,
-      executable: origin,
+      path: target,
+      executable: target,
       cover_art: undefined,
       icon: faviconUrlForDomain(m.icon.faviconDomain, 256),
-      platform: "Web",
+      platform: exe ? "Desktop" : "Web",
       category: "Media",
-      launch_type: "Url",
+      launch_type: exe ? "Executable" : "Url",
     };
   },
 }));

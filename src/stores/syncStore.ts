@@ -12,7 +12,6 @@ interface SyncStore {
   disconnectPlatform: (platform: Platform) => Promise<void>;
   syncPlatform: (platform: Platform) => Promise<void>;
   syncAllPlatforms: () => Promise<void>;
-  refreshProfiles: () => Promise<void>;
   getPlatformStatus: (platform: Platform) => PlatformSyncStatus;
 }
 
@@ -386,48 +385,5 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
     }
   },
 
-  refreshProfiles: async () => {
-    const { platforms } = get();
-    const connectedPlatforms = Object.values(platforms).filter((p) => p.isConnected && !p.userProfile);
-    
-    if (connectedPlatforms.length === 0) return;
-
-    console.log(`Refreshing profiles for ${connectedPlatforms.length} platforms...`);
-    
-    for (const p of connectedPlatforms) {
-      try {
-        const result = await invoke<{ 
-          success: boolean; 
-          userProfile?: UserProfile;
-        }>(
-          "authenticate_platform_command",
-          { platform: p.platform }
-        );
-
-        if (result.success && result.userProfile) {
-          set((state) => {
-            const updated = {
-              ...state.platforms,
-              [p.platform]: {
-                ...state.platforms[p.platform],
-                userProfile: result.userProfile,
-              },
-            };
-            saveStatus(updated);
-            return { platforms: updated };
-          });
-        }
-      } catch (e) {
-        console.error(`Failed to refresh profile for ${p.platform}:`, e);
-      }
-    }
-  },
 }));
-
-// Initialize store and refresh profiles
-if (typeof window !== "undefined") {
-  setTimeout(() => {
-    useSyncStore.getState().refreshProfiles().catch(console.error);
-  }, 1000);
-}
 

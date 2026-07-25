@@ -3,15 +3,33 @@ pub fn extract_icon_from_exe(path: &std::path::Path) -> Option<String> {
     shell_path_icon_data_url(path)
 }
 
-/// Raw PNG bytes for disk cache / embedding.
+/// Raw PNG bytes for disk cache / embedding (single filesystem path).
 #[cfg(target_os = "windows")]
 pub fn extract_shell_path_icon_png_bytes(path: &std::path::Path) -> Option<Vec<u8>> {
     let abs = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    try_shell_item_image_bytes(&abs).or_else(|| try_shgetfileinfo_bytes(&abs))
+    try_shell_item_image_bytes(&abs)
+        .or_else(|| try_extract_icon_ex_bytes(&abs))
+        .or_else(|| try_shgetfileinfo_bytes(&abs))
+}
+
+/// Best icon for a launch path (`.lnk`, `.exe`, …), trying shortcut shell icon then resolved target.
+#[cfg(target_os = "windows")]
+pub fn extract_best_launch_icon_png_bytes(launch_path: &std::path::Path) -> Option<Vec<u8>> {
+    for candidate in crate::shell_link::icon_source_candidates(launch_path) {
+        if let Some(bytes) = extract_shell_path_icon_png_bytes(&candidate) {
+            return Some(bytes);
+        }
+    }
+    None
 }
 
 #[cfg(not(target_os = "windows"))]
 pub fn extract_shell_path_icon_png_bytes(_path: &std::path::Path) -> Option<Vec<u8>> {
+    None
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn extract_best_launch_icon_png_bytes(_launch_path: &std::path::Path) -> Option<Vec<u8>> {
     None
 }
 
@@ -70,12 +88,67 @@ fn try_shell_item_image_bytes(abs: &std::path::Path) -> Option<Vec<u8>> {
     png
 }
 
+/// Embedded PE icons via `ExtractIconExW` (large icon index 0).
+#[cfg(target_os = "windows")]
+fn try_extract_icon_ex_bytes(abs: &std::path::Path) -> Option<Vec<u8>> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::core::PCWSTR;
+    use windows::Win32::UI::Shell::ExtractIconExW;
+    use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, HICON};
+
+    if abs.extension().and_then(|e| e.to_str()) != Some("exe") {
+        return None;
+    }
+
+    let wide: Vec<u16> = abs
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    let mut large = HICON::default();
+    let mut small = HICON::default();
+    let count = unsafe {
+        ExtractIconExW(
+            PCWSTR(wide.as_ptr()),
+            0,
+            Some(&mut large),
+            Some(&mut small),
+            1,
+        )
+    };
+    if count == 0 {
+        return None;
+    }
+
+    let hicon = if !large.is_invalid() {
+        large
+    } else if !small.is_invalid() {
+        small
+    } else {
+        return None;
+    };
+
+    let png = unsafe {
+        hicon_to_png_bytes_from_icon(hicon, ICON_EXTRACT_SIZE_PX, ICON_EXTRACT_SIZE_PX)
+    };
+    unsafe {
+        if !large.is_invalid() {
+            let _ = DestroyIcon(large);
+        }
+        if !small.is_invalid() {
+            let _ = DestroyIcon(small);
+        }
+    }
+    png
+}
+
 #[cfg(target_os = "windows")]
 fn try_shgetfileinfo_bytes(abs: &std::path::Path) -> Option<Vec<u8>> {
     use std::os::windows::ffi::OsStrExt;
     use windows::core::PCWSTR;
     use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
-    use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON};
+    use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
     use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
 
     let wide: Vec<u16> = abs
@@ -91,7 +164,7 @@ fn try_shgetfileinfo_bytes(abs: &std::path::Path) -> Option<Vec<u8>> {
             FILE_FLAGS_AND_ATTRIBUTES(0),
             Some(&mut shfi),
             std::mem::size_of::<SHFILEINFOW>() as u32,
-            SHGFI_ICON,
+            SHGFI_ICON | SHGFI_LARGEICON,
         )
     };
     if ret == 0 || shfi.hIcon.is_invalid() {
@@ -99,7 +172,7 @@ fn try_shgetfileinfo_bytes(abs: &std::path::Path) -> Option<Vec<u8>> {
     }
 
     let hicon = shfi.hIcon;
-    let png = unsafe { hicon_to_png_bytes_from_icon(hicon) };
+    let png = unsafe { hicon_to_png_bytes_from_icon(hicon, 0, 0) };
     unsafe {
         let _ = DestroyIcon(hicon);
     }
@@ -180,6 +253,8 @@ unsafe fn hbitmap_to_png_bytes(hbmp: windows::Win32::Graphics::Gdi::HBITMAP) -> 
 #[cfg(target_os = "windows")]
 unsafe fn hicon_to_png_bytes_from_icon(
     hicon: windows::Win32::UI::WindowsAndMessaging::HICON,
+    width: i32,
+    height: i32,
 ) -> Option<Vec<u8>> {
     use std::ffi::c_void;
     use std::ptr::null_mut;
@@ -192,8 +267,12 @@ unsafe fn hicon_to_png_bytes_from_icon(
         DrawIconEx, GetSystemMetrics, DI_NORMAL, SM_CXICON, SM_CYICON,
     };
 
-    let cx = GetSystemMetrics(SM_CXICON);
-    let cy = GetSystemMetrics(SM_CYICON);
+    let mut cx = width;
+    let mut cy = height;
+    if cx <= 0 || cy <= 0 {
+        cx = GetSystemMetrics(SM_CXICON);
+        cy = GetSystemMetrics(SM_CYICON);
+    }
     if cx <= 0 || cy <= 0 {
         return None;
     }

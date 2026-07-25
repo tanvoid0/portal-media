@@ -1,15 +1,22 @@
 import { create } from "zustand";
 import { CLOSE_SHELL_SEARCH_EVENT } from "@/types/app";
+import { feedbackOpen, feedbackTick } from "@/utils/uiFeedback";
 
 interface ShellOverlayStore {
   quickAccessOpen: boolean;
   appSwitcherOpen: boolean;
+  /** Exit confirmation modal (see ExitModal). */
+  exitConfirmOpen: boolean;
   /** Compact toolbar search popover (see SearchBar). */
   searchPopoverOpen: boolean;
   gameContextMenuOpen: boolean;
   contextMenuFocusIndex: number;
   contextMenuItemCount: number;
+  /** On-screen keyboard for gamepad text entry (see OnScreenKeyboard). */
+  oskOpen: boolean;
+  setOskOpen: (open: boolean) => void;
   setQuickAccessOpen: (open: boolean) => void;
+  setExitConfirmOpen: (open: boolean) => void;
   setSearchPopoverOpen: (open: boolean) => void;
   toggleQuickAccess: () => void;
   setAppSwitcherOpen: (open: boolean) => void;
@@ -24,14 +31,24 @@ interface ShellOverlayStore {
 export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
   quickAccessOpen: false,
   appSwitcherOpen: false,
+  exitConfirmOpen: false,
   searchPopoverOpen: false,
   gameContextMenuOpen: false,
   contextMenuFocusIndex: 0,
   contextMenuItemCount: 0,
+  oskOpen: false,
+
+  setOskOpen: (open) => set({ oskOpen: open }),
+
+  setExitConfirmOpen: (open) => {
+    if (open && !get().exitConfirmOpen) feedbackOpen();
+    set({ exitConfirmOpen: open });
+  },
 
   setQuickAccessOpen: (open) =>
     set(() => {
       if (open) {
+        feedbackOpen();
         window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
       }
       return {
@@ -53,6 +70,7 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
     const { quickAccessOpen } = get();
     const opening = !quickAccessOpen;
     if (opening) {
+      feedbackOpen();
       window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
     }
     set({
@@ -71,6 +89,7 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
   setAppSwitcherOpen: (open) =>
     set(() => {
       if (open) {
+        feedbackOpen();
         window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
       }
       return {
@@ -83,6 +102,7 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
     const { appSwitcherOpen } = get();
     const opening = !appSwitcherOpen;
     if (opening) {
+      feedbackOpen();
       window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
     }
     set({
@@ -108,6 +128,7 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
     const { gameContextMenuOpen } = get();
     const opening = !gameContextMenuOpen;
     if (opening) {
+      feedbackOpen();
       window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
     }
     set({
@@ -119,9 +140,11 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
   },
 
   setContextMenuFocusIndex: (index) => {
-    const { contextMenuItemCount } = get();
+    const { contextMenuItemCount, contextMenuFocusIndex } = get();
     const max = Math.max(0, contextMenuItemCount - 1);
-    set({ contextMenuFocusIndex: Math.min(max, Math.max(0, index)) });
+    const next = Math.min(max, Math.max(0, index));
+    if (next !== contextMenuFocusIndex) feedbackTick();
+    set({ contextMenuFocusIndex: next });
   },
 
   setContextMenuItemCount: (n) =>

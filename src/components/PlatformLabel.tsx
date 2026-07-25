@@ -215,6 +215,29 @@ interface PlatformLabelProps {
   className?: string;
 }
 
+/** Large centered mark for library brand tiles (Netflix, YouTube, etc.). */
+export function LibraryBrandHeroIcon({
+  game,
+  className,
+}: {
+  game: PlatformLabelGame;
+  className?: string;
+}) {
+  const { Icon, brandColor } = resolvePlatformIcon(game);
+  return (
+    <Icon
+      className={cn("h-[4.5rem] w-[4.5rem] drop-shadow-md", className)}
+      style={brandColor ? { color: brandColor } : undefined}
+      aria-hidden
+    />
+  );
+}
+
+export function hasLibraryBrandHeroIcon(game: PlatformLabelGame): boolean {
+  const { brandColor } = resolvePlatformIcon(game);
+  return Boolean(brandColor);
+}
+
 export function PlatformLabel({
   game,
   size = "sm",

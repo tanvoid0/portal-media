@@ -10,6 +10,9 @@ import ControllerHintBar from "./ControllerHintBar";
 import GameOptionsMenu from "./GameOptionsMenu";
 import QuickAccessOverlay from "./QuickAccessOverlay";
 import AppSwitcherOverlay from "./AppSwitcherOverlay";
+import OnScreenKeyboard from "./OnScreenKeyboard";
+import { ConsoleModeNoticeModal } from "@/components/ConsoleModeNoticeModal";
+import { WinlogonShellOverlays } from "@/components/WinlogonShellOverlays";
 
 export function AppShell() {
   const { showExitModal, setShowExitModal, onConfirmExit } = useShellChrome();
@@ -29,12 +32,16 @@ export function AppShell() {
       <GameOptionsMenu />
       <QuickAccessOverlay />
       <AppSwitcherOverlay />
+      <OnScreenKeyboard />
 
       <ExitModal
         isOpen={showExitModal}
         onClose={() => setShowExitModal(false)}
         onConfirm={onConfirmExit}
       />
+
+      <ConsoleModeNoticeModal />
+      <WinlogonShellOverlays />
 
       <BrowserView />
       <BrowserMinimized />

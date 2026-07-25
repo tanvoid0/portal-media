@@ -42,10 +42,12 @@ All keys use **camelCase** to match serde / frontend IPC.
 | `version` | string | yes | Semver or opaque string for support/debugging. |
 | `enabled` | boolean | yes | If `false`, the archive is ignored for **load** (listing may still show it as disabled). |
 | `displayName` | string | yes | Human-facing label (bookmark name, TMDB action label). |
-| `webOrigin` | string | yes | Origin only, no path: `https://example.com`. Trailing `/` is stripped. Used to build hash-router deep links. |
+| `webOrigin` | string | yes\* | Origin only, no path: `https://example.com`. Trailing `/` is stripped. Used to build deep links. \*May be empty when `launch` is set. |
 | `icon` | object | yes | `{ "faviconDomain": "example.com" }` — used for Google favicon helper URLs in the UI. |
 | `features` | object | yes | `{ "libraryBookmark": boolean, "tmdbStreamButton": boolean }` — toggles bookmark row and TMDB catalog button. |
 | `browserBrand` | object | no | Optional tile hints when browsing or matching bookmarks. |
+| `launch` | object | no | Native desktop target instead of a web origin. See [Native app add-ons](#native-app-add-ons). |
+| `deepLink` | object | no | Route templates for the TMDB action. See [Deep-link templates](#deep-link-templates). |
 
 `browserBrand` fields:
 
@@ -55,12 +57,64 @@ All keys use **camelCase** to match serde / frontend IPC.
 | `nameIncludes` | string[] | Lowercase substring checks against bookmark **name**. |
 | `accentColor` | string \| null | Optional CSS hex for platform chip (e.g. `#7c6cff`). |
 
-**Deep link contract** (frontend): `webOrigin` must point to a SPA that supports routes of the form:
+### Deep-link templates
 
-- `#/metadetails/movie/{imdbId}` / `#/metadetails/series/{imdbId}` when IMDb `tt…` is present.
-- `#/search?search={encodedTitle}` as fallback.
+The TMDB action builds its target from a template. Omit `deepLink` and you get the original Stremio-style
+hash routes, unchanged:
 
-If you add a catalog that uses different routes, a future manifest version should expose a **template** or **strategy** field; v1 assumes the above pattern (see `addonMetadetailsDeepLink` in `src/utils/tmdbStreamLinks.ts`).
+| Case | Default template |
+|------|------------------|
+| IMDb id present (`tt…`) | `{origin}/#/metadetails/{type}/{imdbId}` |
+| No IMDb id | `{origin}/#/search?search={query}` |
+
+Override either one:
+
+```json
+"deepLink": {
+  "detail": "{origin}/watch/{type}/{imdbId}",
+  "search": "{origin}/find?q={query}"
+}
+```
+
+| Placeholder | Value |
+|-------------|-------|
+| `{origin}` | `webOrigin` with trailing `/` stripped. **Not** URL-encoded. |
+| `{type}` | `series` when TMDB media type is `tv`, else `movie`. |
+| `{imdbId}` | IMDb id (`tt…`) or empty. |
+| `{tmdbId}` | TMDB numeric id. |
+| `{query}` | Title text (for search routes). |
+
+Every placeholder except `{origin}` is percent-encoded, so a title containing `&` or `#` cannot break the
+route. Implementation: `renderAddonTemplate` in `src/utils/tmdbStreamLinks.ts`.
+
+### Native app add-ons
+
+Set `launch` when the add-on targets an installed desktop app rather than a website. `webOrigin` may then be
+empty (`""`).
+
+```json
+"launch": {
+  "executable": "C:\\Program Files\\Nuvio\\Nuvio.exe",
+  "args": []
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `executable` | string | Absolute path to the binary. Must exist at launch time or the action errors. |
+| `args` | string[] | Optional argv. Each entry accepts the deep-link placeholders above **plus** `{deepLink}`, which expands to the fully rendered `detail`/`search` string. |
+
+Effects:
+
+- **Library bookmark** row becomes a `Executable` launch (platform `Desktop`) pointing at `executable`.
+- **TMDB action** spawns the binary with the rendered `args` instead of opening the built-in browser.
+
+Only add `args` if the target app actually accepts a title on its command line or registers a URI scheme.
+Nuvio Desktop currently does neither, so its manifest ships `"args": []` — the button just brings the app up.
+
+> **Trust note:** a manifest with `launch` runs a binary of its choosing. Zips are plain data files with no
+> sandbox, so only install add-ons from sources you trust. The spawn is direct (no shell), so placeholders
+> cannot inject a second command, but they can supply arbitrary arguments to the named binary.
 
 ### Example `manifest.json`
 
@@ -118,6 +172,7 @@ plus the same override/env/legacy paths as above.
 | `list_streaming_catalog_addons` | Scans candidates; returns path, discovery labels, summary or parse error, `isActive`, `isUserDisabled`. Args: `overrideZipPath`, `previewZipPath`, `disabledAddonPaths`, `pluginsDirOverride` (optional). |
 | `streaming_addon_user_plugins_dir` | Ensures the **resolved** plugins dir exists; returns absolute path. Arg: `pluginsDirOverride` (optional). |
 | `delete_streaming_addon_zip` | Deletes a zip under resolved plugins folder or `{cwd}/plugins/`. Args: `path`, `pluginsDirOverride` (optional). |
+| `launch_streaming_addon_app` | Spawns a native add-on's `launch.executable` with rendered args (direct spawn, no shell). Args: `executable`, `args`. |
 
 Implementation: `src-tauri/src/streaming_addon.rs`.
 

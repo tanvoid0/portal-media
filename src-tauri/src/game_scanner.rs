@@ -110,7 +110,7 @@ pub async fn get_steam_user_profile() -> Option<UserProfile> {
     }
 }
 
-async fn fetch_steam_avatar(steam_id: &str) -> Option<String> {
+pub async fn fetch_steam_avatar(steam_id: &str) -> Option<String> {
     let url = format!("https://steamcommunity.com/profiles/{}/?xml=1", steam_id);
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
@@ -532,6 +532,7 @@ fn parse_steam_acf(path: &PathBuf) -> Result<crate::commands::Game, String> {
         executable: executable.to_string_lossy().to_string(),
         cover_art: Some(format!("https://steamcdn-a.akamaihd.net/steam/apps/{}/library_600x900.jpg", appid)),
         icon: None,
+        app_subcategory: None,
         platform: "Steam".to_string(),
         category: Category::Game,
         launch_type: crate::commands::LaunchType::Steam,
@@ -639,14 +640,12 @@ fn scan_directory_for_apps(dir: &PathBuf, apps: &mut Vec<crate::commands::Game>)
                                 Category::App
                             };
                             
-                            // For .lnk files, use the .lnk path as executable (Windows can execute shortcuts)
-                            // But use target path for category detection
-                            let executable = if target_path.extension().and_then(|s| s.to_str()) == Some("lnk") {
-                                path.to_string_lossy().to_string() // Use original .lnk path
-                            } else {
-                                target_path.to_string_lossy().to_string() // Use resolved target
-                            };
-                            
+                            // Keep the Start Menu `.lnk` as executable so launch preserves args / working dir.
+                            let executable = path.to_string_lossy().to_string();
+                            let app_subcategory = if category == Category::App {
+                                Some(classify_app_subcategory(name, &target_path.to_string_lossy()))
+                            } else { None };
+
                             apps.push(crate::commands::Game {
                                 id: format!("windows_{}", hash),
                                 name: name.to_string(),
@@ -654,6 +653,7 @@ fn scan_directory_for_apps(dir: &PathBuf, apps: &mut Vec<crate::commands::Game>)
                                 executable,
                                 cover_art: None,
                                 icon: None,
+                                app_subcategory,
                                 platform: "Windows".to_string(),
                                 category,
                                 launch_type: crate::commands::LaunchType::Executable,
@@ -689,6 +689,10 @@ fn scan_directory_for_apps(dir: &PathBuf, apps: &mut Vec<crate::commands::Game>)
                             Category::App
                         };
                         
+                        let app_subcategory = if category == Category::App {
+                            Some(classify_app_subcategory(name, &path.to_string_lossy()))
+                        } else { None };
+
                         apps.push(crate::commands::Game {
                             id: format!("windows_{}", hash),
                             name: name.to_string(),
@@ -696,6 +700,7 @@ fn scan_directory_for_apps(dir: &PathBuf, apps: &mut Vec<crate::commands::Game>)
                             executable: path.to_string_lossy().to_string(),
                             cover_art: None,
                             icon: None,
+                            app_subcategory,
                             platform: "Windows".to_string(),
                             category,
                             launch_type: crate::commands::LaunchType::Executable,
@@ -711,23 +716,110 @@ fn scan_directory_for_apps(dir: &PathBuf, apps: &mut Vec<crate::commands::Game>)
 
 #[cfg(target_os = "windows")]
 fn resolve_lnk_target(lnk_path: &PathBuf) -> Result<PathBuf, String> {
-    // For .lnk files, we need to resolve the target
-    // This is a simplified version - in production, use proper Windows Shell API
-    // For now, try to read the target from the .lnk file or use the path as-is
-    // Windows .lnk files are binary, so we'll use a workaround
-    
-    // Try to get the target using Windows API would be ideal, but for now
-    // we'll check if there's a common pattern or use the shortcut name
-    // In a real implementation, you'd use IShellLink COM interface
-    
-    // For now, return the lnk path itself - the launcher will handle it
-    // Windows can execute .lnk files directly
-    Ok(lnk_path.clone())
+    Ok(
+        crate::shell_link::resolve_shortcut_target(lnk_path)
+            .unwrap_or_else(|| lnk_path.clone()),
+    )
 }
 
 #[cfg(not(target_os = "windows"))]
 fn resolve_lnk_target(lnk_path: &PathBuf) -> Result<PathBuf, String> {
     Ok(lnk_path.clone())
+}
+
+fn classify_app_subcategory(name: &str, path: &str) -> String {
+    let n = name.to_lowercase();
+    let p = path.to_lowercase();
+
+    // System tools — hidden by default in UI
+    let system_names = [
+        "component services", "computer management", "disk cleanup", "disk defragmenter",
+        "event viewer", "device manager", "task scheduler", "registry editor",
+        "system configuration", "msconfig", "resource monitor", "performance monitor",
+        "services", "local security policy", "group policy", "credential manager",
+        "certificate manager", "windows defender", "security center", "firewall",
+        "remote desktop", "hyper-v", "windows features",
+    ];
+    let system_keywords = ["nvidia", "amd catalyst", "intel graphics", "realtek", "logitech g hub"];
+    let system_paths = ["\\windows\\system32", "\\windows\\syswow64", "\\windows\\immersivecontrolpanel"];
+
+    for kw in &system_names { if n.contains(kw) { return "System".to_string(); } }
+    for kw in &system_keywords { if n.contains(kw) { return "System".to_string(); } }
+    for sp in &system_paths { if p.contains(sp) { return "System".to_string(); } }
+
+    // Development
+    let dev = ["visual studio", "vscode", "vs code", "cursor", "windsurf", "zed",
+               "jetbrains", "android studio", "intellij", "pycharm", "webstorm", "rider",
+               "git", "github desktop", "gitkraken", "sourcetree", "fork",
+               "docker", "vmware", "virtualbox", "wsl", "postman", "insomnia", "bruno",
+               "figma", "filezilla", "putty", "winscp", "mremote", "terminus",
+               "notepad++", "sublime text", "atom", "vim", "neovim", "helix",
+               "dbeaver", "datagrip", "tableplus", "insomnia", "hoppscotch",
+               "windows terminal", "powershell ise", "anaconda", "jupyter"];
+    let dev_paths = ["\\git\\", "\\node\\", "\\python\\", "\\dotnet\\", "\\jdk\\", "\\android\\sdk\\",
+                     "\\jetbrains\\", "\\microsoft vs code\\", "\\cursor\\", "\\docker\\"];
+    for kw in &dev { if n.contains(kw) || p.contains(kw) { return "Development".to_string(); } }
+    for kw in &dev_paths { if p.contains(kw) { return "Development".to_string(); } }
+
+    // Communication
+    let comm = ["discord", "slack", "teams", "zoom", "skype", "telegram", "signal",
+                "whatsapp", "viber", "messenger", "element", "matrix", "mattermost",
+                "google chat", "webex", "ring central", "lark", "dingtalk"];
+    for kw in &comm { if n.contains(kw) { return "Communication".to_string(); } }
+
+    // Creative
+    let creative = ["photoshop", "illustrator", "premiere", "after effects", "lightroom",
+                    "indesign", "xd ", "dreamweaver", "animate ",
+                    "davinci resolve", "resolve ", "blender", "cinema 4d", "maya ",
+                    "gimp", "inkscape", "krita", "affinity photo", "affinity designer",
+                    "audacity", "reaper", "ableton", "fl studio", "logic pro", "garageband",
+                    "obs ", "obs studio", "handbrake", "kdenlive", "shotcut",
+                    "canva", "sketch ", "principle ", "zeplin"];
+    let creative_paths = ["\\adobe\\", "\\affinity\\", "\\blackmagic design\\", "\\blender\\"];
+    for kw in &creative { if n.contains(kw) || p.contains(kw) { return "Creative".to_string(); } }
+    for kw in &creative_paths { if p.contains(kw) { return "Creative".to_string(); } }
+
+    // Productivity
+    let prod = ["microsoft word", "microsoft excel", "microsoft powerpoint", "microsoft outlook",
+                "microsoft onenote", "microsoft access", "microsoft publisher",
+                " word", " excel", " powerpoint", " outlook", " onenote",
+                "notion", "obsidian", "evernote", "roam", "logseq",
+                "todoist", "things ", "omnifocus", "ticktick", "any.do",
+                "adobe acrobat", "pdf ", "foxit", "nitro pdf",
+                "libreoffice", "openoffice", "wps office",
+                "trello", "asana", "monday", "jira ", "confluence",
+                "1password", "bitwarden", "lastpass", "keepass", "dashlane",
+                "dropbox", "onedrive", "google drive", "box ", "sync "];
+    let prod_paths = ["\\microsoft office\\", "\\libreoffice\\", "\\openoffice\\"];
+    for kw in &prod { if n.contains(kw) || p.contains(kw) { return "Productivity".to_string(); } }
+    for kw in &prod_paths { if p.contains(kw) { return "Productivity".to_string(); } }
+
+    // Browser
+    let browser = ["chrome", "firefox", "edge", "opera", "brave", "vivaldi",
+                   "safari", "tor browser", "internet explorer", "chromium"];
+    for kw in &browser { if n.contains(kw) { return "Browser".to_string(); } }
+
+    // Utilities
+    let util = ["7-zip", "winrar", "winzip", "peazip", "bandizip",
+                "vlc", "mpv ", "mpc-hc", "potplayer", "kmplayer", "gom player",
+                "ccleaner", "malwarebytes", "avast", "avg ", "kaspersky", "bitdefender",
+                "everything ", "listary", "wox ", "powertoys",
+                "f.lux", "redshift", "lively", "wallpaper engine",
+                "rufus", "etcher", "ventoy",
+                "cpu-z", "gpu-z", "hwinfo", "hwmonitor", "aida64", "speccy",
+                "wireshark", "nmap ", "advanced ip scanner",
+                "teamviewer", "anydesk", "parsec", "rustdesk",
+                "spotify", "itunes", "apple music", "musicbee", "foobar",
+                "steam", "epic games", "gog galaxy", "ubisoft connect", "ea app",
+                "battle.net", "origin ", "bethesda ", "rockstar games",
+                "sharex", "lightshot", "greenshot", "snagit",
+                "calculator", "paint", "notepad ", "wordpad", "media player",
+                "snipping tool", "sticky notes", "clock", "calendar", "weather",
+                "photos", "camera", "voice recorder", "maps", "news", "mail ",
+                "phone link", "your phone", "quick assist", "get started"];
+    for kw in &util { if n.contains(kw) || p.contains(kw) { return "Utilities".to_string(); } }
+
+    "Other".to_string()
 }
 
 fn is_likely_game(name: &str, path: &PathBuf) -> bool {
@@ -1068,6 +1160,7 @@ fn parse_epic_manifest(path: &PathBuf) -> Result<crate::commands::Game, String> 
         executable: executable.to_string_lossy().to_string(),
         cover_art: None, // Epic doesn't provide easy cover art URLs
         icon: None,
+        app_subcategory: None,
         platform: "Epic Games".to_string(),
         category,
         launch_type: crate::commands::LaunchType::Epic,
@@ -1302,6 +1395,7 @@ pub fn scan_gog_games() -> Vec<crate::commands::Game> {
                                                     executable: executable.to_string_lossy().to_string(),
                                                     cover_art: None,
                                                     icon: None,
+                                                    app_subcategory: None,
                                                     platform: "GOG".to_string(),
                                                     category: Category::Game,
                                                     launch_type: crate::commands::LaunchType::Gog,
@@ -1412,6 +1506,7 @@ pub fn scan_ubisoft_games() -> Vec<crate::commands::Game> {
                                     executable: executable.to_string_lossy().to_string(),
                                     cover_art: None,
                                     icon: None,
+                                    app_subcategory: None,
                                     platform: "Ubisoft Connect".to_string(),
                                     category: Category::Game,
                                     launch_type: crate::commands::LaunchType::Ubisoft,
@@ -1510,6 +1605,7 @@ pub fn scan_xbox_games() -> Vec<crate::commands::Game> {
                                             },
                                             cover_art: None,
                                             icon: None,
+                                            app_subcategory: None,
                                             platform: "Xbox".to_string(),
                                             category: Category::Game,
                                             launch_type: crate::commands::LaunchType::Xbox,

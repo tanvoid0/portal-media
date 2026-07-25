@@ -11,7 +11,7 @@ const SNAPSHOT_FILE: &str = "library_snapshot.json";
 
 /// Bump when icon extraction or cache layout changes so new PNGs are generated.
 #[cfg(target_os = "windows")]
-const ICON_CACHE_FINGERPRINT: u32 = 3;
+const ICON_CACHE_FINGERPRINT: u32 = 4;
 
 pub fn library_cache_root(app: &AppHandle) -> Result<PathBuf, String> {
     let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -94,7 +94,7 @@ fn ensure_cached_icon_png_on_sta_thread(app: &AppHandle, shell_source: &Path) ->
     let dest = icons_dir(app)
         .ok()?
         .join(format!("{:016x}.png", cache_key_for_shell_path(&key_src)));
-    let bytes = crate::icon_extractor::extract_shell_path_icon_png_bytes(&abs)?;
+    let bytes = crate::icon_extractor::extract_best_launch_icon_png_bytes(&abs)?;
     std::fs::write(&dest, &bytes).ok()?;
     Some(dest.to_string_lossy().to_string())
 }

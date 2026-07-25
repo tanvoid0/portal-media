@@ -20,11 +20,15 @@
 //!     "hostSuffixes": ["example.com"],
 //!     "accentColor": "#7c6cff",
 //!     "nameIncludes": ["bookmark title substring"]
-//!   }
+//!   },
+//!   "launch": { "executable": "C:\\Program Files\\App\\App.exe", "args": [] },
+//!   "deepLink": { "detail": "{origin}/#/metadetails/{type}/{imdbId}", "search": "{origin}/#/search?search={query}" }
 //! }
 //! ```
 //!
 //! `browserBrand` is optional; when set, the in-app browser tile can match those hosts / bookmark names.
+//! `launch` is optional; when set the add-on targets a **native desktop app** instead of `webOrigin`
+//! (which may then be empty). `deepLink` is optional; absent fields use the v1 hash-router defaults.
 //!
 //! ## Where zips are looked up
 //! When `load_streaming_addon` is called with a non-empty `override_zip_path` and that file exists, it wins.
@@ -179,6 +183,27 @@ pub struct StreamingAddonBrowserBrand {
     pub name_includes: Vec<String>,
 }
 
+/// Native desktop target instead of a web origin. `args` accept the same placeholders as
+/// [`StreamingAddonDeepLink`] plus `{deepLink}` (the rendered detail/search string).
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamingAddonLaunch {
+    pub executable: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+}
+
+/// Route templates for the TMDB action. Absent fields fall back to the Stremio-style v1 defaults.
+/// Placeholders: `{origin}` `{type}` (`movie`/`series`) `{imdbId}` `{tmdbId}` `{query}`.
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamingAddonDeepLink {
+    #[serde(default)]
+    pub detail: Option<String>,
+    #[serde(default)]
+    pub search: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StreamingAddonManifest {
@@ -187,12 +212,18 @@ pub struct StreamingAddonManifest {
     #[serde(default = "default_true")]
     pub enabled: bool,
     pub display_name: String,
+    /// Empty for `launch`-based (native app) add-ons.
+    #[serde(default)]
     pub web_origin: String,
     pub icon: StreamingAddonIcon,
     #[serde(default)]
     pub features: StreamingAddonFeatures,
     #[serde(default)]
     pub browser_brand: Option<StreamingAddonBrowserBrand>,
+    #[serde(default)]
+    pub launch: Option<StreamingAddonLaunch>,
+    #[serde(default)]
+    pub deep_link: Option<StreamingAddonDeepLink>,
 }
 
 fn default_true() -> bool {
@@ -285,6 +316,8 @@ pub struct StreamingAddonSummary {
     pub library_bookmark: bool,
     pub tmdb_stream_button: bool,
     pub browser_brand_rule_count: usize,
+    /// Set when the add-on targets a native desktop app instead of `webOrigin`.
+    pub launch_executable: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -410,6 +443,7 @@ fn summary_from_manifest(m: StreamingAddonManifest) -> StreamingAddonSummary {
         library_bookmark: m.features.library_bookmark,
         tmdb_stream_button: m.features.tmdb_stream_button,
         browser_brand_rule_count,
+        launch_executable: m.launch.as_ref().map(|l| l.executable.clone()),
     }
 }
 
@@ -588,6 +622,30 @@ pub fn delete_streaming_addon_zip(
     Ok(())
 }
 
+/// Spawns the add-on's native app (manifest `launch`). Direct spawn — no shell — so template
+/// placeholders in `args` cannot inject a command.
+#[tauri::command]
+pub fn launch_streaming_addon_app(executable: String, args: Vec<String>) -> Result<(), String> {
+    let exe = executable.trim();
+    if exe.is_empty() {
+        return Err("Add-on has no launch executable.".into());
+    }
+    let path = PathBuf::from(exe);
+    if !path.is_file() {
+        return Err(format!("Executable not found: {exe}"));
+    }
+    let mut cmd = std::process::Command::new(&path);
+    cmd.args(&args);
+    if let Some(dir) = path.parent() {
+        cmd.current_dir(dir);
+    }
+    let mut child = cmd.spawn().map_err(|e| format!("Launch failed: {e}"))?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
+}
+
 #[tauri::command]
 pub fn streaming_addon_user_plugins_dir(
     plugins_dir_override: Option<String>,
@@ -597,4 +655,58 @@ pub fn streaming_addon_user_plugins_dir(
         .ok_or_else(|| "Could not resolve user plugin directory.".to_string())?;
     let resolved = std::fs::canonicalize(&dir).unwrap_or(dir);
     Ok(resolved.to_string_lossy().into_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// v1 manifests (no `launch`, no `deepLink`) must keep parsing unchanged.
+    #[test]
+    fn parses_v1_manifest_without_new_fields() {
+        let raw = r#"{
+            "id": "stremio-web-catalog",
+            "version": "1",
+            "enabled": true,
+            "displayName": "Stremio",
+            "webOrigin": "https://web.stremio.com/",
+            "icon": { "faviconDomain": "stremio.com" },
+            "features": { "libraryBookmark": true, "tmdbStreamButton": true }
+        }"#;
+        let m: StreamingAddonManifest = serde_json::from_str(raw).expect("v1 manifest parses");
+        assert!(m.launch.is_none());
+        assert!(m.deep_link.is_none());
+        assert_eq!(normalize_origin(&m.web_origin), "https://web.stremio.com");
+        assert_eq!(summary_from_manifest(m).launch_executable, None);
+    }
+
+    /// Native add-on: no `webOrigin`, `launch` + `deepLink` templates present.
+    #[test]
+    fn parses_native_launch_manifest() {
+        let raw = r#"{
+            "id": "nuvio-desktop",
+            "version": "1",
+            "enabled": true,
+            "displayName": "Nuvio",
+            "icon": { "faviconDomain": "nuvio.stream" },
+            "features": { "libraryBookmark": true, "tmdbStreamButton": true },
+            "launch": { "executable": "C:/Program Files/Nuvio/Nuvio.exe" },
+            "deepLink": { "detail": "nuvio://detail/{type}/{imdbId}" }
+        }"#;
+        let m: StreamingAddonManifest = serde_json::from_str(raw).expect("native manifest parses");
+        assert_eq!(m.web_origin, "");
+        assert!(m.launch.as_ref().unwrap().args.is_empty());
+        assert_eq!(
+            m.deep_link.as_ref().unwrap().detail.as_deref(),
+            Some("nuvio://detail/{type}/{imdbId}")
+        );
+        assert!(m.deep_link.as_ref().unwrap().search.is_none());
+        assert!(summary_from_manifest(m).launch_executable.is_some());
+    }
+
+    #[test]
+    fn launch_rejects_missing_executable() {
+        assert!(launch_streaming_addon_app("   ".into(), vec![]).is_err());
+        assert!(launch_streaming_addon_app("C:\nope\nope.exe".into(), vec![]).is_err());
+    }
 }

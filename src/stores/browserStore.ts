@@ -146,13 +146,11 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   },
 
   goBack: (tabId: string) => {
-    // This will be handled by the webview navigation
-    get().updateTab(tabId, { canGoBack: true });
+    get().updateTab(tabId, { canGoForward: true });
   },
 
   goForward: (tabId: string) => {
-    // This will be handled by the webview navigation
-    get().updateTab(tabId, { canGoForward: true });
+    get().updateTab(tabId, { canGoBack: true });
   },
 
   addToHistory: (url: string, title: string) => {

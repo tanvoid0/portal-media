@@ -58,15 +58,18 @@ What exists today is a **standalone Tauri application** that runs beside Explore
 | Game library scan | **Done** | Steam, Epic, GOG, Xbox, Windows apps, manual entries |
 | Game launch | **Done** | URI schemes + detached processes; PID focus for switcher |
 | Embedded browser / media | **Done** | Separate Tauri webview windows, tabs, positioning |
-| Session model (in-app) | **Partial** | `library` / `browser` / `externalGame`; app switcher overlay |
+| Session model (in-app) | **Partial** | `library` / `browser` / `externalGame`; switcher + PID watchdog |
+| Global shell hotkeys (Phase 2) | **Done** | Ctrl+Shift+Tab (switcher), Ctrl+Shift+H (quick access) |
+| Focus watchdog (Phase 2) | **Done** | `SetWinEventHook` + process poll; return-to-Portal on game exit |
 | Streaming catalog add-ons | **Done** | Zip `manifest.json`; see [docs/PLUGINS.md](docs/PLUGINS.md) |
 | Metadata (IGDB / TMDB) | **Done** | Credentials + SQLite metadata cache |
 | Platform sync hooks | **Partial** | Connect / sync / auth commands; evolving |
 | Library persistence | **Done** | SQLite manual library + scan snapshots |
-| Automation profiles (HDR, RTSS, etc.) | **Not started** | Described below as Phase 3 |
+| Automation profiles (display, audio, tools) | **Done** | Phase 3: launch/exit profiles in Settings → Console & startup |
 | Process tree cleanup on exit | **Not started** | Launch works; orchestrated teardown is future |
-| Windows shell replacement | **Not started** | No `Winlogon\Shell` integration yet |
-| Desktop chrome takeover (taskbar, tray) | **Not started** | Fullscreen hides taskbar only while Portal is focused |
+| Windows shell replacement | **Done** | Phase 4: optional `Winlogon\Shell`; UAC, backup, recovery — [docs/WINLOGON_SHELL.md](docs/WINLOGON_SHELL.md) |
+| Desktop chrome takeover (taskbar, tray) | **Done** | Console mode: SHAppBar autohide + taskbar hide; restore on exit / crash recovery |
+| Login startup + Console mode | **Done** | Settings → Console & startup; HKCU Run, Ctrl+Shift+Q escape, persisted recovery |
 
 **Implication:** The ADR’s *behavioral* target (console-like hub) is largely reachable inside the app; the *system integration* target (true shell) is still roadmap.
 
@@ -109,7 +112,7 @@ Portal Media should follow the same **UX substitution** pattern before (or inste
 | Boot experience | Desktop then app | Optional auto-start → fullscreen Portal |
 | Explorer shell process | `explorer.exe` | Still `explorer.exe`; Portal owns attention |
 
-**Phase 1 — Console mode (recommended next):** Portal starts at login, enables fullscreen, hides taskbar via policy/API while active, restores on exit. Explorer keeps running. See [Phase 1 — Console mode (Win32)](#phase-1--console-mode-win32) for concrete APIs.
+**Phase 1 — Console mode (shipped):** Portal can start at login, enter Big Picture fullscreen, hide the taskbar via `SHAppBarMessage` + Win32 show/hide while active, restore on exit, and expose Ctrl+Shift+Q as a global escape. Explorer keeps running. See [Phase 1 — Console mode (Win32)](#phase-1--console-mode-win32) for concrete APIs.
 
 **Phase 4 (optional, last):** Registry `Shell = PortalMedia.exe` only after Phases 1–3 are stable—direct boot into Portal, with documented escape hatch (safe mode, shell revert). See [Shell strategy](#shell-strategy-revised-roadmap).
 
@@ -177,9 +180,9 @@ interface CatalogAddon {
 }
 ```
 
-### 5. Automation is event-driven (planned)
+### 5. Automation is event-driven (Phase 3 shipped)
 
-Launch/exit hooks for HDR, displays, audio, companion tools remain design targets—not shipped.
+Launch/exit profiles run on game launch and when a tracked process exits: disable secondary displays (`QueryDisplayConfig` / `SetDisplayConfig`), set default playback device (Core Audio / PolicyConfig), optional companion executables, with snapshot restore on exit. HDR and GPU vendor profiles remain external-tool territory.
 
 Example future profile:
 
@@ -249,9 +252,9 @@ AppSession
 |-------|-------------|----------------|
 | **0** | Standalone Portal window; user launches manually | App only |
 | **1** | Startup entry + “Console mode”: fullscreen, taskbar autohide/hide while active, tray policy | MyDockFinder-like |
-| **2** | Global hotkeys, focus watchdog, stronger app switcher vs Alt+Tab | High |
-| **3** | Automation engine + launch/exit profiles | High |
-| **4** | Optional `Winlogon\Shell` replacement | True shell |
+| **2** | Global hotkeys, focus watchdog, stronger app switcher vs Alt+Tab | **Shipped** (shell hotkeys + watchdog; Alt+Tab not blocked) |
+| **3** | Automation engine + launch/exit profiles | **Shipped** (display, audio, companion launch) |
+| **4** | Optional `Winlogon\Shell` replacement | **Shipped** (Settings + recovery docs) |
 
 Registry reference (Phase 4 only):
 
@@ -302,7 +305,9 @@ disable_console_mode (exit, toggle off, or hotkey):
   4. SPI_SETWORKAREA restore if modified
 ```
 
-**Phase 2+ (not Phase 1):** `RegisterHotKey` for guide overlay, `SetWinEventHook` for foreground changes, blocking or filtering Alt+Tab (high risk—prefer Portal switcher as default UX without disabling system switcher).
+**Phase 2 (shipped):** `RegisterHotKey` for app switcher (`Ctrl+Shift+Tab`) and quick access (`Ctrl+Shift+H`); `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` + process poll for tracked game PIDs; `focus_portal_main_window` with `AllowSetForegroundWindow` on game exit. Alt+Tab is intentionally **not** blocked—Portal switcher is the recommended UX.
+
+**Phase 2+ (future):** Custom notification overlay; optional Alt+Tab filtering (high risk).
 
 **Phase 3 automation (display/audio preview):**
 
@@ -384,15 +389,15 @@ Dependencies: extend `windows` crate features (`Win32_UI_Shell`, `Win32_UI_Windo
 
 ### Next MVP for “shell-like” living room
 
-- Login startup + Console mode (taskbar/tray policy)
-- Stronger one-active-experience (focus + switcher)
-- Launch/exit automation profiles (minimal: display + audio)
+- ~~Login startup + Console mode (taskbar/tray policy)~~ — **done** (Settings → Console & startup)
+- ~~Stronger one-active-experience (focus + switcher)~~ — **done** (Phase 2 watchdog + global switcher hotkey)
+- ~~Launch/exit automation profiles (minimal: display + audio)~~ — **done** (Phase 3)
 
 ### Explicitly later
 
 - Quick resume / multi-suspend
 - Cloud library authority ([docs/CLOUD_LIBRARY_SYNC.md](docs/CLOUD_LIBRARY_SYNC.md))
-- Winlogon shell replacement
+- ~~Winlogon shell replacement~~ — **done** (optional; see [docs/WINLOGON_SHELL.md](docs/WINLOGON_SHELL.md))
 - AI / social / marketplace
 
 ---
@@ -409,7 +414,7 @@ PC boots → Portal starts (Console mode, taskbar hidden)
     → Portal restores displays/audio → dashboard
 ```
 
-**Today:** Steps after “PC boots” often require manually opening Portal; automation profile step is skipped.
+**Today:** With Phase 4 enabled, boot can land directly in Portal; otherwise open Portal manually or use login startup (HKCU Run). Automation profiles run on game launch/exit when configured.
 
 ---
 

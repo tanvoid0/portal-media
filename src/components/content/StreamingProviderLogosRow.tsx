@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { getSafeImageSource } from "@/utils/imageUtils";
 import {
   streamingProviderLogoFallbackUrl,
@@ -23,6 +23,7 @@ function ProviderMark({
   const q = (titleForDeepLink ?? p.providerName).trim() || p.providerName;
   const deepUrl = streamingUrlForProvider(p.providerId, p.providerName, q);
   const iconTint = tailwindIconTextClassForExternalUrl(deepUrl, "text-white/70");
+  const icon = linkIconFromUrl(deepUrl, p.providerName);
 
   useEffect(() => {
     setImgBroken(false);
@@ -43,7 +44,10 @@ function ProviderMark({
           onError={() => setImgBroken(true)}
         />
       ) : (
-        <Icon className={cn("h-3.5 w-3.5 opacity-95", iconTint)} aria-hidden />
+        createElement(icon, {
+          className: cn("h-3.5 w-3.5 opacity-95", iconTint),
+          "aria-hidden": true,
+        })
       )}
     </span>
   );

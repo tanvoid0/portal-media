@@ -21,6 +21,9 @@ import { libraryPathForCategory } from "@/nav/libraryRoutes";
 import { useShellOverlayStore } from "@/stores/shellOverlayStore";
 import { getNavBinding, isNavActionKeyboardMatch, useNavBindingsStore } from "@/stores/navBindingsStore";
 import { spatialDirectionFromKeyboard } from "@/utils/navBindingMatch";
+import { spatialNavigateGrid } from "./focusRegistry";
+import { domSpatialMoveOrScroll, isRangeInput } from "./domSpatialNav";
+import { feedbackTick, feedbackSelect, feedbackBack } from "@/utils/uiFeedback";
 
 export const EXECUTE_DETAILS_ACTION = "executeDetailsAction";
 export const EXECUTE_TMDB_DETAILS_ACTION = "executeTmdbDetailsAction";
@@ -65,8 +68,9 @@ export function isSpatialNavigationBlocked(): boolean {
   const bs = useBrowserStore.getState();
   if (bs.isOpen && !bs.isMinimized) return true;
   const sh = useShellOverlayStore.getState();
-  /** Game context menu uses its own gamepad handling in `useUnifiedNavigation`. */
-  return sh.quickAccessOpen || sh.appSwitcherOpen;
+  /** Game context menu uses its own gamepad handling in `useUnifiedNavigation`;
+   *  quick access, app switcher, and OSK self-poll the gamepad. */
+  return sh.quickAccessOpen || sh.appSwitcherOpen || sh.oskOpen;
 }
 
 export function isGamesGridView(): boolean {
@@ -75,6 +79,13 @@ export function isGamesGridView(): boolean {
 
 export function isGameDetailsView(): boolean {
   return useAppShellStore.getState().currentView === "details";
+}
+
+export function isGameSavesPath(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    /^\/game\/[^/]+\/saves\/?$/.test(window.location.pathname)
+  );
 }
 
 export function isDiscoverLibraryView(): boolean {
@@ -342,6 +353,17 @@ export function processUniversalKeydown(
       applyBackOrEscape(delayedFocus);
       return "handled";
     }
+    const dir = keyboardEventToSpatialDirection(event);
+    if (dir) {
+      // Focused slider: let native arrow handling adjust the value.
+      if (isRangeInput(document.activeElement) && (dir === "left" || dir === "right")) {
+        return "unhandled";
+      }
+      event.preventDefault();
+      domSpatialMoveOrScroll(dir);
+      return "handled";
+    }
+    // Enter on the focused control activates it natively — leave unhandled.
     return "unhandled";
   }
 
@@ -401,6 +423,7 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
   if (isSettingsViewActive()) {
     return;
   }
+  feedbackTick();
   if (isGameDetailsView()) {
     normalizeFocusAreaForContent();
     const nav = useNavigationStore.getState();
@@ -424,17 +447,17 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
       if (fa === "games") {
         if (isDiscoverLibraryView()) {
           const ds = useTmdbDiscoverStore.getState();
-          const cols = Math.max(1, ds.gridColumnCount);
-          if (ds.selectedIndex >= cols) {
-            ds.selectRowUp();
+          const next = spatialNavigateGrid("discover", ds.selectedIndex, "up", ds.getItems().length);
+          if (next !== null) {
+            ds.setSelectedIndex(next);
           } else {
             nav.setFocusArea("category");
           }
           return;
         }
-        const cols = Math.max(1, gs.gridColumnCount);
-        if (gs.selectedIndex >= cols) {
-          gs.selectRowUp();
+        const next = spatialNavigateGrid("games", gs.selectedIndex, "up", gs.filteredGames.length);
+        if (next !== null) {
+          gs.setSelectedIndex(next);
         } else {
           nav.setFocusArea("category");
         }
@@ -467,17 +490,12 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
       if (fa === "games") {
         if (isDiscoverLibraryView()) {
           const ds = useTmdbDiscoverStore.getState();
-          const cols = Math.max(1, ds.gridColumnCount);
-          const items = ds.getItems();
-          if (ds.selectedIndex + cols < items.length) {
-            ds.selectRowDown();
-          }
+          const next = spatialNavigateGrid("discover", ds.selectedIndex, "down", ds.getItems().length);
+          if (next !== null) ds.setSelectedIndex(next);
           return;
         }
-        const cols = Math.max(1, gs.gridColumnCount);
-        if (gs.selectedIndex + cols < gs.filteredGames.length) {
-          gs.selectRowDown();
-        }
+        const next = spatialNavigateGrid("games", gs.selectedIndex, "down", gs.filteredGames.length);
+        if (next !== null) gs.setSelectedIndex(next);
         return;
       }
       if (fa === "details") {
@@ -506,9 +524,12 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
       }
       if (fa === "games") {
         if (isDiscoverLibraryView()) {
-          useTmdbDiscoverStore.getState().selectPrevious();
+          const ds = useTmdbDiscoverStore.getState();
+          const next = spatialNavigateGrid("discover", ds.selectedIndex, "left", ds.getItems().length);
+          if (next !== null) ds.setSelectedIndex(next);
         } else {
-          gs.selectPrevious();
+          const next = spatialNavigateGrid("games", gs.selectedIndex, "left", gs.filteredGames.length);
+          if (next !== null) gs.setSelectedIndex(next);
         }
         return;
       }
@@ -527,9 +548,12 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
       }
       if (fa === "games") {
         if (isDiscoverLibraryView()) {
-          useTmdbDiscoverStore.getState().selectNext();
+          const ds = useTmdbDiscoverStore.getState();
+          const next = spatialNavigateGrid("discover", ds.selectedIndex, "right", ds.getItems().length);
+          if (next !== null) ds.setSelectedIndex(next);
         } else {
-          gs.selectNext();
+          const next = spatialNavigateGrid("games", gs.selectedIndex, "right", gs.filteredGames.length);
+          if (next !== null) gs.setSelectedIndex(next);
         }
         return;
       }
@@ -549,6 +573,7 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
 
 /** Enter / OK / A — launch, activate row, or sidebar item. */
 export function applyPrimaryAction(): void {
+  feedbackSelect();
   const gs0 = useGameStore.getState();
   if (gs0.error) {
     gs0.clearError();
@@ -647,6 +672,7 @@ export function applyPrimaryAction(): void {
 
 /** Back / B / Escape hierarchy. */
 export function applyBackOrEscape(_delayedFocus: DelayedFocusArea): void {
+  feedbackBack();
   const gs = useGameStore.getState();
   if (gs.error) {
     gs.clearError();
@@ -659,6 +685,14 @@ export function applyBackOrEscape(_delayedFocus: DelayedFocusArea): void {
   }
 
   if (isGameDetailsView()) {
+    if (isGameSavesPath()) {
+      const m = window.location.pathname.match(/^\/game\/([^/]+)\/saves\/?$/);
+      if (m?.[1]) {
+        appNavigate(`/game/${m[1]}`);
+        useNavigationStore.getState().setFocusArea("details");
+      }
+      return;
+    }
     if (isTmdbDetailsPath() || isIgdbDetailsPath()) {
       appNavigate("/library/discover");
       gs.setSelectedCategory(DISCOVER_CATEGORY_ID);

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getDefaultBookmarks } from "@/utils/defaultBookmarks";
 import type { Game, GameCategory, SortType } from "@/types/game";
 import { DISCOVER_CATEGORY_ID, FAVORITES_CATEGORY_ID } from "@/types/game";
@@ -52,14 +52,28 @@ function loadGameUiPrefs(): {
   sortType: SortType;
   selectedCategory: string | null;
   searchQuery: string;
+  appSubcategoryFilter: string | null;
+  showSystemApps: boolean;
 } {
   if (typeof window === "undefined") {
-    return { sortType: "default", selectedCategory: null, searchQuery: "" };
+    return {
+      sortType: "default",
+      selectedCategory: null,
+      searchQuery: "",
+      appSubcategoryFilter: null,
+      showSystemApps: false,
+    };
   }
   try {
     const raw = localStorage.getItem(GAME_UI_PREFS_KEY);
     if (!raw) {
-      return { sortType: "default", selectedCategory: null, searchQuery: "" };
+      return {
+        sortType: "default",
+        selectedCategory: null,
+        searchQuery: "",
+        appSubcategoryFilter: null,
+        showSystemApps: false,
+      };
     }
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const sortType =
@@ -71,9 +85,18 @@ function loadGameUiPrefs(): {
         ? (parsed.selectedCategory as string | null)
         : null;
     const searchQuery = typeof parsed.searchQuery === "string" ? parsed.searchQuery : "";
-    return { sortType, selectedCategory, searchQuery };
+    const appSubcategoryFilter =
+      typeof parsed.appSubcategoryFilter === "string" ? parsed.appSubcategoryFilter : null;
+    const showSystemApps = parsed.showSystemApps === true;
+    return { sortType, selectedCategory, searchQuery, appSubcategoryFilter, showSystemApps };
   } catch {
-    return { sortType: "default", selectedCategory: null, searchQuery: "" };
+    return {
+      sortType: "default",
+      selectedCategory: null,
+      searchQuery: "",
+      appSubcategoryFilter: null,
+      showSystemApps: false,
+    };
   }
 }
 
@@ -81,6 +104,8 @@ function persistGameUiPrefs(partial: {
   sortType: SortType;
   selectedCategory: string | null;
   searchQuery: string;
+  appSubcategoryFilter: string | null;
+  showSystemApps: boolean;
 }) {
   if (typeof window === "undefined") return;
   try {
@@ -156,6 +181,12 @@ interface GameStore {
   hideFromCategoryTab: (gameId: string, tab: GameCategory) => void;
   unhideFromCategoryTab: (gameId: string, tab: GameCategory) => void;
   clearError: () => void;
+  /** Active subcategory filter within the Apps tab (null = all). */
+  appSubcategoryFilter: string | null;
+  /** Whether to show System-subcategory apps (hidden by default). */
+  showSystemApps: boolean;
+  setAppSubcategoryFilter: (sub: string | null) => void;
+  setShowSystemApps: (show: boolean) => void;
 }
 
 // Helper to get/set last opened times from localStorage
@@ -199,6 +230,65 @@ const sortGames = (games: Game[], sortType: SortType, getLastOpenedTime: (id: st
   }
 };
 
+/** Canonical app subcategory keys / display order. "System" is hidden by default. */
+export const APP_SUBCATEGORIES = [
+  "Development",
+  "Creative",
+  "Productivity",
+  "Communication",
+  "Browser",
+  "Utilities",
+  "System",
+  "Other",
+] as const;
+export type AppSubcategory = (typeof APP_SUBCATEGORIES)[number];
+export const APP_SUBCATEGORY_SYSTEM: AppSubcategory = "System";
+
+/** Resolve an app's subcategory, defaulting unknown / missing values to "Other". */
+export function appSubcategoryOf(game: Game): AppSubcategory {
+  const s = game.app_subcategory;
+  return s && (APP_SUBCATEGORIES as readonly string[]).includes(s)
+    ? (s as AppSubcategory)
+    : "Other";
+}
+
+/** Identity key for collapsing duplicate app entries (e.g. same shortcut in multiple Start Menu folders). */
+function appDedupeKey(game: Game): string {
+  const exe = game.executable.trim().toLowerCase();
+  // `.lnk` paths differ per Start Menu folder; fall back to name when only a shortcut is known.
+  if (exe && !exe.endsWith(".lnk")) return `exe:${exe}`;
+  return `name:${game.name.trim().toLowerCase()}|${game.platform.toLowerCase()}`;
+}
+
+/** Collapse duplicate App rows, preferring the entry that carries an icon. Non-App rows pass through. */
+function dedupeApps(games: Game[]): Game[] {
+  const seen = new Map<string, number>();
+  const out: Game[] = [];
+  for (const g of games) {
+    if (g.category !== "App") {
+      out.push(g);
+      continue;
+    }
+    const key = appDedupeKey(g);
+    const idx = seen.get(key);
+    if (idx === undefined) {
+      seen.set(key, out.length);
+      out.push(g);
+    } else if (!out[idx].icon && g.icon) {
+      // Replace the kept entry with the richer (icon-bearing) duplicate.
+      out[idx] = g;
+    }
+  }
+  return out;
+}
+
+export interface AppViewFilter {
+  /** null = all subcategories. */
+  subcategory: string | null;
+  /** Whether System-classified apps are shown. */
+  showSystem: boolean;
+}
+
 function filterGamesByPrefs(
   games: Game[],
   searchQuery: string,
@@ -206,7 +296,8 @@ function filterGamesByPrefs(
   sortType: SortType,
   favoriteIds: string[],
   getLastOpenedTime: (gameId: string) => number,
-  hiddenFromCategories: Record<string, GameCategory[]>
+  hiddenFromCategories: Record<string, GameCategory[]>,
+  appView: AppViewFilter
 ): Game[] {
   let filtered = games;
   if (searchQuery.trim()) {
@@ -223,9 +314,22 @@ function filterGamesByPrefs(
     filtered = [];
   } else if (selectedCategory) {
     const tab = selectedCategory as GameCategory;
+    const isAppTab = tab === "App";
     filtered = filtered.filter((game) => {
       if (game.category !== tab) return false;
       if (hiddenFromCategories[game.id]?.includes(tab)) return false;
+      if (isAppTab) {
+        const sub = appSubcategoryOf(game);
+        // Hide System tools unless explicitly toggled on or actively selected.
+        if (
+          sub === APP_SUBCATEGORY_SYSTEM &&
+          !appView.showSystem &&
+          appView.subcategory !== APP_SUBCATEGORY_SYSTEM
+        ) {
+          return false;
+        }
+        if (appView.subcategory && sub !== appView.subcategory) return false;
+      }
       return true;
     });
   }
@@ -243,7 +347,8 @@ function deriveLibrarySlice(
   selectedCategory: string | null,
   sortType: SortType,
   favoriteIds: string[],
-  getLastOpenedTime: GetLo
+  getLastOpenedTime: GetLo,
+  appView: AppViewFilter
 ) {
   const normalized = applyCategoryOverrides(sourceGames, categoryOverrides);
   const { visible, archivedGames } = splitArchivedVisible(normalized, archivedIds);
@@ -255,7 +360,8 @@ function deriveLibrarySlice(
     sortType,
     favoriteIds,
     getLastOpenedTime,
-    hiddenFromCategories
+    hiddenFromCategories,
+    appView
   );
   return {
     games: visible,
@@ -268,7 +374,7 @@ function deriveLibrarySlice(
 export const useGameStore = create<GameStore>((set, get) => {
   const applyLibraryPayload = (scannedPortion: unknown) => {
     const defaultBookmarks = getDefaultBookmarks();
-    const fromDisk = normalizeLibraryGames(scannedPortion);
+    const fromDisk = dedupeApps(normalizeLibraryGames(scannedPortion));
     const sourceGames = [...defaultBookmarks, ...fromDisk];
 
     const prefs = loadGameUiPrefs();
@@ -290,7 +396,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       prefs.selectedCategory,
       prefs.sortType,
       favoriteIds,
-      getLo
+      getLo,
+      { subcategory: prefs.appSubcategoryFilter, showSystem: prefs.showSystemApps }
     );
 
     syncCategoryIndexFromSelection(prefs.selectedCategory);
@@ -304,10 +411,30 @@ export const useGameStore = create<GameStore>((set, get) => {
       searchInput: prefs.searchQuery,
       selectedCategory: prefs.selectedCategory,
       sortType: prefs.sortType,
+      appSubcategoryFilter: prefs.appSubcategoryFilter,
+      showSystemApps: prefs.showSystemApps,
     });
 
     hydrateIgdbCoversFromMetadataCache(sourceGames);
   };
+
+  /** Current Apps-tab view filter, read from live store state. */
+  const appViewNow = (): AppViewFilter => ({
+    subcategory: get().appSubcategoryFilter,
+    showSystem: get().showSystemApps,
+  });
+
+  /** Persist the full UI-prefs blob, pulling app-view fields from live state. */
+  const persistPrefs = (p: {
+    searchQuery: string;
+    selectedCategory: string | null;
+    sortType: SortType;
+  }) =>
+    persistGameUiPrefs({
+      ...p,
+      appSubcategoryFilter: get().appSubcategoryFilter,
+      showSystemApps: get().showSystemApps,
+    });
 
   return {
   sourceGames: [],
@@ -325,12 +452,72 @@ export const useGameStore = create<GameStore>((set, get) => {
   selectedIndex: 0,
   gridColumnCount: 1,
   favoriteIds: loadFavoriteIds(),
+  appSubcategoryFilter: loadGameUiPrefs().appSubcategoryFilter,
+  showSystemApps: loadGameUiPrefs().showSystemApps,
   /** True until the first `loadCachedLibrary` / `scanGames` finishes so deep links (e.g. `/game/:id`) do not redirect before data exists. */
   isLoading: true,
   launchOverlay: null,
   error: null,
 
   clearError: () => set({ error: null }),
+
+  setAppSubcategoryFilter: (sub: string | null) => {
+    set({ appSubcategoryFilter: sub });
+    const {
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      searchQuery,
+      selectedCategory,
+      sortType,
+      favoriteIds,
+      getLastOpenedTime,
+    } = get();
+    const slice = deriveLibrarySlice(
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      searchQuery,
+      selectedCategory,
+      sortType,
+      favoriteIds,
+      getLastOpenedTime,
+      appViewNow()
+    );
+    set({ ...slice, selectedIndex: 0 });
+    persistPrefs({ searchQuery, selectedCategory, sortType });
+  },
+
+  setShowSystemApps: (show: boolean) => {
+    set({ showSystemApps: show });
+    const {
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      searchQuery,
+      selectedCategory,
+      sortType,
+      favoriteIds,
+      getLastOpenedTime,
+    } = get();
+    const slice = deriveLibrarySlice(
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      searchQuery,
+      selectedCategory,
+      sortType,
+      favoriteIds,
+      getLastOpenedTime,
+      appViewNow()
+    );
+    set({ ...slice, selectedIndex: 0 });
+    persistPrefs({ searchQuery, selectedCategory, sortType });
+  },
 
   getLastOpenedTime: (gameId: string) => {
     const times = getLastOpenedTimes();
@@ -358,7 +545,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         state.selectedCategory,
         state.sortType,
         favoriteIds,
-        getLastOpenedTime
+        getLastOpenedTime,
+        appViewNow()
       );
       return { favoriteIds, ...slice };
     });
@@ -386,7 +574,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         state.selectedCategory,
         state.sortType,
         favoriteIds,
-        getLastOpenedTime
+        getLastOpenedTime,
+        appViewNow()
       );
       return {
         archivedIds,
@@ -413,7 +602,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         state.selectedCategory,
         state.sortType,
         state.favoriteIds,
-        getLastOpenedTime
+        getLastOpenedTime,
+        appViewNow()
       );
       return {
         archivedIds,
@@ -443,7 +633,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         state.selectedCategory,
         state.sortType,
         state.favoriteIds,
-        getLastOpenedTime
+        getLastOpenedTime,
+        appViewNow()
       );
       return {
         categoryOverrides: nextOverrides,
@@ -470,7 +661,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         state.selectedCategory,
         state.sortType,
         state.favoriteIds,
-        getLastOpenedTime
+        getLastOpenedTime,
+        appViewNow()
       );
       return { hiddenFromCategories: nextHides, ...slice, selectedIndex: 0 };
     });
@@ -495,13 +687,18 @@ export const useGameStore = create<GameStore>((set, get) => {
         state.selectedCategory,
         state.sortType,
         state.favoriteIds,
-        getLastOpenedTime
+        getLastOpenedTime,
+        appViewNow()
       );
       return { hiddenFromCategories: nextHides, ...slice, selectedIndex: 0 };
     });
   },
 
   scanGames: async () => {
+    if (!isTauri()) {
+      set({ isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
     try {
       const scannedGames = await invoke<unknown>("scan_games");
@@ -515,6 +712,10 @@ export const useGameStore = create<GameStore>((set, get) => {
   },
 
   loadCachedLibrary: async () => {
+    if (!isTauri()) {
+      set({ isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
     try {
       const cached = await invoke<unknown>("load_cached_library");
@@ -547,11 +748,12 @@ export const useGameStore = create<GameStore>((set, get) => {
       selectedCategory,
       sortType,
       favoriteIds,
-      getLastOpenedTime
+      getLastOpenedTime,
+      appViewNow()
     );
 
     set({ searchQuery: query, searchInput: query, ...slice, selectedIndex: 0 });
-    persistGameUiPrefs({ searchQuery: query, selectedCategory, sortType });
+    persistPrefs({ searchQuery: query, selectedCategory, sortType });
   },
 
   clearSearchInput: () => {
@@ -578,12 +780,13 @@ export const useGameStore = create<GameStore>((set, get) => {
       category,
       sortType,
       favoriteIds,
-      getLastOpenedTime
+      getLastOpenedTime,
+      appViewNow()
     );
 
     syncCategoryIndexFromSelection(category);
     set({ selectedCategory: category, ...slice, selectedIndex: 0 });
-    persistGameUiPrefs({ searchQuery, selectedCategory: category, sortType });
+    persistPrefs({ searchQuery, selectedCategory: category, sortType });
   },
 
   setSortType: (sortType: SortType) => {
@@ -606,15 +809,18 @@ export const useGameStore = create<GameStore>((set, get) => {
       selectedCategory,
       sortType,
       favoriteIds,
-      getLastOpenedTime
+      getLastOpenedTime,
+      appViewNow()
     );
 
     set({ sortType, ...slice, selectedIndex: 0 });
-    persistGameUiPrefs({ searchQuery, selectedCategory, sortType });
+    persistPrefs({ searchQuery, selectedCategory, sortType });
   },
 
   launchGame: async (game: Game) => {
     try {
+      const { feedbackLaunch } = await import("@/utils/uiFeedback");
+      feedbackLaunch();
       setLastOpenedTime(game.id, Date.now());
 
       if (game.launch_type === "Url") {
@@ -628,7 +834,14 @@ export const useGameStore = create<GameStore>((set, get) => {
           },
         });
         try {
+          const { automationApplyLaunch, automationRegisterGamePid } = await import(
+            "@/utils/automationApi"
+          );
+          await automationApplyLaunch(game.id).catch(console.error);
           const result = await invoke<{ pid?: number }>("launch_game", { game });
+          if (result.pid) {
+            await automationRegisterGamePid(result.pid, game.id).catch(console.error);
+          }
           const { useSessionStore } = await import("./sessionStore");
           useSessionStore.getState().pushExternalGameSession(
             game.id,
@@ -661,7 +874,8 @@ export const useGameStore = create<GameStore>((set, get) => {
           selectedCategory,
           sortType,
           favoriteIds,
-          getLastOpenedTime
+          getLastOpenedTime,
+          appViewNow()
         );
         set({ filteredGames: slice.filteredGames });
       }

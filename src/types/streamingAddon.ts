@@ -10,6 +10,8 @@ export type StreamingAddonSummary = {
   libraryBookmark: boolean;
   tmdbStreamButton: boolean;
   browserBrandRuleCount: number;
+  /** Set when the add-on targets a native desktop app instead of `webOrigin`. */
+  launchExecutable: string | null;
 };
 
 export type StreamingAddonListEntry = {
@@ -38,4 +40,14 @@ export type StreamingAddonManifest = {
     accentColor?: string | null;
     nameIncludes: string[];
   };
+  /** Native desktop target; when present, `webOrigin` may be empty. */
+  launch?: {
+    executable: string;
+    args: string[];
+  } | null;
+  /** Route templates for the TMDB action; absent fields use the v1 hash-router defaults. */
+  deepLink?: {
+    detail?: string | null;
+    search?: string | null;
+  } | null;
 };
