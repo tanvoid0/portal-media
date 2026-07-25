@@ -7,7 +7,7 @@ import { getNavBinding, useNavBindingsStore } from "@/stores/navBindingsStore";
 import { snapshotGamepadButtons, anyGamepadButtonJustPressed } from "@/utils/navBindingMatch";
 import { getActiveGamepad } from "@/utils/getActiveGamepad";
 import { toastInvokeCatch } from "@/utils/invokeError";
-import { feedbackSelect, feedbackTick } from "@/utils/uiFeedback";
+import { playUiSound, playHaptic } from "@/utils/uiSounds";
 
 interface ExitModalProps {
   isOpen: boolean;
@@ -47,7 +47,8 @@ export function ExitModal({ isOpen, onClose, onConfirm }: ExitModalProps) {
   const runAction = useCallback(
     (id: PowerId) => {
       if (busyRef.current) return;
-      feedbackSelect();
+      playUiSound("select");
+      playHaptic(40, 0.3, 0);
       if (id === "exit") {
         setBusy("exit");
         void Promise.resolve(onConfirm()).catch((e) => {
@@ -77,7 +78,7 @@ export function ExitModal({ isOpen, onClose, onConfirm }: ExitModalProps) {
   const moveFocus = useCallback((delta: number) => {
     setFocusIndex((i) => {
       const n = Math.min(OPTIONS.length - 1, Math.max(0, i + delta));
-      if (n !== i) feedbackTick();
+      if (n !== i) playUiSound("move");
       idxRef.current = n;
       return n;
     });

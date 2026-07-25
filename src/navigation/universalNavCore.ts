@@ -23,7 +23,6 @@ import { getNavBinding, isNavActionKeyboardMatch, useNavBindingsStore } from "@/
 import { spatialDirectionFromKeyboard } from "@/utils/navBindingMatch";
 import { spatialNavigateGrid } from "./focusRegistry";
 import { domSpatialMoveOrScroll, isRangeInput } from "./domSpatialNav";
-import { feedbackTick, feedbackSelect, feedbackBack } from "@/utils/uiFeedback";
 
 export const EXECUTE_DETAILS_ACTION = "executeDetailsAction";
 export const EXECUTE_TMDB_DETAILS_ACTION = "executeTmdbDetailsAction";
@@ -423,7 +422,6 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
   if (isSettingsViewActive()) {
     return;
   }
-  feedbackTick();
   if (isGameDetailsView()) {
     normalizeFocusAreaForContent();
     const nav = useNavigationStore.getState();
@@ -573,7 +571,6 @@ export function applySpatialNavigation(direction: SpatialDirection, delayedFocus
 
 /** Enter / OK / A — launch, activate row, or sidebar item. */
 export function applyPrimaryAction(): void {
-  feedbackSelect();
   const gs0 = useGameStore.getState();
   if (gs0.error) {
     gs0.clearError();
@@ -672,7 +669,6 @@ export function applyPrimaryAction(): void {
 
 /** Back / B / Escape hierarchy. */
 export function applyBackOrEscape(_delayedFocus: DelayedFocusArea): void {
-  feedbackBack();
   const gs = useGameStore.getState();
   if (gs.error) {
     gs.clearError();

@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { SearchBar } from "@/components/SearchBar";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { FavoritesFilter } from "@/components/FavoritesFilter";
@@ -12,6 +12,7 @@ import { AmbientBackgroundLayer } from "./AmbientBackgroundLayer";
 
 export function LibraryChromeLayout() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const {
     appearance,
     toggleAppearance,
@@ -105,7 +106,9 @@ export function LibraryChromeLayout() {
         </div>
       </header>
 
-      <Outlet />
+      <div key={pathname} className="flex-1 min-h-0 flex flex-col overflow-hidden animate-page-in">
+        <Outlet />
+      </div>
     </div>
   );
 }

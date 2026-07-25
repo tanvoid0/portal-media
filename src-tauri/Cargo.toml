@@ -1,6 +1,6 @@
 [package]
 name = "portal-media"
-version = "0.1.1"
+version = "0.2.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -55,6 +55,7 @@ windows = { version = "0.58", features = [
     "Win32_System_Ole",
     "Win32_System_LibraryLoader",
     "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Input_XboxController",
     "Win32_UI_Accessibility",
     "Win32_UI_Shell",
     "Win32_UI_Shell_PropertiesSystem",

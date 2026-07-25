@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { CLOSE_SHELL_SEARCH_EVENT } from "@/types/app";
-import { feedbackOpen, feedbackTick } from "@/utils/uiFeedback";
+import { playUiSound } from "@/utils/uiSounds";
 
 interface ShellOverlayStore {
   quickAccessOpen: boolean;
@@ -40,15 +40,11 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
 
   setOskOpen: (open) => set({ oskOpen: open }),
 
-  setExitConfirmOpen: (open) => {
-    if (open && !get().exitConfirmOpen) feedbackOpen();
-    set({ exitConfirmOpen: open });
-  },
+  setExitConfirmOpen: (open) => set({ exitConfirmOpen: open }),
 
   setQuickAccessOpen: (open) =>
     set(() => {
       if (open) {
-        feedbackOpen();
         window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
       }
       return {
@@ -70,7 +66,6 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
     const { quickAccessOpen } = get();
     const opening = !quickAccessOpen;
     if (opening) {
-      feedbackOpen();
       window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
     }
     set({
@@ -89,7 +84,6 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
   setAppSwitcherOpen: (open) =>
     set(() => {
       if (open) {
-        feedbackOpen();
         window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
       }
       return {
@@ -102,7 +96,6 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
     const { appSwitcherOpen } = get();
     const opening = !appSwitcherOpen;
     if (opening) {
-      feedbackOpen();
       window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
     }
     set({
@@ -128,7 +121,6 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
     const { gameContextMenuOpen } = get();
     const opening = !gameContextMenuOpen;
     if (opening) {
-      feedbackOpen();
       window.dispatchEvent(new CustomEvent(CLOSE_SHELL_SEARCH_EVENT));
     }
     set({
@@ -143,7 +135,7 @@ export const useShellOverlayStore = create<ShellOverlayStore>((set, get) => ({
     const { contextMenuItemCount, contextMenuFocusIndex } = get();
     const max = Math.max(0, contextMenuItemCount - 1);
     const next = Math.min(max, Math.max(0, index));
-    if (next !== contextMenuFocusIndex) feedbackTick();
+    if (next !== contextMenuFocusIndex) playUiSound("move");
     set({ contextMenuFocusIndex: next });
   },
 

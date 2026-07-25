@@ -8,6 +8,8 @@ export function setAppNavigate(fn: NavigateFunction): void {
 }
 
 export function appNavigate(to: string, options?: { replace?: boolean }): void {
+  // Route commits are "select" moments; playUiSound dedupes against the
+  // controller path which already played via feedbackSelect.
   if (!options?.replace) playUiSound("select");
   navigateRef?.(to, options);
 }

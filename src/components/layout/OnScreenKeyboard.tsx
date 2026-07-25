@@ -6,7 +6,7 @@ import { snapshotGamepadButtons, anyGamepadButtonJustPressed } from "@/utils/nav
 import { getActiveGamepad } from "@/utils/getActiveGamepad";
 import { cn } from "@/lib/utils";
 import { ArrowBigUp, Check, Delete, Space } from "lucide-react";
-import { feedbackTick } from "@/utils/uiFeedback";
+import { playUiSound } from "@/utils/uiSounds";
 
 /**
  * On-screen keyboard for controller text entry (Steam Big Picture style).
@@ -115,7 +115,7 @@ export default function OnScreenKeyboard() {
   );
 
   const setPos = useCallback((r: number, c: number) => {
-    if (posRef.current.row !== r || posRef.current.col !== c) feedbackTick();
+    if (posRef.current.row !== r || posRef.current.col !== c) playUiSound("move");
     posRef.current = { row: r, col: c };
     setRow(r);
     setCol(c);
@@ -131,7 +131,7 @@ export default function OnScreenKeyboard() {
     (r: number, c: number) => {
       const el = targetRef.current;
       if (!el) return;
-      feedbackTick();
+      playUiSound("move");
       const rowsNow = [...CHAR_ROWS[layer], ACTION_ROW];
       const entry = rowsNow[r];
       if (typeof entry === "string") {

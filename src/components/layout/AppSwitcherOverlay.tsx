@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { useNavBindingsStore } from "@/stores/navBindingsStore";
 import { isProcessRunning } from "@/utils/shellIntegrationApi";
 import { snapshotGamepadButtons, anyGamepadButtonJustPressed } from "@/utils/navBindingMatch";
-import { feedbackSelect, feedbackTick } from "@/utils/uiFeedback";
+import { playUiSound } from "@/utils/uiSounds";
 
 /** Standard gamepad: LB / RB cycle switcher tiles. */
 const GP_PREV = 4;
@@ -76,7 +76,6 @@ export default function AppSwitcherOverlay() {
 
   const activate = useCallback(
     async (s: AppSession) => {
-      feedbackSelect();
       setActiveSession(s.id);
       if (s.kind === "library") {
         appNavigate("/library/all");
@@ -132,7 +131,7 @@ export default function AppSwitcherOverlay() {
         e.preventDefault();
         setFocusIndex((fi) => {
           const n = Math.min(ordered.length - 1, fi + 1);
-          if (n !== fi) feedbackTick();
+          if (n !== fi) playUiSound("move");
           idxRef.current = n;
           return n;
         });
@@ -141,7 +140,7 @@ export default function AppSwitcherOverlay() {
         e.preventDefault();
         setFocusIndex((fi) => {
           const n = Math.max(0, fi - 1);
-          if (n !== fi) feedbackTick();
+          if (n !== fi) playUiSound("move");
           idxRef.current = n;
           return n;
         });
@@ -169,7 +168,7 @@ export default function AppSwitcherOverlay() {
       if (anyGamepadButtonJustPressed([GP_PREV], prev, curr)) {
         setFocusIndex((fi) => {
           const n = Math.max(0, fi - 1);
-          if (n !== fi) feedbackTick();
+          if (n !== fi) playUiSound("move");
           idxRef.current = n;
           return n;
         });
@@ -177,7 +176,7 @@ export default function AppSwitcherOverlay() {
       if (anyGamepadButtonJustPressed([GP_NEXT], prev, curr)) {
         setFocusIndex((fi) => {
           const n = Math.min(ordered.length - 1, fi + 1);
-          if (n !== fi) feedbackTick();
+          if (n !== fi) playUiSound("move");
           idxRef.current = n;
           return n;
         });

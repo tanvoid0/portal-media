@@ -8,7 +8,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { getNavBinding, useNavBindingsStore } from "@/stores/navBindingsStore";
 import { snapshotGamepadButtons, anyGamepadButtonJustPressed } from "@/utils/navBindingMatch";
 import { getActiveGamepad } from "@/utils/getActiveGamepad";
-import { feedbackSelect, feedbackTick } from "@/utils/uiFeedback";
+import { playUiSound } from "@/utils/uiSounds";
 import type { NavActionId } from "@/types/navBindings";
 
 const actions = [
@@ -39,7 +39,6 @@ export default function QuickAccessOverlay() {
 
   const runAction = useCallback(
     (id: (typeof actions)[number]["id"]) => {
-      feedbackSelect();
       if (id === "library") {
         upsertLibrarySession();
         appNavigate("/library/all");
@@ -82,7 +81,7 @@ export default function QuickAccessOverlay() {
         e.preventDefault();
         setFocusIndex((i) => {
           const n = Math.min(actions.length - 1, i + 1);
-          if (n !== i) feedbackTick();
+          if (n !== i) playUiSound("move");
           idxRef.current = n;
           return n;
         });
@@ -91,7 +90,7 @@ export default function QuickAccessOverlay() {
         e.preventDefault();
         setFocusIndex((i) => {
           const n = Math.max(0, i - 1);
-          if (n !== i) feedbackTick();
+          if (n !== i) playUiSound("move");
           idxRef.current = n;
           return n;
         });
@@ -133,7 +132,7 @@ export default function QuickAccessOverlay() {
       if (just("spatialDown")) {
         setFocusIndex((i) => {
           const n = Math.min(actions.length - 1, i + 1);
-          if (n !== i) feedbackTick();
+          if (n !== i) playUiSound("move");
           idxRef.current = n;
           return n;
         });
@@ -141,7 +140,7 @@ export default function QuickAccessOverlay() {
       if (just("spatialUp")) {
         setFocusIndex((i) => {
           const n = Math.max(0, i - 1);
-          if (n !== i) feedbackTick();
+          if (n !== i) playUiSound("move");
           idxRef.current = n;
           return n;
         });

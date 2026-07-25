@@ -2,6 +2,7 @@ mod automation;
 mod commands;
 mod console_mode;
 mod focus_watchdog;
+mod native_gamepad;
 mod session_recovery;
 mod winlogon_shell;
 mod streaming_addon;
@@ -94,6 +95,8 @@ pub fn run() {
             focus_watchdog::focus_watchdog_sync_tracked_pids,
             focus_watchdog::is_process_running,
             focus_watchdog::focus_portal_main_window,
+            native_gamepad::native_gamepad_set_prefs,
+            native_gamepad::native_cursor_set_browser_active,
             automation::automation_is_supported,
             automation::automation_list_displays,
             automation::automation_list_audio_devices,
@@ -150,6 +153,7 @@ pub fn run() {
             console_mode::setup(app)?;
             winlogon_shell::setup(app)?;
             focus_watchdog::setup(app)?;
+            native_gamepad::setup(app)?;
             automation::setup(app)?;
             session_recovery::setup(app)?;
             session_recovery::attach_close_recovery(app.handle());

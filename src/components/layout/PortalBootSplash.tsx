@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { feedbackBoot } from "@/utils/uiFeedback";
+import { playUiSound } from "@/utils/uiSounds";
 import { PortalMarkIcon } from "@/components/icons/PortalMarkIcon";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +43,7 @@ export function PortalBootSplash({ onComplete }: PortalBootSplashProps) {
 
   // Boot chime — may stay silent if the webview enforces autoplay-with-gesture.
   useEffect(() => {
-    feedbackBoot();
+    playUiSound("boot");
   }, []);
 
   useEffect(() => {

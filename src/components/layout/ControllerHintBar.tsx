@@ -164,13 +164,12 @@ export default function ControllerHintBar() {
                 keyboard={h.keyboard}
               />
               {h.label ? (
-                <span className="text-[11px] text-white/60 font-medium leading-none">{h.label}</span>
+                <span className="text-[13px] text-white/70 font-medium leading-none">{h.label}</span>
               ) : null}
             </span>
           );
         })}
       </div>
-      <span className="text-[11px] text-white/28 hidden sm:block shrink-0 select-none">Portal</span>
     </div>
   );
 }

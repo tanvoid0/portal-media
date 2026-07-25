@@ -89,6 +89,10 @@ Add your own captures from **`pnpm tauri dev`** or a release build (recommended 
 - **Fast Launch**: Direct executable launching, no launcher overhead
 - **Search**: Quick search functionality to find games
 - **Bookmarks**: Add web links as launchable items
+- **Controller Everywhere**: Settings and docs are fully d-pad navigable; on-screen keyboard opens automatically for text fields in gamepad mode
+- **Power Menu**: Exit, sleep, restart, or shut down the PC from the shell — console style
+- **Console Feedback**: Synthesized navigation sounds and controller rumble (toggles in Settings → Controller)
+- **Native Gamepad Layer**: Back+Start focuses Portal even while a game or browser owns the screen; right stick becomes a virtual cursor inside the embedded browser
 
 ## Add-ons and plugins
 

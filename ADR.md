@@ -67,6 +67,11 @@ What exists today is a **standalone Tauri application** that runs beside Explore
 | Library persistence | **Done** | SQLite manual library + scan snapshots |
 | Automation profiles (display, audio, tools) | **Done** | Phase 3: launch/exit profiles in Settings → Console & startup |
 | Process tree cleanup on exit | **Not started** | Launch works; orchestrated teardown is future |
+| Settings/docs controller nav | **Done** | Generic DOM spatial nav (`domSpatialNav.ts`); d-pad/arrows move real focus, sliders adjust in place |
+| On-screen keyboard | **Done** | `OnScreenKeyboard.tsx`; auto-opens for text fields in gamepad mode, physical keyboard still works |
+| Power menu | **Done** | Exit / Sleep / Restart / Shutdown (`power_action` cmd); desktop chrome restored before shutdown |
+| UI sounds + haptics | **Done** | Synthesized WebAudio (`uiSounds.ts`), rumble on launch; toggles in Settings → Controller |
+| Native gamepad (unfocused) | **Done** | XInput poll thread (`native_gamepad.rs`): Back+Start focuses Portal; right-stick virtual cursor while browser open |
 | Windows shell replacement | **Done** | Phase 4: optional `Winlogon\Shell`; UAC, backup, recovery — [docs/WINLOGON_SHELL.md](docs/WINLOGON_SHELL.md) |
 | Desktop chrome takeover (taskbar, tray) | **Done** | Console mode: SHAppBar autohide + taskbar hide; restore on exit / crash recovery |
 | Login startup + Console mode | **Done** | Settings → Console & startup; HKCU Run, Ctrl+Shift+Q escape, persisted recovery |

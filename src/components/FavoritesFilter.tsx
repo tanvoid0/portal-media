@@ -37,8 +37,8 @@ export function FavoritesFilter({ className }: { className?: string }) {
         "transition-all duration-panel spring-ease",
         "text-xs font-semibold",
         isSelected
-          ? "bg-primary/90 text-primary-foreground shadow-md shadow-primary/20 scale-105"
-          : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground hover:scale-105",
+          ? "bg-foreground/10 text-foreground"
+          : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground",
         isFocusedItem && showFocusIndicator && "ring-2 ring-primary/60 ring-offset-2 ring-offset-background animate-focus-ring",
         className
       )}
@@ -56,7 +56,7 @@ export function FavoritesFilter({ className }: { className?: string }) {
           className={cn(
             "ml-2 px-2 py-0.5 rounded-md text-[0.65rem] font-medium tabular-nums",
             "transition-all duration-panel-fast",
-            isSelected ? "bg-primary-foreground/15 text-primary-foreground" : "bg-muted/80 text-muted-foreground"
+            isSelected ? "bg-foreground/15 text-foreground" : "bg-muted/80 text-muted-foreground"
           )}
         >
           {count}

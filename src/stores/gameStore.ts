@@ -25,6 +25,9 @@ export { FAVORITES_CATEGORY_ID } from "@/types/game";
 const GAME_UI_PREFS_KEY = "portal_media_game_ui_prefs";
 const FAVORITES_KEY = "portal_media_favorite_ids";
 
+/** Per-category cursor memory (session-only) so tab switches don't snap to item 0. */
+const lastIndexByCategory = new Map<string, number>();
+
 function loadFavoriteIds(): string[] {
   if (typeof window === "undefined") return [];
   try {
@@ -770,6 +773,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       sortType,
       favoriteIds,
       getLastOpenedTime,
+      selectedCategory: prevCategory,
+      selectedIndex: prevIndex,
     } = get();
     const slice = deriveLibrarySlice(
       sourceGames,
@@ -784,8 +789,13 @@ export const useGameStore = create<GameStore>((set, get) => {
       appViewNow()
     );
 
+    // Console-style focus memory: remember the cursor per tab, restore on return.
+    lastIndexByCategory.set(String(prevCategory), prevIndex);
+    const remembered = lastIndexByCategory.get(String(category)) ?? 0;
+    const restoredIndex = Math.min(remembered, Math.max(0, slice.filteredGames.length - 1));
+
     syncCategoryIndexFromSelection(category);
-    set({ selectedCategory: category, ...slice, selectedIndex: 0 });
+    set({ selectedCategory: category, ...slice, selectedIndex: restoredIndex });
     persistPrefs({ searchQuery, selectedCategory: category, sortType });
   },
 
@@ -819,8 +829,9 @@ export const useGameStore = create<GameStore>((set, get) => {
 
   launchGame: async (game: Game) => {
     try {
-      const { feedbackLaunch } = await import("@/utils/uiFeedback");
-      feedbackLaunch();
+      const { playUiSound, playHaptic } = await import("@/utils/uiSounds");
+      playUiSound("launch");
+      playHaptic(160, 0.5, 0.35);
       setLastOpenedTime(game.id, Date.now());
 
       if (game.launch_type === "Url") {

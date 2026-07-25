@@ -34,6 +34,7 @@ import { useShellOverlayStore } from "@/stores/shellOverlayStore";
 import { useShellHotkeys } from "@/hooks/useShellHotkeys";
 import { useFocusWatchdog } from "@/hooks/useFocusWatchdog";
 import { useSaveSyncOnGameExit } from "@/hooks/useSaveSyncOnGameExit";
+import { useNativeGamepad } from "@/hooks/useNativeGamepad";
 import { useWinlogonShell } from "@/hooks/useWinlogonShell";
 import { SettingsSystemPage } from "@/components/settings/pages/SettingsSystemPage";
 import { SettingsSavesPage } from "@/components/settings/pages/SettingsSavesPage";
@@ -66,6 +67,7 @@ function ShellRoutes({ bootDone }: { bootDone: boolean }) {
   useShellHotkeys({ bootDone });
   useFocusWatchdog({ bootDone });
   useSaveSyncOnGameExit({ bootDone });
+  useNativeGamepad();
   useAppShellEvents(setShowExitModal, onToggleFullscreen);
 
   const handleExit = useCallback(async () => {

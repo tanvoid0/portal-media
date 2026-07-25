@@ -10,6 +10,19 @@ import {
   type NavActionId,
 } from "@/types/navBindings";
 import { formatKeyboardChord, chordEqual } from "@/utils/formatNavBinding";
+import {
+  hapticsEnabled,
+  playUiSound,
+  playHaptic,
+  setHapticsEnabled,
+  setUiSoundsEnabled,
+  uiSoundsEnabled,
+} from "@/utils/uiSounds";
+import {
+  focusChordEnabled,
+  setNativeGamepadPrefs,
+  virtualCursorEnabled,
+} from "@/hooks/useNativeGamepad";
 import { cn } from "@/lib/utils";
 import {
   ChevronDown,
@@ -395,6 +408,11 @@ export function SettingsControllerPage() {
   const setQuickAccessMetaTapEnabled = useNavBindingsStore((s) => s.setQuickAccessMetaTapEnabled);
   const resetAll = useNavBindingsStore((s) => s.resetAll);
 
+  const [soundsOn, setSoundsOn] = useState(uiSoundsEnabled);
+  const [hapticsOn, setHapticsOn] = useState(hapticsEnabled);
+  const [cursorOn, setCursorOn] = useState(virtualCursorEnabled);
+  const [chordOn, setChordOn] = useState(focusChordEnabled);
+
   const [bindingQuery, setBindingQuery] = useState("");
   const defaultsRef = useRef<HTMLDivElement>(null);
   const navInputsRef = useRef<HTMLDivElement>(null);
@@ -683,6 +701,56 @@ export function SettingsControllerPage() {
                   className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
                 />
                 Win/Meta tap → Quick access
+              </label>
+              <label className="flex items-center gap-3 text-sm text-white/90 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={soundsOn}
+                  onChange={(e) => {
+                    setUiSoundsEnabled(e.target.checked);
+                    setSoundsOn(e.target.checked);
+                    if (e.target.checked) playUiSound("select");
+                  }}
+                  className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
+                />
+                UI sounds
+              </label>
+              <label className="flex items-center gap-3 text-sm text-white/90 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hapticsOn}
+                  onChange={(e) => {
+                    setHapticsEnabled(e.target.checked);
+                    setHapticsOn(e.target.checked);
+                    if (e.target.checked) playHaptic(60, 0.4, 0.2);
+                  }}
+                  className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
+                />
+                Controller vibration
+              </label>
+              <label className="flex items-center gap-3 text-sm text-white/90 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={cursorOn}
+                  onChange={(e) => {
+                    setCursorOn(e.target.checked);
+                    setNativeGamepadPrefs(e.target.checked, chordOn);
+                  }}
+                  className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
+                />
+                Right-stick cursor in browser
+              </label>
+              <label className="flex items-center gap-3 text-sm text-white/90 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={chordOn}
+                  onChange={(e) => {
+                    setChordOn(e.target.checked);
+                    setNativeGamepadPrefs(cursorOn, e.target.checked);
+                  }}
+                  className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
+                />
+                Back+Start focuses Portal
               </label>
             </div>
           </div>

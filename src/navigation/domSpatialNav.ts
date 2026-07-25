@@ -10,7 +10,7 @@
 
 import type { SpatialDirection } from "./universalNavCore";
 import { spatialScore } from "./focusRegistry";
-import { feedbackTick } from "@/utils/uiFeedback";
+import { playUiSound } from "@/utils/uiSounds";
 
 const FOCUSABLE_SELECTOR = [
   "button:not(:disabled)",
@@ -158,7 +158,7 @@ export function domScrollFallback(direction: SpatialDirection): void {
 
 /** Move, falling back to scroll on boundary. */
 export function domSpatialMoveOrScroll(direction: SpatialDirection): void {
-  feedbackTick();
+  playUiSound("move");
   if (!domSpatialMove(direction)) {
     domScrollFallback(direction);
   }

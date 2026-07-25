@@ -39,8 +39,8 @@ export function SortFilter({
               "text-xs font-semibold",
               isVertical ? "h-11 w-full justify-start px-4" : "h-9 px-4",
               isSelected
-                ? "bg-primary/90 text-primary-foreground shadow-md shadow-primary/20 scale-105"
-                : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground hover:scale-105"
+                ? "bg-foreground/10 text-foreground"
+                : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground"
             )}
           >
             <Icon className="w-4 h-4 mr-2 transition-transform duration-panel-fast" />

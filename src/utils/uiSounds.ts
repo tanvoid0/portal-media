@@ -60,13 +60,32 @@ export function playHaptic(duration: number, weak: number, strong: number): void
 }
 
 let ctx: AudioContext | null = null;
-let lastMoveAt = 0;
+
+/**
+ * Per-kind rate limit. Doubles as dedupe: the same user action can be reported
+ * by both a store subscription (useUiSounds) and an inline call site —
+ * only the first within the window plays.
+ */
+const lastPlayedAt = new Map<UiSoundKind, number>();
+const MIN_INTERVAL_MS: Record<UiSoundKind, number> = {
+  move: 45,
+  select: 80,
+  back: 80,
+  open: 80,
+  launch: 250,
+  boot: 1000,
+};
 
 function getCtx(): AudioContext | null {
   if (typeof AudioContext === "undefined") return null;
   if (!ctx) ctx = new AudioContext();
   if (ctx.state === "suspended") void ctx.resume();
   return ctx;
+}
+
+/** Create/resume the context from a real user gesture (autoplay policy). */
+export function primeUiAudio(): void {
+  getCtx();
 }
 
 function tone(
@@ -106,15 +125,14 @@ export function playUiSound(kind: UiSoundKind): void {
   const ac = getCtx();
   if (!ac) return;
 
+  const now = performance.now();
+  if (now - (lastPlayedAt.get(kind) ?? -Infinity) < MIN_INTERVAL_MS[kind]) return;
+  lastPlayedAt.set(kind, now);
+
   switch (kind) {
-    case "move": {
-      // Rate-limit rapid d-pad repeats so held scrolling stays soft.
-      const now = performance.now();
-      if (now - lastMoveAt < 45) return;
-      lastMoveAt = now;
+    case "move":
       tone(ac, { freq: 950, freqEnd: 720, duration: 0.05, gain: 0.035, type: "sine" });
       break;
-    }
     case "select":
       tone(ac, { freq: 540, duration: 0.07, gain: 0.05, type: "sine" });
       tone(ac, { freq: 810, duration: 0.1, gain: 0.045, type: "sine", delay: 0.055 });
