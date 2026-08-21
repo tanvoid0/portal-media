@@ -21,7 +21,7 @@ export function SortFilter({
 
   return (
     <div
-      className={cn(isVertical ? "flex flex-col gap-3 px-3 pb-3" : "flex gap-3 px-8 pb-4", className)}
+      className={cn(isVertical ? "flex flex-col gap-2 px-3 pb-3" : "flex gap-1 px-0 pb-0", className)}
     >
       {sortOptions.map((option) => {
         const Icon = option.icon;
@@ -34,13 +34,12 @@ export function SortFilter({
             size="sm"
             onClick={() => setSortType(option.type)}
             className={cn(
-              "rounded-xl whitespace-nowrap",
-              "transition-all duration-panel spring-ease",
-              "text-xs font-semibold",
-              isVertical ? "h-11 w-full justify-start px-4" : "h-9 px-4",
+              "rounded-none whitespace-nowrap border-2 bg-transparent",
+              "transition-[border-width,color] duration-150 text-xs font-medium font-hub",
+              isVertical ? "h-11 w-full justify-start px-4" : "h-9 px-3",
               isSelected
-                ? "bg-foreground/10 text-foreground"
-                : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground"
+                ? "border-border text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
             )}
           >
             <Icon className="w-4 h-4 mr-2 transition-transform duration-panel-fast" />

@@ -15,6 +15,7 @@ import {
 import { useGridColumnCountSync } from "@/hooks/useGridColumnCountSync";
 import { useKeepGridSelectionVisible } from "@/hooks/useKeepGridSelectionVisible";
 import { registerGridContainer } from "@/navigation/focusRegistry";
+import { CoverStageEmpty } from "@/components/content/CoverStageEmpty";
 import { AppCategoryBar } from "./AppCategoryBar";
 
 export function GameGrid() {
@@ -86,7 +87,7 @@ export function GameGrid() {
     return (
       <div className="flex items-center justify-center h-full pointer-events-auto">
         <div
-          className="text-center glass-dark rounded-2xl p-8 max-w-md shadow-xl border border-border/60"
+          className="text-center rounded-card border border-border bg-card p-8 max-w-md shadow-card"
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="launch-error-title"
@@ -110,7 +111,7 @@ export function GameGrid() {
           >
             Dismiss
           </Button>
-          <p className="text-white/40 text-xs mt-4">Escape or Back also closes this message</p>
+          <p className="text-muted-foreground text-xs mt-4">Escape or Back also closes this message</p>
         </div>
       </div>
     );
@@ -119,40 +120,12 @@ export function GameGrid() {
   if (games.length === 0) {
     const isSearchActive = Boolean(searchQuery.trim());
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center glass-dark rounded-2xl p-12 max-w-md">
-          <div className="text-6xl mb-6 opacity-50">{isSearchActive ? "🔍" : "🎮"}</div>
-          <p className="text-foreground text-2xl font-bold mb-3">
-            {isSearchActive ? "No results" : "Your library is empty"}
-          </p>
-          <p className="text-muted-foreground text-sm mb-8">
-            {isSearchActive
-              ? `Nothing matched "${searchQuery}". Try a different search.`
-              : "Scan this PC for installed games and apps, or add titles manually in Settings."}
-          </p>
-          {!isSearchActive ? (
-            <div className="flex items-center justify-center gap-3">
-              <Button
-                type="button"
-                variant="default"
-                autoFocus
-                className="min-w-[9rem] rounded-xl"
-                onClick={() => void useGameStore.getState().scanGames()}
-              >
-                Scan this PC
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="min-w-[9rem] rounded-xl"
-                onClick={() => appNavigate("/settings/game")}
-              >
-                Open Settings
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <CoverStageEmpty
+        isSearch={isSearchActive}
+        searchQuery={searchQuery}
+        onScan={() => void useGameStore.getState().scanGames()}
+        onSettings={() => appNavigate("/settings/game")}
+      />
     );
   }
 
@@ -197,7 +170,6 @@ export function GameGrid() {
           <div
             key={game.id}
             ref={index === selectedIndex ? selectedCardRef : null}
-            className="transition-transform duration-300"
           >
             <GameCard
               game={game}

@@ -22,6 +22,8 @@ const SPOTIFY_ACCESS_TOKEN: &str = "spotify_access_token";
 const SPOTIFY_REFRESH_TOKEN: &str = "spotify_refresh_token";
 const SPOTIFY_TOKEN_EXPIRY: &str = "spotify_token_expiry";
 
+const AI_TOKEN: &str = "ai_api_token";
+
 const FALLBACK_FILE: &str = "metadata_keyring_fallback.json";
 
 /// Set `PORTAL_MEDIA_DEBUG_SECRETS=1` (or `true` / `yes`) before launch, or run a **debug** build,
@@ -365,6 +367,20 @@ pub fn google_drive_configured() -> bool {
     get_google_drive_tokens()
         .map(|s| !s.trim().is_empty())
         .unwrap_or(false)
+}
+
+// ── AI assist ─────────────────────────────────────────────────────────────────
+
+pub fn save_ai_token(token: &str) -> Result<(), String> {
+    set_entry(AI_TOKEN, token)
+}
+
+pub fn get_ai_token() -> Option<String> {
+    get_entry(AI_TOKEN)
+}
+
+pub fn clear_ai_token() -> Result<(), String> {
+    delete_entry(AI_TOKEN)
 }
 
 // ── Platform credentials ──────────────────────────────────────────────────────

@@ -6,14 +6,11 @@ import {
   LibraryBrandHeroIcon,
 } from "@/components/PlatformLabel";
 import { ShelfCard } from "@/components/content/ShelfCard";
-import { LibraryCardFooterExtras } from "@/components/content/LibraryCardFooterExtras";
 import { ShelfStatusBadge } from "@/components/content/ShelfStatusBadge";
 import { useMetadataDisplayStore } from "@/stores/metadataDisplayStore";
-import { useSessionStore } from "@/stores/sessionStore";
 import { type MouseEvent } from "react";
 import { AppWindow, Bookmark, Download, Gamepad2, Star, Tv } from "lucide-react";
 import type { GameCategory } from "@/types/game";
-import { libraryCardSubtitle } from "@/utils/libraryCardFooterMeta";
 import {
   libraryTileMarkFrameKind,
   resolveLibraryTileHeroVariant,
@@ -56,8 +53,6 @@ export function GameCard({
   onContextMenu,
 }: GameCardProps) {
   const isFavorite = useGameStore((s) => s.favoriteIds.includes(game.id));
-  const lastOpened = useGameStore((s) => s.getLastOpenedTime(game.id));
-  const isRunning = useSessionStore((s) => s.sessions.some((sess) => sess.gameId === game.id));
   const igdbCover = useMetadataDisplayStore((s) => s.igdbCoverUrlByGameId[game.id]);
   const r = game as unknown as Record<string, unknown>;
   const coverArt = game.cover_art ?? pickRecordStr(r, "coverArt");
@@ -84,16 +79,12 @@ export function GameCard({
   const usePlatformFallback =
     libraryHero === "mark" && !cardImage && hasLibraryBrandHeroIcon(game);
 
-  const subtitle = libraryCardSubtitle(game, libraryHero);
-
   const brandAccentHex = getGameBrandAccentHex(game);
 
   return (
     <ShelfCard
       isSelected={isSelected}
       title={game.name}
-      subtitle={subtitle}
-      actionHint="Enter · Launch"
       artImageUrl={cardImage}
       libraryLayout={libraryHero}
       markFrameKind={libraryTileMarkFrameKind(game.category)}
@@ -117,14 +108,6 @@ export function GameCard({
             </ShelfStatusBadge>
           ) : null}
         </div>
-      }
-      footerAccessory={
-        <LibraryCardFooterExtras
-          game={game}
-          hero={libraryHero}
-          isRunning={isRunning}
-          lastOpened={lastOpened}
-        />
       }
       onClick={onClick}
       onDoubleClick={(e) => {

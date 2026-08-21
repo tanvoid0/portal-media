@@ -4,7 +4,6 @@ import { useFocusable } from "@/hooks/useNavigationState";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { appNavigate } from "@/nav/appNavigate";
-import { useLocation } from "react-router-dom";
 import {
   BookOpen,
   Settings as SettingsIcon,
@@ -66,9 +65,9 @@ export function TopBarRightCluster({
         size="icon"
         onClick={toggleAppearance}
         className={cn(
-          "w-11 h-11 rounded-card shrink-0",
-          "transition-all duration-panel spring-ease",
-          "hover:bg-foreground/5 text-muted-foreground hover:text-foreground hover:scale-105"
+          "w-11 h-11 rounded-none shrink-0 border-2 border-transparent",
+          "text-muted-foreground hover:text-foreground hover:border-border",
+          "transition-colors duration-150"
         )}
         title={appearance === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       >
@@ -124,15 +123,12 @@ export function SidebarButton({
       onClick={onClick}
       title={title}
       className={cn(
-        "w-11 h-11 rounded-card",
-        "transition-all duration-panel spring-ease",
-        "transform-gpu",
+        "w-11 h-11 rounded-none border-2",
+        "transition-[border-width,color] duration-150 bg-transparent",
         isActive
-          ? "bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30 scale-105"
-          : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground hover:scale-105",
-        isFocusedItem &&
-          showFocusIndicator &&
-          "ring-2 ring-primary/60 ring-offset-2 ring-offset-background animate-focus-ring",
+          ? "border-primary border-[3px] text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
+        isFocusedItem && showFocusIndicator && "border-primary border-[3px] text-foreground",
         className
       )}
     >
@@ -159,36 +155,15 @@ export function TopBarChromeButtons({
   isFullscreen: boolean;
   isMaximized: boolean;
 }) {
-  const { pathname } = useLocation();
-  const libraryActive =
-    pathname.startsWith("/library") ||
-    pathname.startsWith("/game/") ||
-    pathname.startsWith("/tmdb/") ||
-    pathname.startsWith("/igdb/");
-
   if (variant === "library") {
     return (
       <>
-        <SidebarButton
-          index={0}
-          isActive={libraryActive}
-          onClick={() => appNavigate("/library/all")}
-          icon={Home}
-          title="Library"
-        />
         <SidebarButton
           index={1}
           isActive={false}
           onClick={() => appNavigate("/docs")}
           icon={BookOpen}
           title="Documentation"
-        />
-        <SidebarButton
-          index={2}
-          isActive={false}
-          onClick={() => appNavigate("/settings/game")}
-          icon={SettingsIcon}
-          title="Settings"
         />
         <SidebarButton
           index={3}
@@ -218,13 +193,6 @@ export function TopBarChromeButtons({
   if (variant === "settings") {
     return (
       <>
-        <SidebarButton
-          index={0}
-          isActive={true}
-          onClick={() => appNavigate("/settings/game")}
-          icon={SettingsIcon}
-          title="Settings"
-        />
         <SidebarButton
           index={1}
           isActive={false}

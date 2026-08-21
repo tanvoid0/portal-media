@@ -1,3 +1,4 @@
+mod ai;
 mod automation;
 mod commands;
 mod console_mode;
@@ -75,6 +76,11 @@ pub fn run() {
             metadata::commands::metadata_tmdb_discover,
             metadata::commands::metadata_igdb_discover_games,
             metadata::commands::metadata_enrich_all_games,
+            ai::ai_configured,
+            ai::ai_save_token,
+            ai::ai_clear_token,
+            ai::ai_list_models,
+            ai::ai_library_search,
             console_mode::console_mode_is_supported,
             console_mode::console_mode_get_status,
             console_mode::console_mode_set_launch_at_login,
@@ -87,6 +93,7 @@ pub fn run() {
             winlogon_shell::winlogon_shell_get_status,
             winlogon_shell::winlogon_shell_set_enabled,
             winlogon_shell::winlogon_shell_set_revert_on_next_launch,
+            winlogon_shell::winlogon_shell_set_defer_explorer,
             session_recovery::recover_desktop_session,
             session_recovery::request_app_exit,
             session_recovery::power_action,

@@ -21,8 +21,27 @@ After enabling, **sign out or restart** Windows. The next logon starts Portal in
 ## What Portal does at logon
 
 - Runs as the Winlogon shell (parent process is `winlogon.exe`).
-- Starts `explorer.exe` in the background if it is not already running (system tray / shell services).
+- Starts `explorer.exe` in the background if it is not already running (system tray / shell services), unless **Skip Explorer at logon** is on.
 - Applies Console mode defaults for that session (taskbar hide, Big Picture fullscreen).
+
+## Skip Explorer at logon (optional)
+
+Settings → Console & startup → **Skip Explorer at logon (frees memory)** stops Portal from
+starting `explorer.exe` at logon. This mirrors what the Xbox Full Screen Experience does on
+Windows 11 handhelds: the desktop shell is never composed, so its memory and idle CPU cost
+are not paid. Expect a few hundred MB to ~2 GB saved depending on how many tray apps and
+startup agents your setup loads.
+
+While Explorer is skipped there is **no taskbar, tray, volume flyout, or notifications**.
+Explorer comes back automatically when you:
+
+- turn off Console mode,
+- press `Ctrl+Shift+Q`,
+- exit Portal or use the power menu.
+
+Manual recovery: `Ctrl+Alt+Del` → Task Manager → Run → `explorer.exe`.
+
+The toggle only applies when Portal is the Winlogon shell; it is disabled otherwise.
 
 ## Automatic recovery on exit
 
@@ -86,6 +105,7 @@ Disable uses this backup when present.
 
 - [ ] Single-monitor: sign out → Portal starts at logon
 - [ ] Dual-monitor: secondary taskbar handled by Console mode
+- [ ] Skip Explorer at logon → no taskbar at boot; `Ctrl+Shift+Q` brings Explorer back
 - [ ] Disable shell → `explorer.exe` returns after sign out
 - [ ] Safe Mode revert documented for your household
 

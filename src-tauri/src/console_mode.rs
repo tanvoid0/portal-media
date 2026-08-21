@@ -145,7 +145,15 @@ fn apply_desktop_chrome() -> Result<(), String> {
     Ok(())
 }
 
+/// User asked for the desktop back (toggle off, escape hotkey). When Portal is the logon
+/// shell with the Explorer companion deferred, there is no taskbar to un-hide until Explorer
+/// runs — so start it here. `restore_desktop_chrome_inner` stays free of this so startup
+/// crash-recovery does not spawn Explorer before the defer preference is known.
 fn restore_desktop_chrome() -> Result<(), String> {
+    #[cfg(windows)]
+    if crate::winlogon_shell::session_started_as_winlogon_shell() {
+        let _ = crate::winlogon_shell::ensure_explorer_companion();
+    }
     restore_desktop_chrome_inner()
 }
 

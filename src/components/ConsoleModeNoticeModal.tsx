@@ -20,15 +20,15 @@ export function ConsoleModeNoticeModal() {
       }}
     >
       <p>Console mode hides the Windows taskbar (primary and secondary) until you exit Portal or turn it off.</p>
-      <ul className="list-disc pl-5 space-y-1 text-white/65">
+      <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
         <li>
-          <kbd className="rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[11px]">
+          <kbd className="rounded-none border border-border bg-muted px-1.5 py-0.5 font-mono text-xs">
             Ctrl+Shift+Q
           </kbd>{" "}
           — restore the taskbar and disable Console mode
         </li>
         <li>
-          <kbd className="rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[11px]">
+          <kbd className="rounded-none border border-border bg-muted px-1.5 py-0.5 font-mono text-xs">
             Ctrl+Shift+Esc
           </kbd>{" "}
           — Task Manager

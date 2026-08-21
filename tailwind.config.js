@@ -27,6 +27,7 @@ export default {
       },
       fontFamily: {
         ui: "var(--font-ui)",
+        hub: '"Barlow", ui-sans-serif, sans-serif',
       },
       fontWeight: {
         button: "var(--font-weight-button)",

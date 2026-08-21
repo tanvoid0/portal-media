@@ -1,49 +1,13 @@
 import { useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FrameKey } from "@/components/ui/frame-key";
+import { Input, nativeSelectClassName } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Panel, PanelBody, PanelDescription, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { SettingToggle } from "@/components/ui/setting-row";
 import { useAutomationStore } from "@/stores/automationStore";
 import type { AutomationAction, AutomationProfile } from "@/utils/automationTypes";
-import { cn } from "@/lib/utils";
 import { SlidersHorizontal } from "lucide-react";
-
-function SettingToggle({
-  id,
-  label,
-  description,
-  checked,
-  disabled,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label
-      htmlFor={id}
-      className={cn(
-        "flex gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4 cursor-pointer transition-opacity",
-        disabled && "opacity-50 cursor-not-allowed"
-      )}
-    >
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-5 w-5 rounded-md border-white/35 bg-black/50 shrink-0 accent-primary"
-      />
-      <span className="min-w-0 space-y-1">
-        <span className="block text-white font-medium text-sm">{label}</span>
-        <span className="block text-white/50 text-xs leading-relaxed">{description}</span>
-      </span>
-    </label>
-  );
-}
 
 function profileSummary(profile: AutomationProfile): string {
   const parts: string[] = [];
@@ -94,11 +58,9 @@ export function AutomationProfileSection() {
     config.profiles[0];
 
   const disableAction = profile?.onLaunch.find((a) => a.type === "disableDisplays");
-  const disableIndexes =
-    disableAction?.type === "disableDisplays" ? disableAction.indexes : [];
+  const disableIndexes = disableAction?.type === "disableDisplays" ? disableAction.indexes : [];
   const audioAction = profile?.onLaunch.find((a) => a.type === "setDefaultAudioDevice");
-  const audioDeviceId =
-    audioAction?.type === "setDefaultAudioDevice" ? audioAction.deviceId : "";
+  const audioDeviceId = audioAction?.type === "setDefaultAudioDevice" ? audioAction.deviceId : "";
   const launchAction = profile?.onLaunch.find((a) => a.type === "launchProcess");
   const companionPath = launchAction?.type === "launchProcess" ? launchAction.path : "";
   const restoreDisplays = profile?.onExit.some((a) => a.type === "restoreDisplays") ?? true;
@@ -139,10 +101,10 @@ export function AutomationProfileSection() {
     patchProfile({ onLaunch });
   };
 
-  const setExitRestore = (displays: boolean, audio: boolean) => {
+  const setExitRestore = (nextDisplays: boolean, audio: boolean) => {
     if (!profile) return;
     const onExit: AutomationAction[] = [];
-    if (displays) onExit.push({ type: "restoreDisplays" });
+    if (nextDisplays) onExit.push({ type: "restoreDisplays" });
     if (audio) onExit.push({ type: "restoreAudioDevice" });
     patchProfile({ onExit });
   };
@@ -150,22 +112,20 @@ export function AutomationProfileSection() {
   const windowsOnly = hydrated && !osSupported;
 
   return (
-    <Card className="glass-dark border-white/10">
-      <CardHeader className="space-y-1 pb-4">
-        <div className="flex items-center gap-2 text-primary/90">
-          <SlidersHorizontal className="w-5 h-5" aria-hidden />
-          <CardTitle className="text-xl font-semibold tracking-tight text-white">
-            Launch / exit automation (Phase 3)
-          </CardTitle>
+    <Panel>
+      <PanelHeader>
+        <div className="flex items-center gap-2 text-foreground">
+          <SlidersHorizontal className="h-5 w-5" aria-hidden />
+          <PanelTitle>Launch / exit automation (Phase 3)</PanelTitle>
         </div>
-        <CardDescription className="text-white/55 text-sm">
+        <PanelDescription>
           Profiles run when you launch a game from the library and restore when the tracked process
           exits. Display and audio changes are snapshotted automatically.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 pt-0">
+        </PanelDescription>
+      </PanelHeader>
+      <PanelBody className="space-y-4">
         {windowsOnly ? (
-          <p className="text-sm text-amber-200/90 rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3">
+          <p className="rounded-none border border-border px-4 py-3 text-sm text-muted-foreground">
             Automation requires Windows. Profiles are saved but actions will not run on this OS.
           </p>
         ) : null}
@@ -180,43 +140,35 @@ export function AutomationProfileSection() {
         />
 
         {config.enabled && profile ? (
-          <div className="space-y-4 rounded-xl border border-white/10 bg-black/20 p-4">
+          <div className="space-y-4">
             <div className="space-y-1">
-              <p className="text-sm font-medium text-white">Profile: {profile.name}</p>
-              <p className="text-xs text-white/45">{profileSummary(profile)}</p>
+              <p className="text-sm font-medium text-foreground">Profile: {profile.name}</p>
+              <p className="text-xs text-muted-foreground">{profileSummary(profile)}</p>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-white/70 uppercase tracking-wide">On launch</p>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-foreground">On launch</p>
               <div className="space-y-2">
-                <label className="block text-xs text-white/55" htmlFor="automation-displays">
-                  Disable displays (indexes)
-                </label>
+                <Label htmlFor="automation-displays">Disable displays (indexes)</Label>
                 <div className="flex flex-wrap gap-2">
                   {displays.map((d) => {
                     const checked = disableIndexes.includes(d.index);
                     return (
-                      <button
+                      <FrameKey
                         key={d.index}
-                        type="button"
+                        size="sm"
                         disabled={d.primary}
                         title={d.primary ? "Cannot disable primary display" : d.name}
+                        active={checked}
                         onClick={() => {
                           const next = checked
                             ? disableIndexes.filter((i) => i !== d.index)
                             : [...disableIndexes, d.index];
                           setDisableIndexes(next);
                         }}
-                        className={cn(
-                          "rounded-lg border px-3 py-1.5 text-xs transition-colors",
-                          d.primary && "opacity-40 cursor-not-allowed",
-                          checked
-                            ? "border-primary/60 bg-primary/20 text-white"
-                            : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
-                        )}
                       >
                         {d.index}: {d.primary ? "Primary" : d.name || "Display"}
-                      </button>
+                      </FrameKey>
                     );
                   })}
                 </div>
@@ -225,7 +177,7 @@ export function AutomationProfileSection() {
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className="rounded-lg"
+                    className="rounded-none"
                     onClick={() => void refreshDevices()}
                   >
                     Refresh displays
@@ -233,15 +185,13 @@ export function AutomationProfileSection() {
                 ) : null}
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-xs text-white/55" htmlFor="automation-audio">
-                  Default playback device
-                </label>
+              <div className="space-y-1.5">
+                <Label htmlFor="automation-audio">Default playback device</Label>
                 <select
                   id="automation-audio"
                   value={audioDeviceId}
                   onChange={(e) => setAudioDevice(e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-black/40 text-sm text-white px-3 py-2"
+                  className={nativeSelectClassName}
                 >
                   <option value="">— No change —</option>
                   {audioDevices.map((d) => (
@@ -253,23 +203,21 @@ export function AutomationProfileSection() {
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-xs text-white/55" htmlFor="automation-companion">
-                  Launch companion tool (optional)
-                </label>
-                <input
+              <div className="space-y-1.5">
+                <Label htmlFor="automation-companion">Launch companion tool (optional)</Label>
+                <Input
                   id="automation-companion"
                   type="text"
                   value={companionPath}
                   onChange={(e) => setCompanionPath(e.target.value)}
                   placeholder="C:\\Tools\\RTSS.exe"
-                  className="w-full rounded-lg border border-white/15 bg-black/40 text-sm text-white px-3 py-2 font-mono"
+                  className="font-mono"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-white/70 uppercase tracking-wide">On exit</p>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">On exit</p>
               <SettingToggle
                 id="automation-restore-displays"
                 label="Restore displays"
@@ -290,13 +238,13 @@ export function AutomationProfileSection() {
 
         <Button
           type="button"
-          className="rounded-xl"
+          className="rounded-none"
           disabled={saving || windowsOnly}
           onClick={() => void save()}
         >
           {saving ? "Saving…" : "Save automation settings"}
         </Button>
-      </CardContent>
-    </Card>
+      </PanelBody>
+    </Panel>
   );
 }

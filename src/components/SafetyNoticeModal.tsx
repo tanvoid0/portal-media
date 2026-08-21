@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Panel, PanelBody, PanelDescription, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { X } from "lucide-react";
 
 interface SafetyNoticeModalProps {
@@ -45,56 +45,44 @@ export function SafetyNoticeModal({
   return (
     <div
       data-shell-modal
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-background/80 p-4"
       onClick={onClose}
       onKeyDown={handleKeyDown}
       role="presentation"
     >
-      <Card
-        className="w-full max-w-lg max-h-[85vh] overflow-y-auto border-white/20 bg-slate-900/95 shadow-2xl"
+      <Panel
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <CardHeader>
+        <PanelHeader>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
-              <CardTitle className="text-xl text-white">{title}</CardTitle>
-              {description ? (
-                <CardDescription className="text-white/70">{description}</CardDescription>
-              ) : null}
+              <PanelTitle>{title}</PanelTitle>
+              {description ? <PanelDescription>{description}</PanelDescription> : null}
             </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="h-8 w-8 shrink-0 text-white/70 hover:text-white hover:bg-white/10"
+              className="h-8 w-8 shrink-0 rounded-none"
               aria-label="Close"
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
-        </CardHeader>
-        <CardContent className="text-sm text-white/75 leading-relaxed space-y-2 pt-0">
+        </PanelHeader>
+        <PanelBody className="space-y-2 text-sm leading-relaxed text-muted-foreground">
           {children}
-        </CardContent>
-        <CardFooter className="flex justify-end gap-3 border-t border-white/10">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-white/20 text-white hover:bg-white/10"
-            data-safety-cancel
-          >
+        </PanelBody>
+        <div className="flex justify-end gap-3 border-t border-border px-5 py-4">
+          <Button variant="outline" onClick={onClose} className="rounded-none" data-safety-cancel>
             {cancelLabel}
           </Button>
-          <Button
-            ref={confirmRef}
-            variant="default"
-            onClick={onConfirm}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
+          <Button ref={confirmRef} variant="default" onClick={onConfirm} className="rounded-none">
             {confirmLabel}
           </Button>
-        </CardFooter>
-      </Card>
+        </div>
+      </Panel>
     </div>
   );
 }

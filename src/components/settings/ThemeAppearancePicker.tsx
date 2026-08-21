@@ -1,6 +1,7 @@
 import type { ComponentType, SVGAttributes } from "react";
 import type { ThemeId } from "@/types/theme";
 import { THEME_IDS } from "@/types/theme";
+import { FrameKey } from "@/components/ui/frame-key";
 import { Cloud, Factory, Film, Heart, LayoutGrid, Waves } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,58 +35,14 @@ const THEME_HINTS: Record<ThemeId, string> = {
   velvet: "Scarlet on near-black, poster-row mood",
 };
 
-/** Picker chrome colors aligned with `src/styles/themes/<id>.css` primaries */
-const THEME_STYLE: Record<
-  ThemeId,
-  {
-    shape: string;
-    active: string;
-    idle: string;
-    iconClass: string;
-  }
-> = {
-  her: {
-    shape: "rounded-[0.75rem]",
-    active:
-      "bg-[hsl(0_70%_50%)] text-white border-[hsl(0_70%_45%)] shadow-[0_4px_18px_-4px_hsl(0_70%_50%/0.55)]",
-    idle: "border-[hsl(0_70%_55%/0.35)] bg-[hsl(0_70%_55%/0.12)] text-white hover:bg-[hsl(0_70%_55%/0.2)]",
-    iconClass: "text-[hsl(0_72%_62%)]",
-  },
-  ocean: {
-    shape: "rounded-[0.75rem] font-medium",
-    active:
-      "bg-[hsl(188_86%_48%)] text-[hsl(222_47%_8%)] border-[hsl(188_86%_40%)] shadow-[0_4px_24px_-4px_hsl(188_86%_53%/0.55)]",
-    idle: "border-[hsl(188_86%_53%/0.35)] bg-[hsl(188_86%_53%/0.1)] text-white hover:bg-[hsl(188_86%_53%/0.18)]",
-    iconClass: "text-[hsl(188_86%_58%)]",
-  },
-  nimbus: {
-    shape: "rounded-full font-semibold",
-    active:
-      "bg-[hsl(215_90%_52%)] text-[hsl(230_38%_8%)] border-[hsl(215_90%_46%)] shadow-[0_6px_28px_-4px_hsl(215_90%_58%/0.55)]",
-    idle: "border-[hsl(215_90%_58%/0.35)] bg-[hsl(215_90%_58%/0.12)] text-white hover:bg-[hsl(215_90%_58%/0.2)]",
-    iconClass: "text-[hsl(215_90%_68%)]",
-  },
-  vertex: {
-    shape: "rounded-[0.25rem] font-semibold",
-    active:
-      "bg-[hsl(142_100%_32%)] text-white border-[hsl(142_100%_26%)] shadow-[0_2px_12px_-2px_hsl(142_100%_36%/0.5)]",
-    idle: "border-[hsl(142_100%_36%/0.35)] bg-[hsl(142_100%_36%/0.12)] text-white hover:bg-[hsl(142_100%_36%/0.2)]",
-    iconClass: "text-[hsl(142_70%_58%)]",
-  },
-  forge: {
-    shape: "rounded-sm font-semibold tracking-tight",
-    active:
-      "bg-[hsl(213_28%_18%)] text-[hsl(202_100%_55%)] border-[hsl(202_100%_52%)] shadow-[inset_0_1px_0_hsl(0_0%_100%/0.06)]",
-    idle: "border-[hsl(202_100%_52%/0.3)] bg-[hsl(213_28%_16%/0.85)] text-[hsl(210_15%_88%)] hover:bg-[hsl(213_26%_22%)]",
-    iconClass: "text-[hsl(202_100%_52%)]",
-  },
-  velvet: {
-    shape: "rounded-[0.125rem] font-bold tracking-tight",
-    active:
-      "bg-[hsl(355_92%_48%)] text-white border-[hsl(355_92%_40%)] shadow-[0_4px_20px_-4px_hsl(355_92%_48%/0.5)]",
-    idle: "border-[hsl(355_92%_48%/0.35)] bg-[hsl(355_92%_48%/0.12)] text-white hover:bg-[hsl(355_92%_48%/0.22)]",
-    iconClass: "text-[hsl(355_85%_58%)]",
-  },
+/** Swatch is palette identity, not chrome. Hues match DESIGN.md theme remaps. */
+const THEME_SWATCH: Record<ThemeId, string> = {
+  her: "hsl(0 70% 55%)",
+  ocean: "hsl(188 86% 53%)",
+  nimbus: "hsl(215 90% 58%)",
+  vertex: "hsl(142 100% 36%)",
+  forge: "hsl(202 100% 52%)",
+  velvet: "hsl(355 92% 48%)",
 };
 
 function ThemeIcon({ id, className }: { id: ThemeId; className?: string }) {
@@ -103,23 +60,22 @@ export function ThemeAppearancePicker({ value, onChange }: Props) {
     <div className="flex flex-wrap gap-2">
       {THEME_IDS.map((id) => {
         const active = value === id;
-        const s = THEME_STYLE[id];
         return (
-          <button
+          <FrameKey
             key={id}
-            type="button"
             title={THEME_HINTS[id]}
+            active={active}
             onClick={() => onChange(id)}
-            className={cn(
-              "inline-flex items-center gap-2 border-2 px-3.5 py-2 text-sm transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
-              s.shape,
-              active ? s.active : s.idle
-            )}
+            aria-pressed={active}
           >
-            <ThemeIcon id={id} className={cn(active ? "opacity-95" : s.iconClass)} />
+            <span
+              className="h-3 w-3 shrink-0 rounded-none border border-border"
+              style={{ background: THEME_SWATCH[id] }}
+              aria-hidden
+            />
+            <ThemeIcon id={id} />
             <span>{THEME_LABELS[id]}</span>
-          </button>
+          </FrameKey>
         );
       })}
     </div>

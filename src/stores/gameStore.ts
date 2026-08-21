@@ -28,6 +28,13 @@ const FAVORITES_KEY = "portal_media_favorite_ids";
 /** Per-category cursor memory (session-only) so tab switches don't snap to item 0. */
 const lastIndexByCategory = new Map<string, number>();
 
+/**
+ * Ids returned by the last AI library search, in ranked order (session-only, null when inactive).
+ * Module-scoped so every existing `deriveLibrarySlice` call keeps the filter without threading a
+ * parameter through each one. `useAiStore.activeQuery` is what the UI reads to know it is on.
+ */
+let aiFilterIds: string[] | null = null;
+
 function loadFavoriteIds(): string[] {
   if (typeof window === "undefined") return [];
   try {
@@ -168,6 +175,8 @@ interface GameStore {
   setSelectedIndex: (index: number) => void;
   setSearchQuery: (query: string) => void;
   clearSearchInput: () => void;
+  /** Apply (or clear with `null`) the ranked result set of an AI library search. */
+  setAiFilter: (ids: string[] | null) => void;
   setSelectedCategory: (category: string | null) => void;
   setSortType: (sortType: SortType) => void;
   selectNext: () => void;
@@ -302,6 +311,15 @@ function filterGamesByPrefs(
   hiddenFromCategories: Record<string, GameCategory[]>,
   appView: AppViewFilter
 ): Game[] {
+  // An AI search is an explicit result set: keep the model's ranking and ignore the tab / text
+  // filter, otherwise a cross-library answer disappears behind whichever tab is open.
+  if (aiFilterIds) {
+    const byId = new Map(games.map((g) => [g.id, g]));
+    return aiFilterIds
+      .map((id) => byId.get(id))
+      .filter((g): g is Game => g !== undefined);
+  }
+
   let filtered = games;
   if (searchQuery.trim()) {
     const q = searchQuery.toLowerCase();
@@ -761,6 +779,34 @@ export const useGameStore = create<GameStore>((set, get) => {
 
   clearSearchInput: () => {
     set({ searchInput: "" });
+  },
+
+  setAiFilter: (ids: string[] | null) => {
+    aiFilterIds = ids;
+    const {
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      searchQuery,
+      selectedCategory,
+      sortType,
+      favoriteIds,
+      getLastOpenedTime,
+    } = get();
+    const slice = deriveLibrarySlice(
+      sourceGames,
+      archivedIds,
+      categoryOverrides,
+      hiddenFromCategories,
+      searchQuery,
+      selectedCategory,
+      sortType,
+      favoriteIds,
+      getLastOpenedTime,
+      appViewNow()
+    );
+    set({ ...slice, selectedIndex: 0 });
   },
 
   setSelectedCategory: (category: string | null) => {

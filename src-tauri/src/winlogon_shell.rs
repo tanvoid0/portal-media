@@ -34,6 +34,8 @@ pub struct WinlogonShellStatus {
     pub revert_on_next_launch: bool,
     /// True when startup recovery reverted the shell this session.
     pub reverted_this_session: bool,
+    /// Skip starting the Explorer companion at logon (frees the desktop shell's memory).
+    pub defer_explorer_companion: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +50,8 @@ struct ShellBackup {
 struct PersistedShellState {
     #[serde(default)]
     revert_on_next_launch: bool,
+    #[serde(default)]
+    defer_explorer_companion: bool,
 }
 
 static REVERTED_THIS_SESSION: Mutex<bool> = Mutex::new(false);
@@ -78,6 +82,15 @@ pub fn winlogon_shell_set_revert_on_next_launch(enabled: bool) -> Result<(), Str
     write_shell_state(&state)
 }
 
+/// Xbox-FSE-style: when Portal is the logon shell, do not start `explorer.exe` at logon.
+/// Explorer still comes back on any desktop restore (Console mode off, escape hotkey, exit).
+#[tauri::command]
+pub fn winlogon_shell_set_defer_explorer(enabled: bool) -> Result<(), String> {
+    let mut state = read_shell_state().unwrap_or_default();
+    state.defer_explorer_companion = enabled;
+    write_shell_state(&state)
+}
+
 pub fn setup(app: &tauri::App) -> Result<(), String> {
     let dir = app
         .path()
@@ -102,7 +115,7 @@ pub fn setup(app: &tauri::App) -> Result<(), String> {
         if let Ok(mut slot) = SESSION_STARTED_AS_SHELL.lock() {
             *slot = started;
         }
-        if started {
+        if started && !read_shell_state().unwrap_or_default().defer_explorer_companion {
             let _ = ensure_explorer_companion();
         }
     }
@@ -143,6 +156,7 @@ fn build_status() -> Result<WinlogonShellStatus, String> {
             companion_explorer_running: is_explorer_running(),
             revert_on_next_launch: shell_state.revert_on_next_launch,
             reverted_this_session,
+            defer_explorer_companion: shell_state.defer_explorer_companion,
         })
     }
     #[cfg(not(windows))]
@@ -158,6 +172,7 @@ fn build_status() -> Result<WinlogonShellStatus, String> {
             companion_explorer_running: false,
             revert_on_next_launch: shell_state.revert_on_next_launch,
             reverted_this_session,
+            defer_explorer_companion: shell_state.defer_explorer_companion,
         })
     }
 }
@@ -598,10 +613,22 @@ mod tests {
     fn shell_state_roundtrip() {
         let state = PersistedShellState {
             revert_on_next_launch: true,
+            defer_explorer_companion: true,
         };
         let raw = serde_json::to_string(&state).unwrap();
         let back: PersistedShellState = serde_json::from_str(&raw).unwrap();
         assert!(back.revert_on_next_launch);
+        assert!(back.defer_explorer_companion);
+    }
+
+    /// State files written before the defer toggle existed must still load, and must not
+    /// silently start skipping Explorer at logon.
+    #[test]
+    fn shell_state_legacy_file_defaults_to_starting_explorer() {
+        let back: PersistedShellState =
+            serde_json::from_str(r#"{"revertOnNextLaunch":true}"#).unwrap();
+        assert!(back.revert_on_next_launch);
+        assert!(!back.defer_explorer_companion);
     }
 
     #[test]

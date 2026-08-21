@@ -3,6 +3,7 @@ import {
   winlogonShellGetStatus,
   winlogonShellSetEnabled,
   winlogonShellSetRevertOnNextLaunch,
+  winlogonShellSetDeferExplorer,
   type WinlogonShellStatus,
 } from "@/utils/winlogonShellApi";
 import { hasSeenWinlogonShellNotice } from "@/utils/winlogonShellNotice";
@@ -15,6 +16,7 @@ interface WinlogonShellStore {
   pendingSignOut: boolean;
   revertOnNextLaunch: boolean;
   revertedThisSession: boolean;
+  deferExplorerCompanion: boolean;
   shellValue: string | null;
   isElevated: boolean;
   companionExplorerRunning: boolean;
@@ -27,6 +29,7 @@ interface WinlogonShellStore {
   confirmEnableShell: () => Promise<void>;
   setWinlogonShell: (enabled: boolean) => Promise<void>;
   setRevertOnNextLaunch: (enabled: boolean) => Promise<void>;
+  setDeferExplorerCompanion: (enabled: boolean) => Promise<void>;
   markBootPrefsApplied: () => void;
 }
 
@@ -38,6 +41,7 @@ function applyStatus(set: (partial: Partial<WinlogonShellStore>) => void, status
     pendingSignOut: status.pendingSignOut,
     revertOnNextLaunch: status.revertOnNextLaunch,
     revertedThisSession: status.revertedThisSession,
+    deferExplorerCompanion: status.deferExplorerCompanion,
     shellValue: status.shellValue,
     isElevated: status.isElevated,
     companionExplorerRunning: status.companionExplorerRunning,
@@ -54,6 +58,7 @@ export const useWinlogonShellStore = create<WinlogonShellStore>((set, get) => ({
   pendingSignOut: false,
   revertOnNextLaunch: false,
   revertedThisSession: false,
+  deferExplorerCompanion: false,
   shellValue: null,
   isElevated: false,
   companionExplorerRunning: false,
@@ -106,6 +111,17 @@ export const useWinlogonShellStore = create<WinlogonShellStore>((set, get) => ({
     set({ lastError: null });
     try {
       await winlogonShellSetRevertOnNextLaunch(enabled);
+      await get().refreshFromOs();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      set({ lastError: message });
+      throw e;
+    }
+  },
+  setDeferExplorerCompanion: async (enabled) => {
+    set({ lastError: null });
+    try {
+      await winlogonShellSetDeferExplorer(enabled);
       await get().refreshFromOs();
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

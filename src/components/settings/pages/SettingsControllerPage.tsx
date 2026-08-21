@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FrameKey } from "@/components/ui/frame-key";
 import { Input } from "@/components/ui/input";
+import { Panel, PanelBody, PanelDescription, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { SettingToggle } from "@/components/ui/setting-row";
+import { Switch } from "@/components/ui/switch";
 import { useNavBindingsStore } from "@/stores/navBindingsStore";
 import {
   NAV_ACTION_GROUPS,
@@ -32,7 +35,6 @@ import {
   Plus,
   RotateCcw,
   Search,
-  Sparkles,
 } from "lucide-react";
 
 type CaptureMode = { type: "keyboard"; actionId: NavActionId } | { type: "gamepad"; actionId: NavActionId };
@@ -129,20 +131,26 @@ function CaptureLayer({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/75 backdrop-blur-md p-4"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-background/80 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="nav-capture-title"
     >
-      <div className="glass-dark border-2 border-primary/40 shadow-lg shadow-primary/10 rounded-2xl p-8 max-w-md w-full text-center space-y-4 ring-2 ring-primary/20">
-        <h2 id="nav-capture-title" className="text-xl font-semibold text-white">
-          {mode.type === "keyboard" ? "Press a key" : "Press a controller button"}
-        </h2>
-        <p className="text-white/60 text-sm">{mode.type === "keyboard" ? "Esc to cancel." : "First gamepad. Esc to cancel."}</p>
-        <Button type="button" variant="secondary" className="mt-2" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
+      <Panel className="w-full max-w-md border-[3px] border-primary text-center">
+        <PanelHeader>
+          <PanelTitle id="nav-capture-title">
+            {mode.type === "keyboard" ? "Press a key" : "Press a controller button"}
+          </PanelTitle>
+          <PanelDescription>
+            {mode.type === "keyboard" ? "Esc to cancel." : "First gamepad. Esc to cancel."}
+          </PanelDescription>
+        </PanelHeader>
+        <PanelBody>
+          <Button type="button" variant="secondary" className="rounded-none" onClick={onCancel}>
+            Cancel
+          </Button>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }
@@ -160,11 +168,11 @@ function BindingChip({
     <button
       type="button"
       title={title ?? "Remove"}
-      className="group inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-lg border border-white/15 bg-white/[0.07] text-white text-xs font-medium hover:bg-white/12 hover:border-white/25 transition-colors"
+      className="group inline-flex items-center gap-1.5 border-2 border-border bg-transparent py-1 pl-2.5 pr-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary"
       onClick={onRemove}
     >
       <span>{children}</span>
-      <span className="text-white/40 group-hover:text-white/80 text-[10px] leading-none px-0.5" aria-hidden>
+      <span className="px-0.5 text-xs leading-none text-muted-foreground group-hover:text-foreground" aria-hidden>
         ×
       </span>
     </button>
@@ -230,43 +238,41 @@ function BindingRow({ id, inactive }: { id: NavActionId; inactive: boolean }) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-white/10 bg-white/[0.04] p-4 space-y-3 transition-opacity",
+        "space-y-3 border-b border-border py-4 last:border-b-0",
         inactive && "opacity-55",
         !binding.enabled && "opacity-70"
       )}
     >
-      <div className="flex flex-wrap items-start gap-3 justify-between gap-y-2">
-        <label className="flex items-center gap-3 min-w-0 cursor-pointer group/label">
-          <input
-            type="checkbox"
+      <div className="flex flex-wrap items-start justify-between gap-3 gap-y-2">
+      <div className="flex min-w-0 items-center gap-3">
+          <Switch
             checked={binding.enabled}
             onChange={(e) => setActionEnabled(id, e.target.checked)}
-            className="h-5 w-5 rounded-md border-white/35 bg-black/50 shrink-0 accent-primary"
             aria-label={`Enable ${label}`}
           />
-          <span className="text-white font-medium text-sm group-hover/label:text-white">{label}</span>
-        </label>
+          <span className="text-sm font-medium text-foreground">{label}</span>
+        </div>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className="text-white/50 hover:text-white h-8 -mr-1"
+          className="h-8 rounded-none"
           onClick={() => resetAction(id)}
         >
-          <RotateCcw className="w-3.5 h-3.5" aria-hidden />
-          <span className="sr-only sm:not-sr-only sm:inline text-xs ml-1">Reset</span>
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+          <span className="sr-only ml-1 text-xs sm:not-sr-only sm:inline">Reset</span>
         </Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
-        <div className="space-y-2 min-w-0">
-          <div className="flex items-center gap-2 text-white/45 text-[11px] uppercase tracking-wider font-medium">
-            <Gamepad2 className="w-3.5 h-3.5 opacity-80" aria-hidden />
+        <div className="min-w-0 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground">
+            <Gamepad2 className="h-3.5 w-3.5" aria-hidden />
             Pad
           </div>
-          <div className="flex flex-wrap gap-1.5 items-center">
+          <div className="flex flex-wrap items-center gap-1.5">
             {binding.gamepadButtons.length === 0 ? (
-              <span className="text-white/35 text-xs py-1">None</span>
+              <span className="py-1 text-xs text-muted-foreground">None</span>
             ) : (
               binding.gamepadButtons.map((btn) => (
                 <BindingChip
@@ -287,23 +293,23 @@ function BindingRow({ id, inactive }: { id: NavActionId; inactive: boolean }) {
               type="button"
               size="sm"
               variant="outline"
-              className="h-7 text-xs border-white/20 bg-transparent text-white/80 hover:bg-white/10"
+              className="h-7 rounded-none text-xs"
               onClick={() => setCapture({ type: "gamepad", actionId: id })}
             >
-              <Plus className="w-3.5 h-3.5" aria-hidden />
+              <Plus className="h-3.5 w-3.5" aria-hidden />
               Add
             </Button>
           </div>
         </div>
 
-        <div className="space-y-2 min-w-0">
-          <div className="flex items-center gap-2 text-white/45 text-[11px] uppercase tracking-wider font-medium">
-            <Keyboard className="w-3.5 h-3.5 opacity-80" aria-hidden />
+        <div className="min-w-0 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground">
+            <Keyboard className="h-3.5 w-3.5" aria-hidden />
             Keys
           </div>
-          <div className="flex flex-wrap gap-1.5 items-center">
+          <div className="flex flex-wrap items-center gap-1.5">
             {binding.keyboard.length === 0 ? (
-              <span className="text-white/35 text-xs py-1">None</span>
+              <span className="py-1 text-xs text-muted-foreground">None</span>
             ) : (
               binding.keyboard.map((chord, idx) => (
                 <BindingChip
@@ -324,31 +330,31 @@ function BindingRow({ id, inactive }: { id: NavActionId; inactive: boolean }) {
               type="button"
               size="sm"
               variant="outline"
-              className="h-7 text-xs border-white/20 bg-transparent text-white/80 hover:bg-white/10"
+              className="h-7 rounded-none text-xs"
               onClick={() => setCapture({ type: "keyboard", actionId: id })}
             >
-              <Plus className="w-3.5 h-3.5" aria-hidden />
+              <Plus className="h-3.5 w-3.5" aria-hidden />
               Add
             </Button>
           </div>
         </div>
       </div>
 
-      {warn && (
-        <p className="text-amber-200/90 text-xs flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-400/20 px-2.5 py-2">
-          <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 opacity-90" aria-hidden />
+      {warn ? (
+        <p className="flex items-start gap-2 rounded-none border border-border px-2.5 py-2 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           {warn}
         </p>
-      )}
+      ) : null}
 
-      {capture && capture.actionId === id && (
+      {capture && capture.actionId === id ? (
         <CaptureLayer
           mode={capture}
           onKeyboard={onKeyboardCaptured}
           onGamepadIndex={onGamepadCaptured}
           onCancel={() => setCapture(null)}
         />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -372,25 +378,25 @@ function DetailsSection({
     <details
       open={open}
       onToggle={(e) => onOpenChange(e.currentTarget.open)}
-      className="group border border-white/10 rounded-xl bg-white/[0.02] overflow-hidden"
+      className="group overflow-hidden rounded-none border border-border bg-card"
     >
       <summary
         className={cn(
-          "flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 hover:bg-white/[0.04] transition-colors",
+          "flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 hover:bg-muted",
           "[&::-webkit-details-marker]:hidden"
         )}
       >
         <ChevronDown
-          className={cn("w-4 h-4 text-white/50 shrink-0 transition-transform", open && "rotate-180")}
+          className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
           aria-hidden
         />
-        <Icon className="w-4 h-4 text-primary/90 shrink-0" aria-hidden />
-        <span className="font-medium text-white text-sm flex-1 text-left">{title}</span>
+        <Icon className="h-4 w-4 shrink-0 text-foreground" aria-hidden />
+        <span className="flex-1 text-left text-sm font-medium text-foreground">{title}</span>
         {badge ? (
-          <span className="text-[11px] text-white/45 tabular-nums shrink-0">{badge}</span>
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{badge}</span>
         ) : null}
       </summary>
-      <div className="px-4 pb-4 pt-0 border-t border-white/5">{children}</div>
+      <div className="border-t border-border px-4 pb-4 pt-0">{children}</div>
     </details>
   );
 }
@@ -419,7 +425,10 @@ export function SettingsControllerPage() {
   const customRef = useRef<HTMLDivElement>(null);
 
   const filteredGroups = useMemo(() => filterGroupsByQuery(bindingQuery), [bindingQuery]);
-  const totalFiltered = useMemo(() => filteredGroups.reduce((n, g) => n + g.ids.length, 0), [filteredGroups]);
+  const totalFiltered = useMemo(
+    () => filteredGroups.reduce((n, g) => n + g.ids.length, 0),
+    [filteredGroups]
+  );
 
   const [sectionOpen, setSectionOpen] = useState<Record<string, boolean>>(() => {
     const first = NAV_ACTION_GROUPS[0]?.title;
@@ -438,326 +447,218 @@ export function SettingsControllerPage() {
   };
 
   return (
-    <Card className="glass-dark border-white/10 overflow-hidden">
-      <CardHeader className="space-y-3 pb-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle className="text-2xl font-semibold tracking-tight text-white">Controller</CardTitle>
-            <CardDescription className="text-white/55 text-sm">
-              Fine-tune keyboard, controller, and optional custom shortcuts.
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 justify-end">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border",
-                keyboardNavigationEnabled
-                  ? "bg-violet-500/12 text-violet-100 border-violet-400/25"
-                  : "bg-white/5 text-white/50 border-white/15"
-              )}
-            >
-              <Keyboard className="w-3.5 h-3.5 opacity-90" aria-hidden />
-              {keyboardNavigationEnabled ? "Keys on" : "Keys off"}
-            </span>
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border",
-                gamepadNavigationEnabled
-                  ? "bg-sky-500/15 text-sky-100 border-sky-400/25"
-                  : "bg-white/5 text-white/50 border-white/15"
-              )}
-            >
-              <Gamepad2 className="w-3.5 h-3.5 opacity-90" aria-hidden />
-              {gamepadNavigationEnabled ? "Pad on" : "Pad off"}
-            </span>
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border",
-                remoteBindingsEnabled
-                  ? "bg-emerald-500/15 text-emerald-100 border-emerald-400/30"
-                  : "bg-white/5 text-white/55 border-white/15"
-              )}
-            >
-              <Sparkles className="w-3.5 h-3.5 opacity-90" aria-hidden />
-              {remoteBindingsEnabled ? "Custom on" : "Built-in"}
-            </span>
-          </div>
-        </div>
-        <nav className="flex flex-wrap gap-1.5" aria-label="On-page sections">
-          <button
-            type="button"
-            className="rounded-md px-2.5 py-1 text-[11px] font-medium bg-white/10 text-white/70 hover:bg-white/15 hover:text-white transition-colors"
-            onClick={() => defaultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-          >
-            Shortcuts
-          </button>
-          <button
-            type="button"
-            className="rounded-md px-2.5 py-1 text-[11px] font-medium bg-white/10 text-white/70 hover:bg-white/15 hover:text-white transition-colors"
-            onClick={() => navInputsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-          >
-            Inputs
-          </button>
-          <button
-            type="button"
-            className="rounded-md px-2.5 py-1 text-[11px] font-medium bg-white/10 text-white/70 hover:bg-white/15 hover:text-white transition-colors"
-            onClick={() => customRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-          >
-            Custom
-          </button>
-        </nav>
-      </CardHeader>
-      <CardContent className="space-y-6 pb-8 pt-0">
-        <div ref={defaultsRef} className="scroll-mt-4 space-y-3">
-          <DetailsSection
-            open={sectionOpen.defaults ?? true}
-            onOpenChange={(o) => setSection("defaults", o)}
-            title="Default shortcuts"
-            icon={Keyboard}
-            badge="ref"
-          >
-            <p className="text-white/45 text-xs mb-3">
-              On-screen hints only when custom bindings are enabled. Guide/Home may not focus the app.
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                ["Move", "D-pad / stick"],
-                ["Open", "A · Enter"],
-                ["Back", "B · Esc"],
-                ["Quick launch", "Square (2)"],
-                ["Quick access", "Win · Home · View (8)"],
-                ["Quit", "Alt+F4"],
-                ["Options", "Menu (9) · F10"],
-                ["Search", "/ · Y"],
-                ["Focus", "Tab"],
-              ].map(([k, v]) => (
-                <div key={k} className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-2">
-                  <p className="text-white/75 text-xs font-medium">{k}</p>
-                  <p className="text-white/40 text-[11px] mt-0.5 leading-snug">{v}</p>
-                </div>
-              ))}
+    <div className="space-y-6">
+      <Panel>
+        <PanelHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <PanelTitle>Controller</PanelTitle>
+              <PanelDescription>
+                Fine-tune keyboard, controller, and optional custom shortcuts.
+              </PanelDescription>
             </div>
-          </DetailsSection>
-        </div>
-
-        <div ref={navInputsRef} className="scroll-mt-4 space-y-2.5">
-          <h2 className="text-base font-semibold text-white flex items-center gap-2">
-            <Gamepad2 className="w-4 h-4 text-primary/90" aria-hidden />
-            Navigation inputs
-          </h2>
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5 space-y-4 ring-1 ring-inset ring-white/[0.04]">
-            <p className="text-white/50 text-xs leading-snug">
-              Disable keyboard or controller independently—for example mouse-only use, or to avoid accidental focus moves.
-            </p>
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-0.5 min-w-0 pr-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-white">
-                    <Keyboard className="w-4 h-4 text-violet-300/90 shrink-0" aria-hidden />
-                    Keyboard
-                  </div>
-                  <p className="text-[11px] text-white/45 leading-snug">
-                    Shell shortcuts, spatial moves, embedded browser keys. Tab, typing in fields, and Esc to close overlays stay normal.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={keyboardNavigationEnabled}
-                  onClick={() => setKeyboardNavigationEnabled(!keyboardNavigationEnabled)}
-                  className={cn(
-                    "relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                    keyboardNavigationEnabled ? "bg-primary" : "bg-white/20"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-200 ease-out",
-                      keyboardNavigationEnabled ? "translate-x-6" : "translate-x-0"
-                    )}
-                    aria-hidden
-                  />
-                </button>
-              </div>
-              <div className="h-px bg-white/[0.06]" />
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-0.5 min-w-0 pr-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-white">
-                    <Gamepad2 className="w-4 h-4 text-sky-300/90 shrink-0" aria-hidden />
-                    Controller
-                  </div>
-                  <p className="text-[11px] text-white/45 leading-snug">
-                    Gamepad moves focus and runs shell / embedded-browser controller shortcuts.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={gamepadNavigationEnabled}
-                  onClick={() => setGamepadNavigationEnabled(!gamepadNavigationEnabled)}
-                  className={cn(
-                    "relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                    gamepadNavigationEnabled ? "bg-primary" : "bg-white/20"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-200 ease-out",
-                      gamepadNavigationEnabled ? "translate-x-6" : "translate-x-0"
-                    )}
-                    aria-hidden
-                  />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div ref={customRef} className="scroll-mt-4 space-y-4">
-          <h2 className="text-base font-semibold text-white flex items-center gap-2">
-            <Gamepad2 className="w-4 h-4 text-primary/90" aria-hidden />
-            Custom bindings
-          </h2>
-
-          <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-3.5 space-y-3 shadow-sm shadow-black/30 ring-1 ring-inset ring-white/[0.04]">
-            <div className="flex flex-wrap items-start gap-2 justify-between">
-              <p className="text-[11px] text-white/55 leading-snug max-w-[50ch]">
-                Optional remaps for keys and buttons. Off uses built-in shortcuts and hides the bottom hint bar.
-              </p>
-              <span className="shrink-0 rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white/40">
-                Beta
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 border-2 px-3 py-1 text-xs font-medium",
+                  keyboardNavigationEnabled
+                    ? "border-primary text-foreground"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                <Keyboard className="h-3.5 w-3.5" aria-hidden />
+                {keyboardNavigationEnabled ? "Keys on" : "Keys off"}
+              </span>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 border-2 px-3 py-1 text-xs font-medium",
+                  gamepadNavigationEnabled
+                    ? "border-primary text-foreground"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                <Gamepad2 className="h-3.5 w-3.5" aria-hidden />
+                {gamepadNavigationEnabled ? "Pad on" : "Pad off"}
+              </span>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 border-2 px-3 py-1 text-xs font-medium",
+                  remoteBindingsEnabled
+                    ? "border-primary text-foreground"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                {remoteBindingsEnabled ? "Custom on" : "Built-in"}
               </span>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <span className="text-sm font-medium text-white">Enable custom bindings</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={remoteBindingsEnabled}
-                onClick={() => setRemoteBindingsEnabled(!remoteBindingsEnabled)}
-                className={cn(
-                  "relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  remoteBindingsEnabled ? "bg-primary" : "bg-white/20"
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-200 ease-out",
-                    remoteBindingsEnabled ? "translate-x-6" : "translate-x-0"
-                  )}
-                  aria-hidden
-                />
-              </button>
-            </div>
-            {!remoteBindingsEnabled && (
-              <p className="text-[11px] text-white/45 flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 shrink-0" aria-hidden />
-                Edits apply after you enable custom bindings.
+          </div>
+          <nav className="flex flex-wrap gap-1.5 pt-2" aria-label="On-page sections">
+            <FrameKey
+              size="sm"
+              onClick={() => defaultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
+              Shortcuts
+            </FrameKey>
+            <FrameKey
+              size="sm"
+              onClick={() => navInputsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
+              Inputs
+            </FrameKey>
+            <FrameKey
+              size="sm"
+              onClick={() => customRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
+              Custom
+            </FrameKey>
+          </nav>
+        </PanelHeader>
+        <PanelBody className="space-y-6">
+          <div ref={defaultsRef} className="scroll-mt-4 space-y-3">
+            <DetailsSection
+              open={sectionOpen.defaults ?? true}
+              onOpenChange={(o) => setSection("defaults", o)}
+              title="Default shortcuts"
+              icon={Keyboard}
+              badge="ref"
+            >
+              <p className="mb-3 text-xs text-muted-foreground">
+                On-screen hints only when custom bindings are enabled. Guide/Home may not focus the app.
               </p>
-            )}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {[
+                  ["Move", "D-pad / stick"],
+                  ["Open", "A · Enter"],
+                  ["Back", "B · Esc"],
+                  ["Quick launch", "Square (2)"],
+                  ["Quick access", "Win · Home · View (8)"],
+                  ["Quit", "Alt+F4"],
+                  ["Options", "Menu (9) · F10"],
+                  ["Search", "/ · Y"],
+                  ["Focus", "Tab"],
+                ].map(([k, v]) => (
+                  <div key={k} className="rounded-none border border-border px-2.5 py-2">
+                    <p className="text-xs font-medium text-foreground">{k}</p>
+                    <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{v}</p>
+                  </div>
+                ))}
+              </div>
+            </DetailsSection>
           </div>
+        </PanelBody>
+      </Panel>
 
-          <div className="flex flex-wrap items-center gap-3 justify-between">
-            <Button type="button" variant="secondary" size="sm" onClick={onResetAll} className="gap-2">
-              <RotateCcw className="w-3.5 h-3.5" aria-hidden />
-              Reset all
-            </Button>
+      <Panel>
+        <PanelHeader>
+          <div ref={navInputsRef} className="scroll-mt-4 flex items-center gap-2">
+            <Gamepad2 className="h-4 w-4" aria-hidden />
+            <PanelTitle>Navigation inputs</PanelTitle>
           </div>
+          <PanelDescription>
+            Disable keyboard or controller independently—for example mouse-only use, or to avoid accidental focus moves.
+          </PanelDescription>
+        </PanelHeader>
+        <PanelBody>
+          <SettingToggle
+            id="nav-keyboard"
+            label="Keyboard"
+            description="Shell shortcuts, spatial moves, embedded browser keys. Tab, typing in fields, and Esc to close overlays stay normal."
+            checked={keyboardNavigationEnabled}
+            onChange={setKeyboardNavigationEnabled}
+          />
+          <SettingToggle
+            id="nav-gamepad"
+            label="Controller"
+            description="Gamepad moves focus and runs shell / embedded-browser controller shortcuts."
+            checked={gamepadNavigationEnabled}
+            onChange={setGamepadNavigationEnabled}
+          />
+        </PanelBody>
+      </Panel>
 
-          <div
-            className={cn(
-              "rounded-xl border border-white/10 p-4 space-y-3 transition-opacity",
-              !remoteBindingsEnabled && "opacity-60"
-            )}
-          >
-            <h3 className="text-sm font-semibold text-white">Global</h3>
-            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4">
-              <label
-                className={cn(
-                  "flex items-center gap-3 text-sm text-white/90",
-                  remoteBindingsEnabled ? "cursor-pointer" : "cursor-not-allowed"
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={useLeftStickForSpatial}
-                  disabled={!remoteBindingsEnabled}
-                  onChange={(e) => setUseLeftStickForSpatial(e.target.checked)}
-                  className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
-                />
-                Left stick for move
-              </label>
-              <label
-                className={cn(
-                  "flex items-center gap-3 text-sm text-white/90",
-                  remoteBindingsEnabled ? "cursor-pointer" : "cursor-not-allowed"
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={quickAccessMetaTapEnabled}
-                  disabled={!remoteBindingsEnabled}
-                  onChange={(e) => setQuickAccessMetaTapEnabled(e.target.checked)}
-                  className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
-                />
-                Win/Meta tap → Quick access
-              </label>
-              <label className="flex items-center gap-3 text-sm text-white/90 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={soundsOn}
-                  onChange={(e) => {
-                    setUiSoundsEnabled(e.target.checked);
-                    setSoundsOn(e.target.checked);
-                    if (e.target.checked) playUiSound("select");
-                  }}
-                  className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
-                />
-                UI sounds
-              </label>
-              <label className="flex items-center gap-3 text-sm text-white/90 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={hapticsOn}
-                  onChange={(e) => {
-                    setHapticsEnabled(e.target.checked);
-                    setHapticsOn(e.target.checked);
-                    if (e.target.checked) playHaptic(60, 0.4, 0.2);
-                  }}
-                  className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
-                />
-                Controller vibration
-              </label>
-              <label className="flex items-center gap-3 text-sm text-white/90 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={cursorOn}
-                  onChange={(e) => {
-                    setCursorOn(e.target.checked);
-                    setNativeGamepadPrefs(e.target.checked, chordOn);
-                  }}
-                  className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
-                />
-                Right-stick cursor in browser
-              </label>
-              <label className="flex items-center gap-3 text-sm text-white/90 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={chordOn}
-                  onChange={(e) => {
-                    setChordOn(e.target.checked);
-                    setNativeGamepadPrefs(cursorOn, e.target.checked);
-                  }}
-                  className="h-5 w-5 rounded-md border-white/35 bg-black/50 accent-primary"
-                />
-                Back+Start focuses Portal
-              </label>
-            </div>
+      <Panel>
+        <PanelHeader>
+          <div ref={customRef} className="scroll-mt-4 flex items-center gap-2">
+            <Gamepad2 className="h-4 w-4" aria-hidden />
+            <PanelTitle>Custom bindings</PanelTitle>
+          </div>
+          <PanelDescription>
+            Optional remaps for keys and buttons. Off uses built-in shortcuts and hides the bottom hint bar.
+          </PanelDescription>
+        </PanelHeader>
+        <PanelBody className="space-y-4">
+          <SettingToggle
+            id="nav-custom-bindings"
+            label="Enable custom bindings"
+            description="Edits apply after you enable custom bindings."
+            checked={remoteBindingsEnabled}
+            onChange={setRemoteBindingsEnabled}
+          />
+
+          <Button type="button" variant="secondary" size="sm" onClick={onResetAll} className="rounded-none">
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+            Reset all
+          </Button>
+
+          <div className={cn(!remoteBindingsEnabled && "opacity-60")}>
+            <h3 className="mb-1 text-sm font-semibold text-foreground">Global</h3>
+            <SettingToggle
+              id="nav-left-stick"
+              label="Left stick for move"
+              checked={useLeftStickForSpatial}
+              disabled={!remoteBindingsEnabled}
+              onChange={setUseLeftStickForSpatial}
+            />
+            <SettingToggle
+              id="nav-meta-tap"
+              label="Win/Meta tap → Quick access"
+              checked={quickAccessMetaTapEnabled}
+              disabled={!remoteBindingsEnabled}
+              onChange={setQuickAccessMetaTapEnabled}
+            />
+            <SettingToggle
+              id="nav-ui-sounds"
+              label="UI sounds"
+              checked={soundsOn}
+              onChange={(v) => {
+                setUiSoundsEnabled(v);
+                setSoundsOn(v);
+                if (v) playUiSound("select");
+              }}
+            />
+            <SettingToggle
+              id="nav-haptics"
+              label="Controller vibration"
+              checked={hapticsOn}
+              onChange={(v) => {
+                setHapticsEnabled(v);
+                setHapticsOn(v);
+                if (v) playHaptic(60, 0.4, 0.2);
+              }}
+            />
+            <SettingToggle
+              id="nav-cursor"
+              label="Right-stick cursor in browser"
+              checked={cursorOn}
+              onChange={(v) => {
+                setCursorOn(v);
+                setNativeGamepadPrefs(v, chordOn);
+              }}
+            />
+            <SettingToggle
+              id="nav-chord"
+              label="Back+Start focuses Portal"
+              checked={chordOn}
+              onChange={(v) => {
+                setChordOn(v);
+                setNativeGamepadPrefs(cursorOn, v);
+              }}
+            />
           </div>
 
           <div className="relative">
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35 pointer-events-none"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden
             />
             <Input
@@ -765,13 +666,15 @@ export function SettingsControllerPage() {
               placeholder="Filter actions…"
               value={bindingQuery}
               onChange={(e) => setBindingQuery(e.target.value)}
-              className="pl-9 bg-black/30 border-white/15 text-white placeholder:text-white/35"
+              className="pl-9"
               aria-label="Filter binding actions"
             />
           </div>
 
           {bindingQuery.trim() && totalFiltered === 0 ? (
-            <p className="text-white/45 text-sm text-center py-8">No actions match “{bindingQuery.trim()}”.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No actions match “{bindingQuery.trim()}”.
+            </p>
           ) : (
             <div className="space-y-3">
               {filteredGroups.map((group, gi) => (
@@ -783,7 +686,7 @@ export function SettingsControllerPage() {
                   icon={Gamepad2}
                   badge={`${group.ids.length}`}
                 >
-                  <div className="grid gap-3 pt-2">
+                  <div className="grid gap-0 pt-2">
                     {group.ids.map((actionId) => (
                       <BindingRow key={actionId} id={actionId} inactive={!remoteBindingsEnabled} />
                     ))}
@@ -792,8 +695,8 @@ export function SettingsControllerPage() {
               ))}
             </div>
           )}
-        </div>
-      </CardContent>
-    </Card>
+        </PanelBody>
+      </Panel>
+    </div>
   );
 }

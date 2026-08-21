@@ -13,7 +13,7 @@ import { getSafeImageSource } from "@/utils/imageUtils";
 import { PlatformLabel } from "@/components/PlatformLabel";
 import { appNavigate } from "@/nav/appNavigate";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Layers } from "lucide-react";
+import { ChevronDown, HardDrive, Layers } from "lucide-react";
 
 export function SaveGameGroupCard({
   group,
@@ -35,79 +35,39 @@ export function SaveGameGroupCard({
   );
   const totalBytes = groupTotalBytes(group);
   const newest = groupNewestModified(group);
-  const isSettings = variant === "settings";
 
   return (
-    <article
-      className={cn(
-        "rounded-2xl border overflow-hidden transition-all duration-panel spring-ease",
-        isSettings
-          ? "border-white/10 bg-white/[0.04] hover:border-white/20"
-          : "border-border/50 bg-card/50 hover:border-border/80 hover:shadow-md hover:shadow-black/10"
-      )}
-    >
+    <article className="overflow-hidden rounded-none border border-border bg-card">
       <button
         type="button"
-        className={cn(
-          "w-full flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 sm:py-3.5 text-left transition-colors",
-          isSettings ? "hover:bg-white/[0.06]" : "hover:bg-muted/20"
-        )}
+        className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-muted sm:gap-4 sm:px-4 sm:py-3.5"
         onClick={onToggle}
         aria-expanded={expanded}
       >
-        <div
-          className={cn(
-            "relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0 ring-1",
-            isSettings ? "ring-white/15 bg-black/40" : "ring-border/60 bg-muted/30"
-          )}
-        >
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-none border border-border bg-muted sm:h-14 sm:w-14">
           {cover ? (
-            <img src={cover} alt="" className="w-full h-full object-cover" />
+            <img src={cover} alt="" className="h-full w-full object-cover" />
           ) : (
-            <span className="flex h-full w-full items-center justify-center text-xl opacity-60">
-              🎮
+            <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+              <HardDrive className="h-5 w-5" aria-hidden />
             </span>
           )}
-          <span
-            className={cn(
-              "absolute bottom-0.5 right-0.5 flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-[10px] font-bold tabular-nums",
-              isSettings ? "bg-black/70 text-white" : "bg-background/90 text-foreground"
-            )}
-          >
+          <span className="absolute bottom-0.5 right-0.5 flex h-5 min-w-5 items-center justify-center bg-background px-1 text-xs font-bold tabular-nums text-foreground">
             {group.bundles.length}
           </span>
         </div>
 
         <div className="min-w-0 flex-1 space-y-1">
-          <p
-            className={cn(
-              "text-sm sm:text-base font-semibold truncate",
-              isSettings ? "text-white" : "text-foreground"
-            )}
-          >
-            {group.gameName}
-          </p>
+          <p className="truncate text-sm font-semibold text-foreground sm:text-base">{group.gameName}</p>
           <div className="flex flex-wrap items-center gap-1.5">
             {game ? (
               <PlatformLabel game={game} size="sm" variant="badge" />
             ) : (
-              <span
-                className={cn(
-                  "text-[10px] px-2 py-0.5 rounded-md border",
-                  isSettings
-                    ? "border-white/15 text-white/55"
-                    : "border-border/50 text-muted-foreground"
-                )}
-              >
+              <span className="rounded-none border border-border px-2 py-0.5 text-xs text-muted-foreground">
                 {group.platform}
               </span>
             )}
-            <span
-              className={cn(
-                "text-[10px] tabular-nums",
-                isSettings ? "text-white/45" : "text-muted-foreground"
-              )}
-            >
+            <span className="text-xs tabular-nums text-muted-foreground">
               {formatSaveBytes(totalBytes)}
               {newest > 0 ? ` · ${formatSaveModifiedRelative(newest)}` : ""}
             </span>
@@ -120,23 +80,19 @@ export function SaveGameGroupCard({
               type="button"
               size="sm"
               variant="ghost"
-              className={cn(
-                "hidden sm:inline-flex h-8 text-xs",
-                isSettings && "text-white/70 hover:text-white hover:bg-white/10"
-              )}
+              className="hidden h-8 rounded-none text-xs sm:inline-flex"
               onClick={(e) => {
                 e.stopPropagation();
                 appNavigate(`/game/${encodeURIComponent(group.gameId)}/saves`);
               }}
             >
-              <Layers className="w-3.5 h-3.5 mr-1" aria-hidden />
+              <Layers className="mr-1 h-3.5 w-3.5" aria-hidden />
               All saves
             </Button>
           ) : null}
           <ChevronDown
             className={cn(
-              "w-5 h-5 shrink-0 transition-transform duration-panel spring-ease",
-              isSettings ? "text-white/50" : "text-muted-foreground",
+              "h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-150",
               expanded && "rotate-180"
             )}
             aria-hidden
@@ -146,18 +102,17 @@ export function SaveGameGroupCard({
 
       <div
         className={cn(
-          "grid transition-[grid-template-rows] duration-panel spring-ease",
+          "grid transition-[grid-template-rows] duration-150",
           expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         )}
       >
-        <ul className="overflow-hidden border-t border-border/40 px-3 pb-3 pt-2 space-y-2 min-h-0">
-          {group.bundles.map((b, i) => (
+        <ul className="min-h-0 space-y-2 overflow-hidden border-t border-border px-3 pb-3 pt-2">
+          {group.bundles.map((b) => (
             <SaveBundleListItem
               key={b.bundleId}
               bundle={b}
               showGameLink={false}
               variant={variant}
-              style={{ animationDelay: `${i * 40}ms` }}
             />
           ))}
         </ul>

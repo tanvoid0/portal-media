@@ -2,13 +2,13 @@ import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import type { ContentGridPreset } from "@/types/contentGrid";
 
-/** Games / apps / bookmarks — larger tiles, library chrome padding. */
+/** Games / apps / bookmarks — fixed portrait covers, not stretched 1fr cards. */
 export const LIBRARY_GAMES_GRID_PRESET: ContentGridPreset = {
-  minTileWidthPx: 220,
-  gapClass: "gap-7",
-  paddingClass: "px-10 pt-10 pb-8",
+  minTileWidthPx: 256,
+  gapClass: "gap-10",
+  paddingClass: "px-10 pt-8 pb-12",
   scrollPaddingClass: "scroll-pt-6 scroll-pb-10",
-  containerClassName: "relative z-10 auto-rows-max scroll-smooth",
+  containerClassName: "relative z-10 auto-rows-max scroll-smooth justify-items-start",
 };
 
 /** Movie/TV/game posters — denser grid, horizontal padding matches discover header. */
@@ -29,7 +29,7 @@ export function contentGridTemplateColumnsStyle(
   preset: Pick<ContentGridPreset, "minTileWidthPx">
 ): CSSProperties {
   return {
-    gridTemplateColumns: `repeat(auto-fill, minmax(${preset.minTileWidthPx}px, 1fr))`,
+    gridTemplateColumns: `repeat(auto-fill, ${preset.minTileWidthPx}px)`,
   };
 }
 

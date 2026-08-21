@@ -4,6 +4,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   effectiveStreamingPluginsDir,
   getDisabledStreamingAddonPaths,
@@ -107,7 +109,6 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
     }
   };
 
-  /** Persists paths and reloads the active manifest — no process restart (Rust reads prefs on each invoke). */
   const saveStreamingPrefs = async () => {
     setBusy(true);
     try {
@@ -134,7 +135,6 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
     }
   };
 
-  /** Full restart can race `tauri dev` on Windows (exe file lock during Rust relink). Prefer Save above. */
   const restartApplication = async () => {
     try {
       await relaunch();
@@ -177,51 +177,43 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
   };
 
   return (
-    <div
-      className={cn(
-        "space-y-4",
-        !embedded && "glass rounded-xl p-6 border border-white/5"
-      )}
-    >
+    <div className="space-y-4">
       <div>
         {!embedded && (
-          <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-            <PackageOpen className="w-5 h-5 text-white/80 shrink-0" aria-hidden />
+          <h3 className="flex items-center gap-2 text-xl font-semibold text-foreground">
+            <PackageOpen className="h-5 w-5 shrink-0" aria-hidden />
             Streaming catalog add-ons
           </h3>
         )}
-        <p className={cn("text-white/50 text-xs leading-relaxed", !embedded ? "mt-1" : "")}>
-          Zips need <span className="text-white/70">manifest.json</span> at the root. Folder scans for{" "}
-          <span className="font-mono text-[11px] text-white/60">*.zip</span>; optional path picks one archive.{" "}
-          <span className="text-white/45">Save applies without restart.</span> Env{" "}
-          <span className="font-mono text-[10px] text-white/55">PORTAL_MEDIA_STREAMING_ADDON_ZIP</span> is also honored.
+        <p className={cn("text-xs leading-relaxed text-muted-foreground", !embedded && "mt-1")}>
+          Zips need <span className="text-foreground">manifest.json</span> at the root. Folder scans for{" "}
+          <span className="font-mono text-xs">*.zip</span>; optional path picks one archive.{" "}
+          <span>Save applies without restart.</span> Env{" "}
+          <span className="font-mono text-xs">PORTAL_MEDIA_STREAMING_ADDON_ZIP</span> is also honored.
         </p>
-        <p className="text-[11px] text-white/45 mt-2">
+        <p className="mt-2 text-xs text-muted-foreground">
           Resolved folder{pluginsDir.trim() ? " (override)" : ""}:
         </p>
-        {userPluginsDir && (
-          <p
-            className="text-[11px] text-white/45 font-mono break-all leading-relaxed"
-            title={userPluginsDir}
-          >
+        {userPluginsDir ? (
+          <p className="break-all font-mono text-xs leading-relaxed text-muted-foreground" title={userPluginsDir}>
             {formatDisplayPath(userPluginsDir)}
           </p>
-        )}
+        ) : null}
       </div>
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-white/70">Plugins folder</label>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <Label>Plugins folder</Label>
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             value={pluginsDir}
             onChange={(e) => setPluginsDir(e.target.value)}
             placeholder="Empty = app data plugins (see path above)"
-            className="bg-white/5 border-white/10 text-white placeholder:text-white/35 flex-1"
+            className="flex-1"
             spellCheck={false}
           />
           <Button
             type="button"
             variant="secondary"
-            className="shrink-0 text-foreground"
+            className="shrink-0 rounded-none"
             onClick={() => void pickPluginsFolder()}
             disabled={busy}
           >
@@ -230,19 +222,19 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
         </div>
       </div>
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-white/70">Add-on zip (optional override)</label>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <Label>Add-on zip (optional override)</Label>
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             value={zipPath}
             onChange={(e) => setZipPath(e.target.value)}
             placeholder="No custom path (auto-detect)"
-            className="bg-white/5 border-white/10 text-white placeholder:text-white/35 flex-1"
+            className="flex-1"
             spellCheck={false}
           />
           <Button
             type="button"
             variant="secondary"
-            className="shrink-0 text-foreground"
+            className="shrink-0 rounded-none"
             onClick={() => void pickZip()}
             disabled={busy}
           >
@@ -251,28 +243,23 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          className="bg-primary hover:bg-primary/90 text-primary-foreground"
-          onClick={() => void saveStreamingPrefs()}
-          disabled={busy}
-        >
+        <Button type="button" className="rounded-none" onClick={() => void saveStreamingPrefs()} disabled={busy}>
           Save
         </Button>
         <Button
           type="button"
           variant="outline"
-          className="border-white/20 text-white hover:bg-white/10"
+          className="rounded-none"
           onClick={() => void clearZipOverride()}
           disabled={busy}
         >
-          <RotateCcw className="w-4 h-4 mr-2" aria-hidden />
+          <RotateCcw className="mr-2 h-4 w-4" aria-hidden />
           Clear zip override
         </Button>
         <Button
           type="button"
           variant="outline"
-          className="border-white/20 text-white hover:bg-white/10"
+          className="rounded-none"
           onClick={() => void restartApplication()}
           disabled={busy}
           title="Full process restart. Can conflict with tauri dev on Windows if the exe is locked."
@@ -282,179 +269,159 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
         <Button
           type="button"
           variant="ghost"
-          className="text-white/80 hover:text-white hover:bg-white/10"
+          className="rounded-none"
           onClick={() => void refreshList()}
           disabled={busy || listBusy}
         >
-          <RefreshCw className={cn("w-4 h-4 mr-2", listBusy && "animate-spin")} aria-hidden />
+          <RefreshCw className={cn("mr-2 h-4 w-4", listBusy && "animate-spin")} aria-hidden />
           Refresh list
         </Button>
       </div>
 
       <div className="space-y-2">
-        <h4 className="text-sm font-medium text-white/90">Archives</h4>
-        <p className="text-[11px] text-white/45">
-          Turn off skips an archive without deleting it. Edit <span className="font-mono text-white/55">manifest.json</span>{" "}
+        <h4 className="text-sm font-medium text-foreground">Archives</h4>
+        <p className="text-xs text-muted-foreground">
+          Turn off skips an archive without deleting it. Edit <span className="font-mono">manifest.json</span>{" "}
           inside the zip, then refresh.
         </p>
-        {listError && (
-          <div className="flex items-center gap-2 text-sm text-amber-300 bg-amber-400/10 rounded-lg px-3 py-2">
-            <AlertCircle className="w-4 h-4 shrink-0" aria-hidden />
+        {listError ? (
+          <div className="flex items-center gap-2 rounded-none border border-destructive/40 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
             {listError}
           </div>
-        )}
-        {listBusy && !listError && (
-          <p className="text-white/50 text-sm flex items-center gap-2">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" aria-hidden />
+        ) : null}
+        {listBusy && !listError ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden />
             Scanning for add-on archives…
           </p>
-        )}
-        {!listError && !listBusy && entries.length === 0 && (
-          <p className="text-white/45 text-xs">
+        ) : null}
+        {!listError && !listBusy && entries.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
             No zips found. Add one under the resolved folder, set a zip override, or use the env variable.
           </p>
-        )}
-        <ul className="space-y-3 max-h-80 overflow-y-auto pr-1">
+        ) : null}
+        <ul className="max-h-80 space-y-3 overflow-y-auto pr-1">
           {entries.map((entry) => {
             const displayPath = formatDisplayPath(entry.path);
             const discoveryLine = formatDiscoverySourcesLine(entry.discoverySources);
             return (
-            <li
-              key={entry.path}
-              className={cn(
-                "rounded-xl border p-4 text-sm flex flex-col gap-3",
-                entry.isActive
-                  ? "border-emerald-500/40 bg-emerald-500/[0.08]"
-                  : entry.isUserDisabled
-                    ? "border-amber-500/35 bg-amber-500/[0.06]"
-                    : "border-white/10 bg-white/[0.03]"
-              )}
-            >
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                {entry.isActive ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/25 text-emerald-100 px-2 py-0.5 text-xs font-medium">
-                    <CheckCircle2 className="w-3.5 h-3.5" aria-hidden />
-                    Active
-                  </span>
-                ) : entry.isUserDisabled ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 text-amber-100/95 px-2 py-0.5 text-xs font-medium">
-                    <Power className="w-3.5 h-3.5" aria-hidden />
-                    Off in app
-                  </span>
-                ) : (
-                  <span className="text-xs text-white/45">Not selected</span>
+              <li
+                key={entry.path}
+                className={cn(
+                  "flex flex-col gap-3 rounded-none border p-4 text-sm",
+                  entry.isActive
+                    ? "border-[3px] border-primary"
+                    : "border-border",
+                  entry.isUserDisabled && !entry.isActive && "opacity-70"
                 )}
-                {entry.summary && (
-                  <>
-                    <span className="font-medium text-white">{entry.summary.displayName}</span>
-                    <span className="text-white/45 text-xs sm:text-sm">
-                      v{entry.summary.version} · <span className="font-mono text-[11px]">{entry.summary.id}</span>
+              >
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  {entry.isActive ? (
+                    <span className="inline-flex items-center gap-1 border-2 border-primary px-2 py-0.5 text-xs font-medium text-foreground">
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                      Active
                     </span>
-                    {!entry.summary.enabled && (
-                      <span className="text-xs text-amber-300/90">Disabled in manifest</span>
-                    )}
-                  </>
-                )}
-              </div>
-              <div className="rounded-lg border border-white/10 bg-black/25 px-3 py-2.5">
-                <p
-                  className="font-mono text-xs text-white/70 break-all leading-relaxed"
-                  title={entry.path}
-                >
-                  {displayPath}
-                </p>
-              </div>
-              {discoveryLine ? (
-                <p className="text-[11px] text-white/45 leading-snug">{discoveryLine}</p>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <div className="flex items-center gap-3 min-h-8">
-                  <span className="text-sm font-medium text-white/90">Enabled</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={!entry.isUserDisabled}
+                  ) : entry.isUserDisabled ? (
+                    <span className="inline-flex items-center gap-1 border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      <Power className="h-3.5 w-3.5" aria-hidden />
+                      Off in app
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Not selected</span>
+                  )}
+                  {entry.summary ? (
+                    <>
+                      <span className="font-medium text-foreground">{entry.summary.displayName}</span>
+                      <span className="text-xs text-muted-foreground sm:text-sm">
+                        v{entry.summary.version} · <span className="font-mono text-xs">{entry.summary.id}</span>
+                      </span>
+                      {!entry.summary.enabled ? (
+                        <span className="text-xs text-muted-foreground">Disabled in manifest</span>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+                <div className="rounded-none border border-border bg-background px-3 py-2.5">
+                  <p className="break-all font-mono text-xs leading-relaxed text-muted-foreground" title={entry.path}>
+                    {displayPath}
+                  </p>
+                </div>
+                {discoveryLine ? (
+                  <p className="text-xs leading-snug text-muted-foreground">{discoveryLine}</p>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <Switch
+                    label="Enabled"
+                    checked={!entry.isUserDisabled}
+                    disabled={busy || listBusy}
                     aria-label={
                       entry.isUserDisabled
                         ? "Enable add-on — allow this archive when choosing the active catalog"
                         : "Disable add-on — exclude this archive without deleting the file"
                     }
-                    disabled={busy || listBusy}
-                    onClick={() => void toggleAddonDisabled(entry.path, !entry.isUserDisabled)}
-                    className={cn(
-                      "relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                      !entry.isUserDisabled ? "bg-primary" : "bg-white/20"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-200 ease-out",
-                        !entry.isUserDisabled ? "translate-x-6" : "translate-x-0"
-                      )}
-                      aria-hidden
-                    />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border-white/15 text-white/85 hover:bg-white/10"
-                  disabled={busy || listBusy}
-                  onClick={() => void showAddonInFolder(entry.path)}
-                >
-                  <FolderOpen className="w-3.5 h-3.5 mr-1.5" aria-hidden />
-                  Show in folder
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border-red-400/35 text-red-200/95 hover:bg-red-500/15"
-                  disabled={busy || listBusy}
-                  onClick={() => void deleteAddonZip(entry.path)}
-                >
-                  <Trash2 className="w-3.5 h-3.5 mr-1.5" aria-hidden />
-                  Delete
-                </Button>
-                </div>
-              </div>
-              {entry.summary && (
-                <div className="border-t border-white/10 pt-3 mt-0.5 space-y-2.5">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
-                    <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0">
-                      {entry.summary.launchExecutable ? "App" : "Origin"}
-                    </span>
-                    <span className="text-xs text-white/70 break-all leading-snug">
-                      {entry.summary.launchExecutable || entry.summary.webOrigin}
-                    </span>
-                  </div>
+                    onChange={() => void toggleAddonDisabled(entry.path, !entry.isUserDisabled)}
+                  />
                   <div className="flex flex-wrap gap-2">
-                    {entry.summary.libraryBookmark && (
-                      <span className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white/85">Bookmark</span>
-                    )}
-                    {entry.summary.tmdbStreamButton && (
-                      <span className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white/85">TMDB button</span>
-                    )}
-                    {entry.summary.browserBrandRuleCount > 0 && (
-                      <span className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white/85">
-                        {entry.summary.browserBrandRuleCount} brand rules
-                      </span>
-                    )}
-                    <span className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white/85">
-                      Favicon · {entry.summary.iconFaviconDomain}
-                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-none"
+                      disabled={busy || listBusy}
+                      onClick={() => void showAddonInFolder(entry.path)}
+                    >
+                      <FolderOpen className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                      Show in folder
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-none text-destructive hover:text-destructive"
+                      disabled={busy || listBusy}
+                      onClick={() => void deleteAddonZip(entry.path)}
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                      Delete
+                    </Button>
                   </div>
                 </div>
-              )}
-              {entry.error && (
-                <div className="flex items-start gap-1.5 text-xs text-amber-200/90">
-                  <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden />
-                  {entry.error}
-                </div>
-              )}
-            </li>
+                {entry.summary ? (
+                  <div className="mt-0.5 space-y-2.5 border-t border-border pt-3">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
+                      <span className="shrink-0 text-xs font-hub tracking-wide text-muted-foreground">
+                        {entry.summary.launchExecutable ? "App" : "Origin"}
+                      </span>
+                      <span className="break-all text-xs leading-snug text-muted-foreground">
+                        {entry.summary.launchExecutable || entry.summary.webOrigin}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {entry.summary.libraryBookmark ? (
+                        <span className="border border-border px-2 py-1 text-xs text-foreground">Bookmark</span>
+                      ) : null}
+                      {entry.summary.tmdbStreamButton ? (
+                        <span className="border border-border px-2 py-1 text-xs text-foreground">TMDB button</span>
+                      ) : null}
+                      {entry.summary.browserBrandRuleCount > 0 ? (
+                        <span className="border border-border px-2 py-1 text-xs text-foreground">
+                          {entry.summary.browserBrandRuleCount} brand rules
+                        </span>
+                      ) : null}
+                      <span className="border border-border px-2 py-1 text-xs text-foreground">
+                        Favicon · {entry.summary.iconFaviconDomain}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+                {entry.error ? (
+                  <div className="flex items-start gap-1.5 text-xs text-destructive">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {entry.error}
+                  </div>
+                ) : null}
+              </li>
             );
           })}
         </ul>

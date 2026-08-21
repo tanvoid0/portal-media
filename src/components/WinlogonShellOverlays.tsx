@@ -38,14 +38,14 @@ export function WinlogonShellOverlays() {
       }}
     >
       <p>
-        Portal will replace <span className="font-mono text-white/90">explorer.exe</span> as the
+        Portal will replace <span className="font-mono text-foreground">explorer.exe</span> as the
         Windows logon shell. You must approve the administrator (UAC) prompt, then sign out or
         restart.
       </p>
-      <ul className="list-disc pl-5 space-y-1 text-white/65">
+      <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
         <li>Enable Console mode first (taskbar hide, global hotkeys).</li>
         <li>
-          Schedule <strong className="text-white/85">Revert to Explorer on next start</strong> below
+          Schedule <strong className="text-foreground">Revert to Explorer on next start</strong> below
           if you need an escape hatch before sign-out.
         </li>
         <li>

@@ -25,11 +25,11 @@ export function SettingsSectionTabs() {
           to={to}
           className={({ isActive }) =>
             cn(
-              "flex items-center gap-2 shrink-0 h-11 px-4 rounded-xl whitespace-nowrap transition-all duration-panel spring-ease",
-              "border border-transparent",
+              "flex items-center gap-2 shrink-0 h-11 px-4 rounded-none whitespace-nowrap",
+              "border-2 bg-transparent font-hub",
               isActive
-                ? "bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"
-                : "bg-muted/30 text-muted-foreground hover:bg-foreground/5 hover:text-foreground border-border/40"
+                ? "border-primary border-[3px] text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
             )
           }
         >

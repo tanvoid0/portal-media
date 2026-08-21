@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { Card, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Panel, PanelBody, PanelDescription, PanelHeader, PanelTitle } from "./ui/panel";
 import { cn } from "@/lib/utils";
 import { DoorOpen, Moon, Power, RotateCcw } from "lucide-react";
 import { getNavBinding, useNavBindingsStore } from "@/stores/navBindingsStore";
@@ -161,21 +161,18 @@ export function ExitModal({ isOpen, onClose, onConfirm }: ExitModalProps) {
   return (
     <div
       data-shell-modal
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80"
       onClick={busyId ? undefined : onClose}
       role="presentation"
     >
-      <Card
-        className="w-full max-w-md border-white/20 bg-slate-900/95 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <CardHeader className="pb-2">
-          <CardTitle className="text-2xl text-white">Power</CardTitle>
-          <CardDescription className="text-white/60">
+      <Panel className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <PanelHeader>
+          <PanelTitle className="text-2xl">Power</PanelTitle>
+          <PanelDescription>
             {powerAvailable ? "What do you want to do?" : "System power actions need the desktop app."}
-          </CardDescription>
-        </CardHeader>
-        <div className="flex flex-col gap-1 p-4 pt-1">
+          </PanelDescription>
+        </PanelHeader>
+        <PanelBody className="flex flex-col gap-1 pt-0">
           {OPTIONS.map((o, i) => {
             const Icon = o.icon;
             const disabled = (o.id !== "exit" && !powerAvailable) || Boolean(busyId);
@@ -186,9 +183,11 @@ export function ExitModal({ isOpen, onClose, onConfirm }: ExitModalProps) {
                 type="button"
                 disabled={disabled && !active}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors",
-                  disabled && !active ? "opacity-40" : "hover:bg-white/10",
-                  focusIndex === i && "ring-2 ring-primary/60 bg-white/[0.07]"
+                  "flex items-center gap-3 rounded-none border-2 px-3 py-3 text-left transition-[border-width,color] duration-150",
+                  disabled && !active ? "opacity-40" : "hover:border-border hover:text-foreground",
+                  focusIndex === i
+                    ? "border-primary border-[3px] text-foreground"
+                    : "border-transparent text-foreground"
                 )}
                 onClick={() => {
                   idxRef.current = i;
@@ -196,18 +195,18 @@ export function ExitModal({ isOpen, onClose, onConfirm }: ExitModalProps) {
                   runAction(o.id);
                 }}
               >
-                <Icon className="w-5 h-5 shrink-0 text-white/80" />
+                <Icon className="h-5 w-5 shrink-0 text-foreground" />
                 <span className="min-w-0">
-                  <span className="block text-sm font-medium text-white">
+                  <span className="block text-sm font-medium">
                     {active ? `${o.label}…` : o.label}
                   </span>
-                  <span className="block text-xs text-white/50">{o.description}</span>
+                  <span className="block text-xs text-muted-foreground">{o.description}</span>
                 </span>
               </button>
             );
           })}
-        </div>
-      </Card>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }

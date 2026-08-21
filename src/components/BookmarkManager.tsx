@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FrameKey } from "@/components/ui/frame-key";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Panel, PanelBody, PanelDescription, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { useGameStore } from "@/stores/gameStore";
 import { Film, Link2, Plus } from "lucide-react";
 
@@ -37,96 +39,78 @@ export function BookmarkManager() {
   }, [showAddForm]);
 
   return (
-    <Card className="glass-dark border-white/10">
-      <CardHeader className="space-y-1 pb-4">
-        <CardTitle className="text-2xl font-semibold tracking-tight text-white">Bookmarks</CardTitle>
-        <CardDescription className="text-white/55 text-sm">
-          Web links in your library; favicons when available.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 pt-0">
-        {error && showAddForm && (
-          <p className="text-sm text-red-400 bg-red-950/40 border border-red-500/30 rounded-lg px-3 py-2">{error}</p>
-        )}
+    <Panel>
+      <PanelHeader>
+        <PanelTitle>Bookmarks</PanelTitle>
+        <PanelDescription>Web links in your library; favicons when available.</PanelDescription>
+      </PanelHeader>
+      <PanelBody className="space-y-4">
+        {error && showAddForm ? (
+          <p className="rounded-none border border-destructive/40 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
         {!showAddForm ? (
-          <Button 
+          <Button
+            className="h-10 rounded-none px-5"
             onClick={() => {
               clearError();
               setShowAddForm(true);
             }}
-            className="h-10 px-5 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground"
           >
-            <Plus className="mr-2 w-4 h-4" />
+            <Plus className="h-4 w-4" />
             Add link
           </Button>
         ) : (
           <div className="space-y-4">
-            <Input
-              type="text"
-              placeholder="Name (e.g. League of Legends — web client)"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="h-12 glass-dark border-white/20 text-white placeholder:text-white/40 focus:border-primary/50"
-            />
+            <div className="space-y-1.5">
+              <Label htmlFor="bookmark-name">Name</Label>
+              <Input
+                id="bookmark-name"
+                type="text"
+                placeholder="Name (e.g. League of Legends — web client)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
             <div className="flex flex-col gap-2">
-              <span className="text-xs text-white/50 uppercase tracking-wide">Type</span>
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  type="button"
-                  variant={category === "Media" ? "default" : "outline"}
-                  size="sm"
-                  className={
-                    category === "Media"
-                      ? ""
-                      : "border-white/20 text-white/80 hover:bg-white/10 bg-transparent"
-                  }
-                  onClick={() => setCategory("Media")}
-                >
-                  <Film className="w-4 h-4 mr-1.5" />
+              <span className="text-sm font-medium text-foreground">Type</span>
+              <div className="flex flex-wrap gap-2">
+                <FrameKey active={category === "Media"} onClick={() => setCategory("Media")}>
+                  <Film className="h-4 w-4" />
                   Streaming / media
-                </Button>
-                <Button
-                  type="button"
-                  variant={category === "Bookmark" ? "default" : "outline"}
-                  size="sm"
-                  className={
-                    category === "Bookmark"
-                      ? ""
-                      : "border-white/20 text-white/80 hover:bg-white/10 bg-transparent"
-                  }
-                  onClick={() => setCategory("Bookmark")}
-                >
-                  <Link2 className="w-4 h-4 mr-1.5" />
+                </FrameKey>
+                <FrameKey active={category === "Bookmark"} onClick={() => setCategory("Bookmark")}>
+                  <Link2 className="h-4 w-4" />
                   Bookmark
-                </Button>
+                </FrameKey>
               </div>
             </div>
-            <Input
-              type="url"
-              placeholder="https://…"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              className="h-12 glass-dark border-white/20 text-white placeholder:text-white/40 focus:border-primary/50"
-            />
+            <div className="space-y-1.5">
+              <Label htmlFor="bookmark-url">URL</Label>
+              <Input
+                id="bookmark-url"
+                type="url"
+                placeholder="https://…"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
+            </div>
             <div className="flex gap-3">
-              <Button 
-                onClick={() => void handleAddBookmark()}
-                className="h-12 px-8 font-semibold bg-primary hover:bg-primary/90"
-              >
+              <Button className="h-12 rounded-none px-8" onClick={() => void handleAddBookmark()}>
                 Add
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
+                className="h-12 rounded-none px-8"
                 onClick={() => setShowAddForm(false)}
-                className="h-12 px-8 border-white/20 text-white hover:bg-white/10"
               >
                 Cancel
               </Button>
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </PanelBody>
+    </Panel>
   );
 }
-

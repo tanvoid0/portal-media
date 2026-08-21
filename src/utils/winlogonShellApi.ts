@@ -12,6 +12,7 @@ export interface WinlogonShellStatus {
   companionExplorerRunning: boolean;
   revertOnNextLaunch: boolean;
   revertedThisSession: boolean;
+  deferExplorerCompanion: boolean;
 }
 
 export async function winlogonShellIsSupported(): Promise<boolean> {
@@ -32,4 +33,9 @@ export async function winlogonShellSetEnabled(enabled: boolean): Promise<void> {
 export async function winlogonShellSetRevertOnNextLaunch(enabled: boolean): Promise<void> {
   if (!isTauri()) return;
   await invoke("winlogon_shell_set_revert_on_next_launch", { enabled });
+}
+
+export async function winlogonShellSetDeferExplorer(enabled: boolean): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("winlogon_shell_set_defer_explorer", { enabled });
 }

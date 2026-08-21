@@ -33,35 +33,19 @@ export function FavoritesFilter({ className }: { className?: string }) {
       onClick={onSelect}
       title={count > 0 ? `${def.label} (${count})` : def.label}
       className={cn(
-        "h-9 px-4 rounded-xl whitespace-nowrap shrink-0",
-        "transition-all duration-panel spring-ease",
-        "text-xs font-semibold",
+        "h-9 px-3 rounded-none whitespace-nowrap shrink-0 border-2 bg-transparent",
+        "transition-[border-width,color] duration-150 font-hub",
         isSelected
-          ? "bg-foreground/10 text-foreground"
-          : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground",
-        isFocusedItem && showFocusIndicator && "ring-2 ring-primary/60 ring-offset-2 ring-offset-background animate-focus-ring",
+          ? "border-border text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
+        isFocusedItem && showFocusIndicator && "border-primary border-[3px] text-foreground",
         className
       )}
     >
       <Star
-        className={cn(
-          "w-4 h-4 mr-2 transition-transform duration-panel-fast",
-          (isSelected || isFocusedItem) && "scale-105",
-          isSelected && "fill-current"
-        )}
+        className={cn("w-4 h-4 mr-2", isSelected && "fill-current")}
       />
       <span>{def.label}</span>
-      {count > 0 ? (
-        <span
-          className={cn(
-            "ml-2 px-2 py-0.5 rounded-md text-[0.65rem] font-medium tabular-nums",
-            "transition-all duration-panel-fast",
-            isSelected ? "bg-foreground/15 text-foreground" : "bg-muted/80 text-muted-foreground"
-          )}
-        >
-          {count}
-        </span>
-      ) : null}
     </Button>
   );
 }

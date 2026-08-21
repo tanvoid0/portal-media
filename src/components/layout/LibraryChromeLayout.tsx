@@ -1,17 +1,20 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { SearchBar } from "@/components/SearchBar";
-import { CategoryFilter } from "@/components/CategoryFilter";
 import { FavoritesFilter } from "@/components/FavoritesFilter";
 import { SortFilter } from "@/components/SortFilter";
-import { Button } from "@/components/ui/button";
+import { CategoryFilter } from "@/components/CategoryFilter";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Music2 } from "lucide-react";
 import { useShellChrome } from "@/context/ShellChromeContext";
 import { TopBarRightCluster, topBarDragRegionProps } from "./shellChrome";
 import { AmbientBackgroundLayer } from "./AmbientBackgroundLayer";
+import { FunctionDeck } from "./FunctionDeck";
+import { useShellOverlayStore } from "@/stores/shellOverlayStore";
+
+function showLibrarySubnav(pathname: string) {
+  return pathname.startsWith("/library/");
+}
 
 export function LibraryChromeLayout() {
-  const navigate = useNavigate();
   const { pathname } = useLocation();
   const {
     appearance,
@@ -21,74 +24,22 @@ export function LibraryChromeLayout() {
     isFullscreen,
     onToggleFullscreen,
   } = useShellChrome();
+  const findOpen = useShellOverlayStore((s) => s.searchPopoverOpen);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-background">
       <AmbientBackgroundLayer active appearance={appearance} />
 
-      <header className={cn("shrink-0 z-20 border-b border-border/60")}>
+      <header className="shrink-0 z-20 border-b border-border">
         <div
           className={cn(
-            "flex items-center gap-4 px-6 lg:px-8 pt-3 pb-2 min-h-[3.25rem]",
+            "grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 lg:px-6 min-h-[6.25rem]",
             !isFullscreen && "cursor-default"
           )}
         >
-          <div
-            className={cn(
-              "flex-1 min-w-0 min-h-[2.25rem] flex items-center gap-3",
-              !isFullscreen && "cursor-default"
-            )}
-            {...topBarDragRegionProps(isFullscreen)}
-          >
-            <div className="flex items-center gap-0.5 shrink-0" role="group" aria-label="History">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-xl shrink-0 text-muted-foreground hover:text-foreground"
-                onClick={() => navigate(-1)}
-                aria-label="Back"
-                title="Back"
-              >
-                <ChevronLeft className="h-5 w-5" aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-xl shrink-0 text-muted-foreground hover:text-foreground"
-                onClick={() => navigate(1)}
-                aria-label="Forward"
-                title="Forward"
-              >
-                <ChevronRight className="h-5 w-5" aria-hidden />
-              </Button>
-            </div>
-            <div className="h-9 w-px shrink-0 bg-border/70" aria-hidden />
-            <FavoritesFilter />
-            <div className="h-9 w-px shrink-0 bg-border/70" aria-hidden />
-            <SortFilter
-              className={cn("px-0 pb-0 min-w-0", isFullscreen && "flex-1")}
-            />
-            {!isFullscreen ? (
-              <div
-                className="flex-1 min-h-[2.25rem] shrink-0"
-                {...topBarDragRegionProps(isFullscreen)}
-              />
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/spotify")}
-              className="w-9 h-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-              title="Open Spotify"
-            >
-              <Music2 className="w-4 h-4" />
-            </Button>
-            <SearchBar variant="compact" compactPopupSide="right" />
-            <div className="h-9 w-px shrink-0 bg-border/50" aria-hidden />
+          <div className="min-h-[2.25rem]" {...topBarDragRegionProps(isFullscreen)} />
+          <FunctionDeck findOpen={findOpen} />
+          <div className="flex items-center justify-end gap-1 min-w-0">
             <TopBarRightCluster
               variant="library"
               setShowExitModal={setShowExitModal}
@@ -101,12 +52,20 @@ export function LibraryChromeLayout() {
           </div>
         </div>
 
-        <div className="border-t border-border/40 px-4 lg:px-6 pb-2 pt-1">
-          <CategoryFilter orientation="horizontal" embedded />
-        </div>
+        {showLibrarySubnav(pathname) ? (
+          <div className="flex items-center gap-2 border-t border-border px-4 py-1 lg:px-6">
+            <CategoryFilter orientation="horizontal" embedded />
+            <div className="h-6 w-px shrink-0 bg-border" aria-hidden />
+            <FavoritesFilter />
+            <div className="flex-1 min-w-0" />
+            <SortFilter className="px-0 pb-0 min-w-0" />
+          </div>
+        ) : null}
       </header>
 
-      <div key={pathname} className="flex-1 min-h-0 flex flex-col overflow-hidden animate-page-in">
+      <SearchBar variant="overlay" />
+
+      <div key={pathname} className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <Outlet />
       </div>
     </div>

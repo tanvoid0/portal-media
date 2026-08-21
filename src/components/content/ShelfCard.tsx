@@ -11,7 +11,9 @@ import {
 } from "@/hooks/useShelfCardFooterTint";
 import type { ShelfCardArtMode } from "@/utils/libraryCardArtMode";
 
-const LIBRARY_TILE_CLASS = "relative h-[23rem] w-56 overflow-hidden group/card rounded-card";
+/** Portrait cover slot — matches approved ps-hub: art is the tile, title sits under it. */
+export const LIBRARY_COVER_WIDTH_CLASS = "w-64";
+export const LIBRARY_COVER_ASPECT_CLASS = "aspect-[2/3]";
 
 export interface ShelfCardProps
   extends Omit<React.ComponentPropsWithoutRef<typeof Card>, "children" | "onClick"> {
@@ -132,7 +134,7 @@ export const ShelfCard = forwardRef<HTMLDivElement, ShelfCardProps>(function She
     artImageUrl,
     artMode = "posterCover",
     libraryLayout,
-    markFrameKind = "default",
+    markFrameKind: _markFrameKind = "default",
     skipFooterTint = false,
     placeholder,
     topLeft,
@@ -181,122 +183,69 @@ export const ShelfCard = forwardRef<HTMLDivElement, ShelfCardProps>(function She
 
   if (libraryLayout) {
     const posterHero = libraryLayout === "poster";
-    const appFrame = markFrameKind === "app";
-    const hasHeroVisual = Boolean(safeArt || brandHero);
+    const focused = showSelection || mouseSelected;
 
     return (
-      <Card
+      <div
         ref={ref}
         className={cn(
-          LIBRARY_TILE_CLASS,
-          contentTileLibraryCardClasses({
-            showRemoteFocus: showSelection,
-            mouseSelected,
-            hovered: isHovered,
-          }),
+          LIBRARY_COVER_WIDTH_CLASS,
+          "flex cursor-pointer flex-col gap-3 bg-transparent font-ui shadow-none",
           className
         )}
-        style={brandCardStyle ?? accentWash}
         {...cardSurfaceProps}
         {...rest}
       >
-        <CardContent className="p-0 h-full flex flex-col">
+        <div
+          className={cn(
+            LIBRARY_COVER_ASPECT_CLASS,
+            "relative w-full overflow-hidden bg-muted",
+            "border-2 transition-[border-width,border-color] duration-150",
+            focused ? "border-[3px] border-primary" : "border-transparent"
+          )}
+          style={posterHero ? undefined : brandCardStyle ?? accentWash}
+        >
           {topLeft ? (
-            <div className="absolute top-2.5 left-2.5 z-30 pointer-events-none">{topLeft}</div>
+            <div className="pointer-events-none absolute left-2.5 top-2.5 z-30">{topLeft}</div>
           ) : null}
           {topRight ? (
-            <div className="absolute top-2.5 right-2.5 z-30 pointer-events-none">{topRight}</div>
+            <div className="pointer-events-none absolute right-2.5 top-2.5 z-30">{topRight}</div>
           ) : null}
 
-          <div
-            className={cn(
-              "relative flex-[1.2] min-h-0 overflow-hidden shelf-card-hero-shine",
-              posterHero ? "bg-muted/20" : "flex items-center justify-center px-5 pt-5 pb-2"
-            )}
-          >
-            {posterHero && safeArt ? (
-              <>
+          {posterHero && safeArt ? (
+            <img
+              src={safeArt}
+              alt={title}
+              className="absolute inset-0 h-full w-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = getSafeImageSource(null);
+              }}
+            />
+          ) : posterHero ? (
+            <div className="absolute inset-0 flex items-center justify-center">{placeholder}</div>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-card">
+              {brandHero ? (
+                brandHero
+              ) : safeArt ? (
                 <img
                   src={safeArt}
                   alt={title}
-                  className={cn(
-                    "absolute inset-0 h-full w-full object-cover transition-[transform,filter] duration-300 ease-out",
-                    showSelection && "brightness-[1.06] saturate-[1.05]",
-                    isHovered && "scale-[1.03]"
-                  )}
+                  className="max-h-[55%] max-w-[55%] object-contain"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = getSafeImageSource(null);
                   }}
                 />
-                <div
-                  className="absolute inset-0 bg-gradient-to-t from-background/75 via-background/15 to-transparent pointer-events-none"
-                  aria-hidden
-                />
-                <div
-                  className="absolute inset-0 ring-1 ring-inset ring-white/5 pointer-events-none"
-                  aria-hidden
-                />
-              </>
-            ) : posterHero ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center px-5">
-                {placeholder}
-              </div>
-            ) : hasHeroVisual ? (
-              <div
-                className={cn(
-                  "flex items-center justify-center rounded-2xl transition-transform duration-300 ease-out",
-                  "backdrop-blur-sm border shadow-lg ring-1 ring-inset ring-white/5",
-                  appFrame
-                    ? "size-[11rem] bg-background/35 border-white/12 p-5"
-                    : "size-[10.5rem] bg-background/25 border-white/10 p-4",
-                  showSelection && "brightness-105",
-                  isHovered && "scale-[1.02]"
-                )}
-              >
-                {brandHero ? (
-                  brandHero
-                ) : safeArt ? (
-                  <img
-                    src={safeArt}
-                    alt={title}
-                    className={cn(
-                      "object-contain drop-shadow-md",
-                      appFrame
-                        ? "size-[5.75rem] min-h-[4.5rem] min-w-[4.5rem]"
-                        : "max-h-full max-w-full"
-                    )}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = getSafeImageSource(null);
-                    }}
-                  />
-                ) : null}
-              </div>
-            ) : (
-              <div
-                className={cn(
-                  "flex items-center justify-center rounded-2xl",
-                  appFrame
-                    ? "size-[11rem] bg-background/35 border border-white/12 p-6"
-                    : "size-[10.5rem] bg-background/25 border border-white/10 p-5"
-                )}
-              >
-                {placeholder}
-              </div>
-            )}
-            {showSelection && <ShelfFocusRing isVisible={true} />}
-          </div>
-
-          <ShelfCardFooter
-            title={title}
-            subtitle={subtitle}
-            footerAccessory={footerAccessory}
-            actionHint={actionHint}
-            showSelection={showSelection}
-            footerStyle={footerStyle}
-            band
-          />
-        </CardContent>
-      </Card>
+              ) : (
+                placeholder
+              )}
+            </div>
+          )}
+        </div>
+        <h3 className="line-clamp-2 px-1 text-center font-hub text-sm font-medium leading-snug text-foreground">
+          {title}
+        </h3>
+      </div>
     );
   }
 

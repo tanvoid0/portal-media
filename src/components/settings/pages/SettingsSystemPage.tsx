@@ -1,49 +1,10 @@
 import { useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useConsoleModeStore } from "@/stores/consoleModeStore";
 import { useWinlogonShellStore } from "@/stores/winlogonShellStore";
 import { AutomationProfileSection } from "@/components/settings/AutomationProfileSection";
+import { Panel, PanelBody, PanelDescription, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { SettingToggle } from "@/components/ui/setting-row";
 import { AlertTriangle, Monitor, Power, Shield } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-function SettingToggle({
-  id,
-  label,
-  description,
-  checked,
-  disabled,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label
-      htmlFor={id}
-      className={cn(
-        "flex gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4 cursor-pointer transition-opacity",
-        disabled && "opacity-50 cursor-not-allowed"
-      )}
-    >
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-5 w-5 rounded-md border-white/35 bg-black/50 shrink-0 accent-primary"
-      />
-      <span className="min-w-0 space-y-1">
-        <span className="block text-white font-medium text-sm">{label}</span>
-        <span className="block text-white/50 text-xs leading-relaxed">{description}</span>
-      </span>
-    </label>
-  );
-}
 
 export function SettingsSystemPage() {
   const osSupported = useConsoleModeStore((s) => s.osSupported);
@@ -69,6 +30,8 @@ export function SettingsSystemPage() {
   const revertedThisSession = useWinlogonShellStore((s) => s.revertedThisSession);
   const setWinlogonShell = useWinlogonShellStore((s) => s.setWinlogonShell);
   const setRevertOnNextLaunch = useWinlogonShellStore((s) => s.setRevertOnNextLaunch);
+  const deferExplorerCompanion = useWinlogonShellStore((s) => s.deferExplorerCompanion);
+  const setDeferExplorerCompanion = useWinlogonShellStore((s) => s.setDeferExplorerCompanion);
   const refreshShellFromOs = useWinlogonShellStore((s) => s.refreshFromOs);
 
   useEffect(() => {
@@ -81,23 +44,23 @@ export function SettingsSystemPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="glass-dark border-white/10">
-        <CardHeader className="space-y-1 pb-4">
-          <div className="flex items-center gap-2 text-primary/90">
+      <Panel>
+        <PanelHeader>
+          <div className="flex items-center gap-2 text-foreground">
             <Monitor className="w-5 h-5" aria-hidden />
-            <CardTitle className="text-2xl font-semibold tracking-tight text-white">
+            <PanelTitle>
               Console mode
-            </CardTitle>
+            </PanelTitle>
           </div>
-          <CardDescription className="text-white/55 text-sm">
+          <PanelDescription>
             Living-room shell behavior: Phase 1 hides the taskbar and supports login startup; Phase 2
             adds global hotkeys and a focus watchdog; Phase 3 adds launch/exit automation profiles.
             Phases 1–3 keep Explorer as the OS shell. Phase 4 (below) optionally replaces it at logon.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-0">
+          </PanelDescription>
+        </PanelHeader>
+        <PanelBody>
           {windowsOnly ? (
-            <p className="text-sm text-amber-200/90 rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3">
+            <p className="text-sm text-muted-foreground rounded-none border border-border px-4 py-3">
               Desktop chrome controls require Windows. Other settings still save locally.
             </p>
           ) : null}
@@ -120,9 +83,9 @@ export function SettingsSystemPage() {
           />
 
           {enabled && hideTaskbar && !windowsOnly ? (
-            <p className="text-xs text-white/45 px-1 leading-relaxed">
+            <p className="text-xs text-muted-foreground px-1 leading-relaxed">
               Emergency restore:{" "}
-              <kbd className="rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[11px]">
+              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs">
                 Ctrl+Shift+Q
               </kbd>{" "}
               restores the taskbar and disables Console mode. Task Manager: Ctrl+Shift+Esc.
@@ -137,20 +100,20 @@ export function SettingsSystemPage() {
             disabled={!enabled}
             onChange={(v) => setPrefs({ startFullscreen: v })}
           />
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
 
-      <Card className="glass-dark border-white/10">
-        <CardHeader className="space-y-1 pb-4">
-          <CardTitle className="text-xl font-semibold tracking-tight text-white">
+      <Panel>
+        <PanelHeader>
+          <PanelTitle>
             Shell integration (Phase 2)
-          </CardTitle>
-          <CardDescription className="text-white/55 text-sm">
+          </PanelTitle>
+          <PanelDescription>
             System-wide shortcuts and return-to-Portal when a launched game closes. Alt+Tab is not
             disabled; use the app switcher as the primary living-room flow.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-0">
+          </PanelDescription>
+        </PanelHeader>
+        <PanelBody>
           <SettingToggle
             id="shell-global-hotkeys"
             label="Global shell hotkeys"
@@ -160,7 +123,7 @@ export function SettingsSystemPage() {
             onChange={(v) => setPrefs({ globalShellHotkeys: v })}
           />
           {globalShellHotkeys && !windowsOnly ? (
-            <p className="text-xs text-white/45 px-1 leading-relaxed font-mono">
+            <p className="text-xs text-muted-foreground px-1 leading-relaxed font-mono">
               Switcher: Ctrl+Shift+Tab · Guide: Ctrl+Shift+H
             </p>
           ) : null}
@@ -182,27 +145,27 @@ export function SettingsSystemPage() {
             disabled={windowsOnly || !focusWatchdog || !focusWatchdogSupported}
             onChange={(v) => setPrefs({ returnToPortalOnGameExit: v })}
           />
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
 
       <AutomationProfileSection />
 
-      <Card className="glass-dark border-amber-400/20">
-        <CardHeader className="space-y-1 pb-4">
-          <div className="flex items-center gap-2 text-amber-400/90">
+      <Panel>
+        <PanelHeader>
+          <div className="flex items-center gap-2 text-foreground">
             <Shield className="w-5 h-5" aria-hidden />
-            <CardTitle className="text-xl font-semibold tracking-tight text-white">
+            <PanelTitle>
               Windows shell (Phase 4)
-            </CardTitle>
+            </PanelTitle>
           </div>
-          <CardDescription className="text-white/55 text-sm">
+          <PanelDescription>
             Advanced: set Portal as the Winlogon shell so Windows signs in directly to the dashboard.
             Requires administrator approval and a sign-out or restart. See Documentation for recovery.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-0">
+          </PanelDescription>
+        </PanelHeader>
+        <PanelBody>
           {shellWindowsOnly ? (
-            <p className="text-sm text-amber-200/90 rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3">
+            <p className="text-sm text-muted-foreground rounded-none border border-border px-4 py-3">
               Winlogon shell replacement is only available on Windows.
             </p>
           ) : null}
@@ -219,6 +182,17 @@ export function SettingsSystemPage() {
           />
 
           <SettingToggle
+            id="winlogon-shell-defer-explorer"
+            label="Skip Explorer at logon (frees memory)"
+            description="Boots straight into Portal without starting explorer.exe, like the Xbox full screen experience. Explorer returns when you turn off Console mode, press Ctrl+Shift+Q, or exit Portal. While skipped there is no taskbar, tray, volume flyout or notifications — recover with Ctrl+Alt+Del → Task Manager → Run → explorer.exe."
+            checked={deferExplorerCompanion}
+            disabled={shellWindowsOnly || !shellConfigured}
+            onChange={(v) => {
+              void setDeferExplorerCompanion(v).catch(() => undefined);
+            }}
+          />
+
+          <SettingToggle
             id="winlogon-shell-revert-next"
             label="Revert to Explorer on next Portal start"
             description="Sets Shell back to Explorer when Portal launches (UAC). Use if the desktop does not appear or you cannot open Settings. Command line: --revert-winlogon-shell"
@@ -230,54 +204,54 @@ export function SettingsSystemPage() {
           />
 
           {revertedThisSession ? (
-            <p className="text-xs text-emerald-200/80 px-1 leading-relaxed">
+            <p className="text-xs text-foreground px-1 leading-relaxed">
               This session restored Explorer as the Windows shell. Sign out or restart for a normal
               desktop.
             </p>
           ) : null}
 
           {shellLastError ? (
-            <p className="text-sm text-red-200/90 rounded-xl border border-red-400/25 bg-red-500/10 px-4 py-3 flex gap-2">
+            <p className="text-sm text-destructive rounded-none border border-destructive/40 px-4 py-3 flex gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
               <span>{shellLastError}</span>
             </p>
           ) : null}
 
           {shellConfigured && shellPendingSignOut && !shellSessionStarted ? (
-            <p className="text-xs text-amber-200/80 px-1 leading-relaxed">
+            <p className="text-xs text-muted-foreground px-1 leading-relaxed">
               Shell registry updated. Sign out or restart Windows for Portal to start at logon.
             </p>
           ) : null}
 
           {shellSessionStarted ? (
-            <p className="text-xs text-white/45 px-1 leading-relaxed">
+            <p className="text-xs text-muted-foreground px-1 leading-relaxed">
               This session started as the logon shell. Explorer runs in the background for the system
               tray when needed. Console mode defaults were applied for this session.
             </p>
           ) : null}
 
-          <p className="text-xs text-white/45 px-1 leading-relaxed">
-            Recovery: enable <strong className="text-white/60">Revert on next start</strong>, then
+          <p className="text-xs text-muted-foreground px-1 leading-relaxed">
+            Recovery: enable <strong className="text-foreground">Revert on next start</strong>, then
             launch Portal from Task Manager; Safe Mode → Shell ={" "}
-            <span className="font-mono text-white/60">explorer.exe</span>; or{" "}
-            <span className="font-mono text-white/60">portal-media.exe --revert-winlogon-shell</span>
+            <span className="font-mono text-foreground">explorer.exe</span>; or{" "}
+            <span className="font-mono text-foreground">portal-media.exe --revert-winlogon-shell</span>
             . Emergency: Ctrl+Shift+Esc, Ctrl+Shift+Q.
           </p>
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
 
-      <Card className="glass-dark border-white/10">
-        <CardHeader className="space-y-1 pb-4">
-          <div className="flex items-center gap-2 text-primary/90">
+      <Panel>
+        <PanelHeader>
+          <div className="flex items-center gap-2 text-foreground">
             <Power className="w-5 h-5" aria-hidden />
-            <CardTitle className="text-xl font-semibold tracking-tight text-white">Startup</CardTitle>
+            <PanelTitle>Startup</PanelTitle>
           </div>
-          <CardDescription className="text-white/55 text-sm">
+          <PanelDescription>
             Opens Portal when you sign in to Windows (current user, Run key). Pair with Console mode
             for a boot-to-dashboard flow.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0">
+          </PanelDescription>
+        </PanelHeader>
+        <PanelBody className="pt-0">
           <SettingToggle
             id="console-mode-launch-login"
             label="Launch Portal at login"
@@ -286,8 +260,8 @@ export function SettingsSystemPage() {
             disabled={windowsOnly}
             onChange={(v) => setPrefs({ launchAtLogin: v })}
           />
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }
