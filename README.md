@@ -8,75 +8,45 @@ A lightweight, fullscreen game and app launcher with a **console-style** (horizo
 
 ### Screenshots
 
-Add your own captures from **`pnpm tauri dev`** or a release build (recommended so your **library**, **metadata APIs**, and **installed titles** look real). Save PNGs in **[`docs/readme/`](docs/readme/)** using the exact filenames below (they match in-app routes). Until the files exist, images here will appear broken on GitHub.
+Fullscreen, console-style launcher — horizontal shelves, big cover art, controller-first navigation.
 
-#### Route map (pages & subpages)
-
-| Area | App route | Save as |
-|------|-----------|---------|
-| **Library** | `/library/all` | `docs/readme/library-all.png` |
-| | `/library/games` | `docs/readme/library-games.png` |
-| | `/library/apps` | `docs/readme/library-apps.png` |
-| | `/library/media` | `docs/readme/library-media.png` |
-| | `/library/discover` | `docs/readme/library-discover.png` |
-| | `/library/favorites` | `docs/readme/library-favorites.png` |
-| **Settings** | `/settings/game` (Library & sync) | `docs/readme/settings-game.png` |
-| | `/settings/streaming` | `docs/readme/settings-streaming.png` |
-| | `/settings/appearance` | `docs/readme/settings-appearance.png` |
-| | `/settings/api` | `docs/readme/settings-api.png` |
-| | `/settings/controller` | `docs/readme/settings-controller.png` |
-| **Documentation** | `/docs` | `docs/readme/docs.png` |
-| **Details** *(pick any representative title)* | `/game/{id}` installed entry | `docs/readme/detail-game.png` |
-| | `/tmdb/movie/{id}` or `/tmdb/tv/{id}` | `docs/readme/detail-tmdb.png` |
-| | `/igdb/{id}` browse | `docs/readme/detail-igdb.png` |
+<p align="center">
+  <img src="docs/readme/library-games.png" alt="Games library — console-style cover shelf" width="860" />
+</p>
 
 #### Library shelves
 
 <p align="center">
-  <img src="docs/readme/library-all.png" alt="/library/all — add PNG" width="300" />
+  <img src="docs/readme/library-all.png" alt="All — games, apps and media together" width="410" />
   &nbsp;
-  <img src="docs/readme/library-games.png" alt="/library/games — add PNG" width="300" />
-  &nbsp;
-  <img src="docs/readme/library-apps.png" alt="/library/apps — add PNG" width="300" />
+  <img src="docs/readme/library-favorites.png" alt="Favourites" width="410" />
 </p>
 <p align="center">
-  <img src="docs/readme/library-media.png" alt="/library/media — add PNG" width="300" />
+  <img src="docs/readme/library-media.png" alt="Media — streaming apps" width="410" />
   &nbsp;
-  <img src="docs/readme/library-discover.png" alt="/library/discover — add PNG" width="300" />
-  &nbsp;
-  <img src="docs/readme/library-favorites.png" alt="/library/favorites — add PNG" width="300" />
+  <img src="docs/readme/library-apps.png" alt="Apps" width="410" />
 </p>
 
-#### Settings tabs
+#### Settings
 
 <p align="center">
-  <img src="docs/readme/settings-game.png" alt="/settings/game — add PNG" width="300" />
+  <img src="docs/readme/settings-game.png" alt="Settings — Library & sync" width="410" />
   &nbsp;
-  <img src="docs/readme/settings-streaming.png" alt="/settings/streaming — add PNG" width="300" />
-  &nbsp;
-  <img src="docs/readme/settings-appearance.png" alt="/settings/appearance — add PNG" width="300" />
+  <img src="docs/readme/settings-appearance.png" alt="Settings — Appearance / themes" width="410" />
 </p>
 <p align="center">
-  <img src="docs/readme/settings-api.png" alt="/settings/api — add PNG" width="300" />
+  <img src="docs/readme/settings-controller.png" alt="Settings — Controller" width="410" />
   &nbsp;
-  <img src="docs/readme/settings-controller.png" alt="/settings/controller — add PNG" width="300" />
+  <img src="docs/readme/settings-api.png" alt="Settings — Metadata & APIs" width="410" />
 </p>
 
 #### In-app documentation
 
 <p align="center">
-  <img src="docs/readme/docs.png" alt="/docs — add PNG" width="920" />
+  <img src="docs/readme/docs.png" alt="In-app /docs page" width="860" />
 </p>
 
-#### Detail pages *(installed game, TMDB browse, IGDB browse)*
-
-<p align="center">
-  <img src="docs/readme/detail-game.png" alt="/game/{id} — add PNG" width="300" />
-  &nbsp;
-  <img src="docs/readme/detail-tmdb.png" alt="/tmdb/... — add PNG" width="300" />
-  &nbsp;
-  <img src="docs/readme/detail-igdb.png" alt="/igdb/... — add PNG" width="300" />
-</p>
+> Library shelves above use representative demo data. Regenerate the gallery with `pnpm exec playwright test e2e/readme-gallery.spec.ts` (writes to `docs/readme/`); settings/docs come from the layout-only `pnpm screenshots`.
 
 ## Features
 
