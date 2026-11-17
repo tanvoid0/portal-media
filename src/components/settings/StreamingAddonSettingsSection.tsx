@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { Button } from "@/components/ui/button";
@@ -39,8 +39,10 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
   const [entries, setEntries] = useState<StreamingAddonListEntry[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [userPluginsDir, setUserPluginsDir] = useState<string | null>(null);
+  const inTauri = isTauri();
 
   useEffect(() => {
+    if (!isTauri()) return;
     const pd =
       effectiveStreamingPluginsDir(pluginsDir, getStreamingPluginsDirOverride()) ?? null;
     void invoke<string>("streaming_addon_user_plugins_dir", { pluginsDirOverride: pd })
@@ -51,6 +53,10 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
   const reloadActiveManifest = useCallback(() => useStreamingAddonStore.getState().load(), []);
 
   const refreshList = useCallback(async () => {
+    if (!isTauri()) {
+      setListBusy(false);
+      return;
+    }
     setListBusy(true);
     setListError(null);
     try {
@@ -198,6 +204,7 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
         </p>
         <p className="text-[11px] text-white/45 mt-2">
           Resolved folder{pluginsDir.trim() ? " (override)" : ""}:
+          {!inTauri && " available in the desktop app."}
         </p>
         {userPluginsDir && (
           <p
@@ -311,7 +318,9 @@ export function StreamingAddonSettingsSection({ embedded = false }: { embedded?:
         )}
         {!listError && !listBusy && entries.length === 0 && (
           <p className="text-white/45 text-xs">
-            No zips found. Add one under the resolved folder, set a zip override, or use the env variable.
+            {inTauri
+              ? "No zips found. Add one under the resolved folder, set a zip override, or use the env variable."
+              : "Archive scanning is available in the desktop app."}
           </p>
         )}
         <ul className="space-y-3 max-h-80 overflow-y-auto pr-1">
